@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { LLMConfigError, LLMProviderError, LLMValidationError } from "../errors";
+import { withStrictObjects } from "../schema";
 import type { LLMRequest, LLMResponse } from "../types";
 import { assertMatchesSchema } from "../validate";
 
@@ -30,7 +31,7 @@ export async function completeWithAnthropic(
         {
           name: toolName,
           description: `Return the response in the required shape for ${toolName}.`,
-          input_schema: req.schema as Anthropic.Tool.InputSchema,
+          input_schema: withStrictObjects(req.schema) as Anthropic.Tool.InputSchema,
         },
       ],
       tool_choice: { type: "tool", name: toolName, disable_parallel_tool_use: true },

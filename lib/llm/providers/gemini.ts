@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { LLMConfigError, LLMProviderError, LLMValidationError } from "../errors";
+import { withStrictObjects } from "../schema";
 import type { LLMRequest, LLMResponse } from "../types";
 import { parseAndValidate } from "../validate";
 
@@ -31,7 +32,7 @@ export async function completeWithGemini(
         temperature: req.temperature,
         maxOutputTokens: req.maxTokens,
         responseMimeType: "application/json",
-        responseJsonSchema: req.schema,
+        responseJsonSchema: withStrictObjects(req.schema),
       },
     });
   } catch (cause) {

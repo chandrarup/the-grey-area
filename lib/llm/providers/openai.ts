@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { LLMConfigError, LLMProviderError } from "../errors";
+import { withStrictObjects } from "../schema";
 import type { LLMRequest, LLMResponse } from "../types";
 import { parseAndValidate } from "../validate";
 
@@ -32,7 +33,7 @@ export async function completeWithOpenAI(
           type: "json_schema",
           name: schemaName,
           strict: true,
-          schema: { ...req.schema, additionalProperties: false },
+          schema: withStrictObjects(req.schema),
         },
       },
     });
