@@ -17,9 +17,7 @@ const plexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "The Cost of Winning | Ethics Simulator",
-  description:
-    "An executive-education ethics simulation: navigate escalating decisions as CEO of Global Infrastructure Solutions.",
+  title: "The Cost of Winning: Executive Ethics Simulator",
 };
 
 const THEME_INIT_SCRIPT = `

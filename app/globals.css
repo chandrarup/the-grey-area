@@ -35,11 +35,13 @@
   --font-sans: var(--font-plex-sans);
 }
 
-body {
-  background: var(--color-background);
-  color: var(--color-foreground);
-}
+@layer base {
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
 
-* {
-  border-color: var(--color-border);
+  * {
+    border-color: var(--color-border);
+  }
 }
