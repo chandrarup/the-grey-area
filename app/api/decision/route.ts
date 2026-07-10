@@ -53,8 +53,7 @@ export async function POST(request: Request) {
     });
 
     const result = await complete(llmRequest);
-    const data = result.data as { messages: { cast_id: string; text: string }[]; ready_to_commit: boolean };
-    const capped = capReadyToCommit(data, body.turnCount, decision.max_turns);
+    const capped = capReadyToCommit(result.data, body.turnCount, decision.max_turns);
 
     return NextResponse.json(capped);
   } catch (error) {

@@ -1,5 +1,6 @@
+import { z } from "zod";
 import type { CaseConfig, CastMember, Decision } from "../cases/types";
-import type { JSONSchema, LLMMessage, LLMRequest } from "../llm/types";
+import type { LLMMessage, LLMRequest } from "../llm/types";
 
 export type SceneTurn =
   | { speaker: "student"; text: string }
@@ -53,25 +54,21 @@ function buildSystemPrompt(params: {
     .join("\n");
 }
 
-function buildResponseSchema(castIds: string[]): JSONSchema {
-  return {
-    type: "object",
-    properties: {
-      messages: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            cast_id: { type: "string", enum: castIds },
-            text: { type: "string" },
-          },
-          required: ["cast_id", "text"],
-        },
-      },
-      ready_to_commit: { type: "boolean" },
-    },
-    required: ["messages", "ready_to_commit"],
-  };
+function buildResponseSchema(castIds: string[]) {
+  if (castIds.length === 0) {
+    throw new Error("A decision's characters_present must include at least one cast id.");
+  }
+  const [first, ...rest] = castIds;
+
+  return z.object({
+    messages: z.array(
+      z.object({
+        cast_id: z.enum([first, ...rest]),
+        text: z.string(),
+      }),
+    ),
+    ready_to_commit: z.boolean(),
+  });
 }
 
 function turnsToMessages(history: SceneTurn[]): LLMMessage[] {
@@ -100,7 +97,7 @@ export function buildSceneDirectorRequest(params: {
   turnCount: number;
   studentMessage: string;
   attemptedEarlyCommit: boolean;
-}): LLMRequest {
+}): LLMRequest<SceneDirectorResult> {
   const { model, meta, cast, decision, history, turnCount, studentMessage, attemptedEarlyCommit } = params;
 
   const present = cast.filter((member) => decision.characters_present.includes(member.id));

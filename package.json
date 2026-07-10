@@ -9,13 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
-    "@google/genai": "^2.11.0",
+    "@ai-sdk/anthropic": "^4.0.12",
+    "@ai-sdk/google": "^4.0.12",
+    "@ai-sdk/openai": "^4.0.11",
     "@phosphor-icons/react": "^2.1.10",
+    "ai": "^7.0.22",
     "next": "16.2.10",
-    "openai": "^6.46.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

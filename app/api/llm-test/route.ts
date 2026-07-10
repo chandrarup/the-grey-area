@@ -1,41 +1,26 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { complete } from "@/lib/llm/complete";
 import { LLMConfigError, LLMProviderError, LLMValidationError } from "@/lib/llm/errors";
-import type { JSONSchema } from "@/lib/llm/types";
 
-const SCHEMA: JSONSchema = {
-  type: "object",
-  properties: {
-    character: { type: "string" },
-    line: { type: "string" },
-    ready_to_commit: { type: "boolean" },
-  },
-  required: ["character", "line", "ready_to_commit"],
-  additionalProperties: false,
-};
+const SCHEMA = z.object({
+  character: z.string(),
+  line: z.string(),
+  ready_to_commit: z.boolean(),
+});
 
-// Nested-schema sanity check for the Part A normalizer fix: an object
-// property inside an array inside an object. This is the shape most likely
-// to trip up OpenAI's strict json_schema mode if additionalProperties:false
-// isn't injected at every level, not just the top one.
-const NESTED_SCHEMA: JSONSchema = {
-  type: "object",
-  properties: {
-    messages: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          cast_id: { type: "string" },
-          text: { type: "string" },
-        },
-        required: ["cast_id", "text"],
-      },
-    },
-    ready_to_commit: { type: "boolean" },
-  },
-  required: ["messages", "ready_to_commit"],
-};
+// Nested-schema sanity check: an object property inside an array inside an
+// object. This is the shape the decision engine actually uses, so proving
+// it round-trips is the whole point of swapping to the AI SDK.
+const NESTED_SCHEMA = z.object({
+  messages: z.array(
+    z.object({
+      cast_id: z.string(),
+      text: z.string(),
+    }),
+  ),
+  ready_to_commit: z.boolean(),
+});
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -46,36 +31,34 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await complete(
-      nested
-        ? {
-            model,
-            schemaName: "scene_turn",
-            system:
-              "You are directing a scene with Marcus Webb (EVP) and Diane Osei (General Counsel).",
-            messages: [
-              {
-                role: "user",
-                content:
-                  "Webb pushes for the consultant, Osei raises one quiet question. Two messages, then set ready_to_commit true.",
-              },
-            ],
-            schema: NESTED_SCHEMA,
-          }
-        : {
-            model,
-            schemaName: "scene_line",
-            system: "You are Marcus Webb, a smooth corporate EVP. Reply in character.",
-            messages: [
-              {
-                role: "user",
-                content:
-                  "Convince me in one sentence to hire your consultant, then set ready_to_commit true.",
-              },
-            ],
-            schema: SCHEMA,
-          },
-    );
+    const result = nested
+      ? await complete({
+          model,
+          schemaName: "scene_turn",
+          system:
+            "You are directing a scene with Marcus Webb (EVP) and Diane Osei (General Counsel).",
+          messages: [
+            {
+              role: "user",
+              content:
+                "Webb pushes for the consultant, Osei raises one quiet question. Two messages, then set ready_to_commit true.",
+            },
+          ],
+          schema: NESTED_SCHEMA,
+        })
+      : await complete({
+          model,
+          schemaName: "scene_line",
+          system: "You are Marcus Webb, a smooth corporate EVP. Reply in character.",
+          messages: [
+            {
+              role: "user",
+              content:
+                "Convince me in one sentence to hire your consultant, then set ready_to_commit true.",
+            },
+          ],
+          schema: SCHEMA,
+        });
 
     return NextResponse.json({
       provider: result.provider,
