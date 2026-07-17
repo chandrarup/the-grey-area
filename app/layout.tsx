@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
+import { DevIdentityBadge } from "./components/dev-identity-badge";
 import { ThemeToggle } from "./components/theme-toggle";
 
 const newsreader = Newsreader({
@@ -50,7 +51,10 @@ export default function RootLayout({
             <span className="text-sm text-muted-foreground">
               Executive Ethics Simulator
             </span>
-            <ThemeToggle />
+            <div className="flex items-center gap-4">
+              <DevIdentityBadge />
+              <ThemeToggle />
+            </div>
           </div>
         </header>
         <main className="flex-1">{children}</main>
