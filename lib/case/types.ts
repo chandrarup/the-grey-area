@@ -24,6 +24,14 @@ export type DecisionOption = {
   consequence?: Consequence; // required when next !== null
 };
 
+export type SceneProp = {
+  key: string;
+  title: string;
+  subtitle: string;
+  hot: boolean;
+  body: string;
+};
+
 export type Scene = {
   id: string;
   depth: number; // 1..5
@@ -33,6 +41,7 @@ export type Scene = {
   cast: string[]; // CastMember ids present
   opening: { castId: string; text: string };
   minExchanges: number;
+  props?: SceneProp[];
   sceneDirective?: string; // extra staging instructions for the scene director
   commitPrompt: string;
   commitPrefill?: string;

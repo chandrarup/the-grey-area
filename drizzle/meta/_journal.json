@@ -8,6 +8,27 @@
       "when": 1784305860390,
       "tag": "0000_chunky_texas_twister",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784307920898,
+      "tag": "0001_purple_amazoness",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784310000000,
+      "tag": "0002_group_session_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784311000000,
+      "tag": "0003_session_expires_at",
+      "breakpoints": true
     }
   ]
 }

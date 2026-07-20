@@ -9,6 +9,7 @@ import {
   cases,
   decisions,
   messages,
+  profiles,
   runs,
   type Assessment,
   type CaseRow,
@@ -16,8 +17,9 @@ import {
   type Message,
   type Profile,
   type Run,
+  type RunStageData,
 } from "@/lib/db/schema";
-import { isStaff } from "@/lib/db/access";
+import { isAdmin, isStaff } from "@/lib/db/access";
 import type { CaseConfig } from "@/lib/case/types";
 
 async function getOwnedRun(
@@ -234,6 +236,34 @@ export async function getDecisions(
     .orderBy(asc(decisions.id));
 }
 
+/** Wipe messages/decisions/assessment and restart the run at scene 1. */
+export async function resetRun(
+  profile: Profile,
+  runId: string,
+  startSceneId: string,
+): Promise<Run> {
+  const run = await requireOwnedRun(profile, runId);
+
+  await db.delete(assessments).where(eq(assessments.runId, runId));
+  await db.delete(messages).where(eq(messages.runId, runId));
+  await db.delete(decisions).where(eq(decisions.runId, runId));
+
+  const [updated] = await db
+    .update(runs)
+    .set({
+      status: "in_progress",
+      currentSceneId: startSceneId,
+      depth: 1,
+      integrity: "clean",
+      stageData: {},
+      submittedAt: null,
+    })
+    .where(eq(runs.id, run.id))
+    .returning();
+
+  return updated;
+}
+
 /** Staff/server only. Call from grader jobs or routes gated by requireStaff(). */
 export async function upsertAssessment(
   runId: string,
@@ -321,4 +351,113 @@ export async function listRuns(profile: Profile): Promise<Run[]> {
     throw new Error("Staff access required to list runs");
   }
   return db.select().from(runs).orderBy(asc(runs.startedAt));
+}
+
+export async function listRunsWithProfiles(profile: Profile) {
+  if (!isStaff(profile)) {
+    throw new Error("Staff access required");
+  }
+  return db
+    .select({
+      run: runs,
+      studentName: profiles.name,
+      studentEmail: profiles.email,
+    })
+    .from(runs)
+    .innerJoin(profiles, eq(runs.userId, profiles.id))
+    .orderBy(asc(runs.startedAt));
+}
+
+export async function updateRunStageData(
+  profile: Profile,
+  runId: string,
+  patch: Partial<RunStageData>,
+): Promise<Run> {
+  const run = await requireOwnedRun(profile, runId);
+  const current = (run.stageData ?? {}) as RunStageData;
+  const next = { ...current, ...patch };
+  const [updated] = await db
+    .update(runs)
+    .set({ stageData: next })
+    .where(eq(runs.id, runId))
+    .returning();
+  return updated;
+}
+
+export async function getAssessmentRaw(
+  profile: Profile,
+  runId: string,
+): Promise<Assessment | null> {
+  await requireOwnedRun(profile, runId);
+  if (!isStaff(profile)) {
+    throw new Error("Staff access required");
+  }
+  const [row] = await db
+    .select()
+    .from(assessments)
+    .where(eq(assessments.runId, runId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function releaseAssessment(
+  profile: Profile,
+  runId: string,
+  notes?: string,
+): Promise<Assessment> {
+  if (!isStaff(profile)) {
+    throw new Error("Staff access required");
+  }
+  await requireOwnedRun(profile, runId);
+  return upsertAssessment(runId, {
+    status: "released",
+    professorNotes: notes,
+    reviewedBy: profile.id,
+  });
+}
+
+export async function listAllProfiles(profile: Profile) {
+  if (!isStaff(profile)) {
+    throw new Error("Staff access required");
+  }
+  return db.select().from(profiles).orderBy(asc(profiles.createdAt));
+}
+
+export async function updateProfileRole(
+  actor: Profile,
+  targetId: string,
+  role: "student" | "professor" | "admin",
+) {
+  if (!isAdmin(actor)) {
+    throw new Error("Admin access required");
+  }
+  const [updated] = await db
+    .update(profiles)
+    .set({ role })
+    .where(eq(profiles.id, targetId))
+    .returning();
+  return updated;
+}
+
+export async function updateCaseStatus(
+  actor: Profile,
+  caseId: string,
+  status: "draft" | "published" | "archived",
+) {
+  if (!isAdmin(actor)) {
+    throw new Error("Admin access required");
+  }
+  const [updated] = await db
+    .update(cases)
+    .set({ status })
+    .where(eq(cases.id, caseId))
+    .returning();
+  return updated;
+}
+
+export async function listAllCases(actor: Profile) {
+  if (!isAdmin(actor) && !isStaff(actor)) {
+    throw new Error("Staff access required");
+  }
+  return db.select().from(cases).orderBy(asc(cases.createdAt));
 }

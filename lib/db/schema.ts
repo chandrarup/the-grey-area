@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   index,
   integer,
   jsonb,
@@ -34,6 +35,14 @@ export const cases = pgTable("cases", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
+export type RunStageData = {
+  valuesAnswer?: string;
+  reflections?: string[];
+  propsAcknowledged?: boolean;
+  /** Furthest stage unlocked (index into STAGES). 0 = leadership only. */
+  stageIndex?: number;
+};
+
 export const runs = pgTable(
   "runs",
   {
@@ -49,6 +58,8 @@ export const runs = pgTable(
     currentSceneId: text("current_scene_id"),
     depth: integer("depth").default(1),
     integrity: text("integrity").default("clean"), // 'clean' | 'compromised' (monotonic)
+    /** Values pre-reflection + end-of-run reflections, etc. */
+    stageData: jsonb("stage_data").$type<RunStageData>().default({}),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow(),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
   },
@@ -102,12 +113,111 @@ export const assessments = pgTable("assessments", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
+/** Group mode — professor-created multiplayer sessions */
+export const groupSessions = pgTable("group_sessions", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  caseSlug: text("case_slug").notNull(),
+  decisionCount: integer("decision_count").notNull().default(5),
+  currentSceneId: text("current_scene_id"),
+  decisionsMade: integer("decisions_made").notNull().default(0),
+  status: text("status").notNull().default("lobby"), // lobby|active|committed|graded|released|expired
+  clockSeconds: integer("clock_seconds").notNull().default(1800),
+  roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
+  graderModel: text("grader_model").notNull().default("gemini-flash"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => profiles.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+});
+
+export const groupParticipants = pgTable(
+  "group_participants",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => groupSessions.id, { onDelete: "cascade" }),
+    roleKey: text("role_key").notNull(),
+    isAi: boolean("is_ai").notNull().default(false),
+    joinToken: text("join_token").unique(),
+    displayName: text("display_name"),
+    profileId: uuid("profile_id").references(() => profiles.id),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    isReady: boolean("is_ready").notNull().default(false),
+  },
+  (table) => [unique("group_participants_session_role").on(table.sessionId, table.roleKey)],
+);
+
+export const groupMessages = pgTable(
+  "group_messages",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => groupSessions.id, { onDelete: "cascade" }),
+    sceneId: text("scene_id").notNull(),
+    roleKey: text("role_key").notNull(),
+    senderKind: text("sender_kind").notNull(), // human|ai|narrator
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index("group_messages_session_id_idx").on(table.sessionId, table.id)],
+);
+
+export const groupDecisions = pgTable(
+  "group_decisions",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => groupSessions.id, { onDelete: "cascade" }),
+    sceneId: text("scene_id").notNull(),
+    optionKey: text("option_key"),
+    decision: text("decision").notNull(),
+    reasoning: text("reasoning").notNull(),
+    committedAt: timestamp("committed_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [unique("group_decisions_session_scene").on(table.sessionId, table.sceneId)],
+);
+
+export const groupAssessments = pgTable("group_assessments", {
+  sessionId: uuid("session_id")
+    .primaryKey()
+    .references(() => groupSessions.id, { onDelete: "cascade" }),
+  graderModel: text("grader_model"),
+  rawOutput: text("raw_output"),
+  assessment: jsonb("assessment"),
+  status: text("status").notNull().default("ai_draft"),
+  professorNotes: text("professor_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const aiQueue = pgTable("ai_queue", {
+  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  sessionId: uuid("session_id")
+    .notNull()
+    .references(() => groupSessions.id, { onDelete: "cascade" }),
+  roleKey: text("role_key").notNull(),
+  triggerMessageId: bigint("trigger_message_id", { mode: "number" }),
+  status: text("status").notNull().default("pending"), // pending|claimed|done|failed
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 export type Profile = typeof profiles.$inferSelect;
 export type CaseRow = typeof cases.$inferSelect;
 export type Run = typeof runs.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Decision = typeof decisions.$inferSelect;
 export type Assessment = typeof assessments.$inferSelect;
+export type GroupSession = typeof groupSessions.$inferSelect;
+export type GroupParticipant = typeof groupParticipants.$inferSelect;
+export type GroupMessage = typeof groupMessages.$inferSelect;
+export type GroupDecision = typeof groupDecisions.$inferSelect;
+export type GroupAssessment = typeof groupAssessments.$inferSelect;
 
 export type ProfileRole = "student" | "professor" | "admin";
 export type RunStatus = "in_progress" | "submitted" | "graded" | "released";

@@ -1,14 +1,14 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { isStaff } from "@/lib/db/access";
+import { isAdmin, isStaff } from "@/lib/db/access";
 import { db } from "@/lib/db";
 import { profiles, type Profile, type ProfileRole } from "@/lib/db/schema";
 
 export const DEV_PROFILE_COOKIE = "dev_profile_id";
 
 export type { Profile, ProfileRole };
-export { isStaff };
+export { isAdmin, isStaff };
 
 function assertDevIdentityEnabled(): void {
   if (process.env.DEV_IDENTITY !== "true") {
@@ -17,7 +17,7 @@ function assertDevIdentityEnabled(): void {
 }
 
 /**
- * Public auth surface. When Supabase Auth lands, only the bodies of these three
+ * Public auth surface. When Supabase Auth lands, only the bodies of these
  * functions change — callers stay the same.
  */
 export async function getCurrentProfile(): Promise<Profile | null> {
@@ -50,7 +50,23 @@ export async function requireProfile(): Promise<Profile> {
 export async function requireStaff(): Promise<Profile> {
   const profile = await requireProfile();
   if (!isStaff(profile)) {
-    throw new Error("Staff access required");
+    redirect("/");
+  }
+  return profile;
+}
+
+export async function requireAdmin(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (!isAdmin(profile)) {
+    redirect(profile.role === "professor" ? "/professor" : "/");
+  }
+  return profile;
+}
+
+export async function requireStudent(): Promise<Profile> {
+  const profile = await requireProfile();
+  if (profile.role !== "student") {
+    redirect(profile.role === "admin" ? "/admin" : "/professor");
   }
   return profile;
 }

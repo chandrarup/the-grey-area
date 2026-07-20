@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth";
+import { homePathForRole } from "@/lib/db/access";
 
 export async function DevIdentityBadge() {
   if (process.env.DEV_IDENTITY !== "true") {
@@ -27,7 +28,13 @@ export async function DevIdentityBadge() {
   return (
     <p className="text-xs text-muted-foreground">
       signed in as{" "}
-      <span className="text-foreground">{profile.name}</span> ({profile.role})
+      <Link
+        href={homePathForRole(profile.role)}
+        className="text-foreground underline-offset-2 hover:underline"
+      >
+        {profile.name}
+      </Link>{" "}
+      ({profile.role})
       {" — "}
       <Link
         href="/dev/identity"

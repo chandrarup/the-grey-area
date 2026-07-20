@@ -24,6 +24,11 @@ const DEV_PROFILES = [
     name: "Professor",
     role: "professor" as const,
   },
+  {
+    email: "admin@dev.local",
+    name: "US Admin",
+    role: "admin" as const,
+  },
 ];
 
 async function upsertProfile(input: (typeof DEV_PROFILES)[number]) {

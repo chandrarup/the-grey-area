@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { Newsreader, IBM_Plex_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
-import { DevIdentityBadge } from "./components/dev-identity-badge";
+import { ModeSwitcherServer } from "./components/mode-switcher-server";
 import { ThemeToggle } from "./components/theme-toggle";
+import { NavControls } from "./components/nav-controls";
+import Link from "next/link";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -43,16 +46,32 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
+        />
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <header className="border-b border-border">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-8">
-            <span className="text-sm text-muted-foreground">
-              Executive Ethics Simulator
-            </span>
-            <div className="flex items-center gap-4">
-              <DevIdentityBadge />
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6 md:px-8">
+            <div className="flex min-w-0 items-center gap-4">
+              <Link
+                href="/"
+                className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+              >
+                The Grey Area
+              </Link>
+              <NavControls />
+            </div>
+            <div className="flex shrink-0 items-center gap-3 md:gap-4">
+              <Link
+                href="/settings"
+                className="hidden text-xs text-muted-foreground hover:text-foreground sm:inline"
+              >
+                Settings
+              </Link>
+              <ModeSwitcherServer />
               <ThemeToggle />
             </div>
           </div>

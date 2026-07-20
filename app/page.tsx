@@ -1,42 +1,91 @@
 import Link from "next/link";
+import { getPublishedCase } from "@/lib/db/queries";
+import { ensureHomeCase } from "@/lib/simulation/ensure-case";
+import { ResetSoloButton } from "@/app/components/reset-solo-button";
 
-export default function Home() {
+/**
+ * Admin hub — default landing. No login. Pick a mode and go.
+ */
+export default async function Home() {
+  let caseOk = false;
+  let setupError: string | null = null;
+  try {
+    await ensureHomeCase();
+    const published = await getPublishedCase("cost-of-winning");
+    caseOk = Boolean(published);
+  } catch (error) {
+    setupError = error instanceof Error ? error.message : "Database unavailable";
+  }
+
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col items-center justify-center px-6 md:px-8">
-      <div className="mx-auto max-w-[680px] py-16 text-center">
-        <h1 className="font-serif text-4xl leading-tight text-foreground md:text-6xl">
-          The Cost of Winning
-        </h1>
+    <div className="mx-auto max-w-3xl px-6 py-16 md:px-8">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Admin
+      </p>
+      <h1 className="mt-2 font-serif text-4xl text-foreground md:text-5xl">
+        The Grey Area
+      </h1>
+      <p className="mt-4 max-w-[50ch] text-sm leading-relaxed text-muted-foreground">
+        No login. Use the header toggle anytime, or open a path below.
+      </p>
 
-        <p className="mt-6 font-serif text-xl leading-snug text-foreground md:text-2xl">
-          You are the newly appointed CEO of Global Infrastructure Solutions.
-        </p>
-
-        <p className="mx-auto mt-6 max-w-[60ch] text-base leading-relaxed text-muted-foreground">
-          A major contract is on the table, competition is fierce, and how
-          you lead over the next five decisions will define your tenure.
-        </p>
-
-        <div className="mx-auto mt-10 max-w-[55ch] border-l-2 border-accent bg-surface px-6 py-5 text-left">
-          <p className="text-sm font-medium text-foreground">
-            What&rsquo;s at stake
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Your company&rsquo;s contracts, your leadership team&rsquo;s
-            trust, and your own integrity. Some choices in this simulation
-            cannot be undone, and they will shape how the story ends.
+      {!caseOk ? (
+        <div className="mt-8 border border-border border-l-2 border-l-accent bg-surface px-5 py-4 text-sm">
+          <p className="font-medium text-foreground">Setup needed</p>
+          <p className="mt-2 text-muted-foreground">
+            {setupError ??
+              "Case is not published. Run npm run db:migrate && npm run db:seed"}
           </p>
         </div>
+      ) : (
+        <p className="mt-6 text-xs text-muted-foreground">
+          Case ready · cost-of-winning published
+        </p>
+      )}
 
-        <div className="mt-12">
-          <Link
-            href="/simulation/leadership-team"
-            className="inline-block bg-accent px-6 py-3 text-sm font-medium text-accent-foreground transition-transform hover:opacity-90 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-          >
-            Begin Simulation
-          </Link>
-        </div>
+      <div className="mt-12 grid gap-4">
+        <Link
+          href="/simulation/leadership-team"
+          className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
+        >
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Student · single player
+          </p>
+          <p className="mt-2 font-serif text-2xl text-foreground">
+            Play the simulation
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Meet the team, read the case, make five decisions as CEO.
+          </p>
+        </Link>
+
+        <Link
+          href="/professor"
+          className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
+        >
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Professor
+          </p>
+          <p className="mt-2 font-serif text-2xl text-foreground">
+            Create group sessions
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Assign seats (CEO, Marcus, David, Priya, Tom) and open each role in
+            its own window.
+          </p>
+        </Link>
       </div>
+
+      {caseOk ? (
+        <div className="mt-10">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Solo attempt
+          </p>
+          <div className="mt-3">
+            <ResetSoloButton label="Reset student solo run" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
