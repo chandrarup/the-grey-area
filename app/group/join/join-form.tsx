@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { joinWithCodeAction, joinWithTokenAction } from "@/app/group/actions";
 import { SEAT_ORDER, type SeatKey } from "@/lib/case/group-roles";
+import { storeSeatToken } from "@/lib/group/seat-token-client";
 
 export function JoinForm({ initialToken }: { initialToken: string }) {
   const router = useRouter();
@@ -17,6 +18,14 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
   const input =
     "mt-2 w-full border border-border bg-background px-3 py-2 text-sm";
 
+  function goToSeat(sessionId: string, seatToken: string) {
+    storeSeatToken(sessionId, seatToken);
+    router.push(
+      `/group/${sessionId}?t=${encodeURIComponent(seatToken)}`,
+    );
+    router.refresh();
+  }
+
   return (
     <div className="mt-8 space-y-10">
       <form
@@ -25,19 +34,18 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
           setError(null);
           startTransition(async () => {
             try {
-              const sessionId = await joinWithTokenAction(
+              const result = await joinWithTokenAction(
                 token.trim(),
                 name.trim(),
               );
-              router.push(`/group/${sessionId}`);
-              router.refresh();
+              goToSeat(result.sessionId, result.token);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Join failed");
             }
           });
         }}
       >
-        <h2 className="text-sm font-medium text-foreground">Join with token</h2>
+        <h2 className="text-sm font-medium text-foreground">Join with link / token</h2>
         <input
           className={input}
           value={token}
@@ -49,7 +57,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
           className={input}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Display name"
+          placeholder="Your display name"
           required
         />
         <button
@@ -57,7 +65,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
           disabled={pending}
           className="mt-3 bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-50"
         >
-          Join via token
+          Join seat
         </button>
       </form>
 
@@ -67,12 +75,12 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
           setError(null);
           startTransition(async () => {
             try {
-              const sessionId = await joinWithCodeAction(
+              const result = await joinWithCodeAction(
                 code.trim(),
                 seat,
                 name.trim() || "Participant",
               );
-              router.push(`/group/${sessionId}`);
+              goToSeat(result.sessionId, result.token);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Join failed");
             }
@@ -91,7 +99,7 @@ export function JoinForm({ initialToken }: { initialToken: string }) {
           className={input}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Display name"
+          placeholder="Your display name"
           required
         />
         <select

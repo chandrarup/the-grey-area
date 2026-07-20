@@ -79,8 +79,30 @@ export const GROUP_ROLES: Record<SeatKey, GroupRoleBrief> = {
       "You are the CEO. Run the meeting, press people for what they are not saying, and commit a clear decision when the discussion unlocks. Only you can submit the final choice.",
     howYouHelpCeo:
       "You are the decision-maker. Use your advisors — do not let any single voice (growth, finance, sustainability, or legal) capture the room unchallenged.",
-    rebuttals: [],
-    openingStatement: null,
+    rebuttals: [
+      {
+        ifYouHear: "We have to move today or we lose him.",
+        youCanRespond:
+          "Speed matters — so does knowing what we are buying. Marcus, put the commercial terms on the table before we talk about yes or no.",
+      },
+      {
+        ifYouHear: "This is how deals get done in emerging markets.",
+        youCanRespond:
+          "I hear the context. I still need a clear answer: what exactly would Salim do for us, and how would we monitor it?",
+      },
+      {
+        ifYouHear: "Legal is slowing us down.",
+        youCanRespond:
+          "Tom, give me the one or two conditions that would let us keep optionality without locking into something we cannot defend.",
+      },
+      {
+        ifYouHear: "We should just authorize Marcus to negotiate.",
+        youCanRespond:
+          "If we authorize anything today, I want the limits said out loud — what he may promise, what he may not, and when we reconvene.",
+      },
+    ],
+    openingStatement:
+      "Thank you for making the time. I have not decided anything yet. Marcus — start with what Salim is actually offering, including the fee. Then I want each of you to tell me the one risk or opportunity the others are underweighting.",
     decisionOptions: [
       "Decline further discussions with Salim",
       "Meet Salim without making a commitment",
@@ -307,6 +329,28 @@ export function seatDisplayName(roleKey: string): string {
   if (brief) return brief.name;
   if (roleKey === "ceo") return "Chief Executive Officer";
   return roleKey;
+}
+
+export function getRoleBrief(roleKey: string): GroupRoleBrief | null {
+  return GROUP_ROLES[roleKey as SeatKey] ?? null;
+}
+
+/** Speak chips: opening + rebuttal responses. CEO also gets decisionOptions as direction chips. */
+export function suggestionLines(roleKey: string): string[] {
+  const brief = getRoleBrief(roleKey);
+  if (!brief) return [];
+  const lines: string[] = [];
+  if (brief.openingStatement) lines.push(brief.openingStatement);
+  for (const r of brief.rebuttals) {
+    lines.push(r.youCanRespond);
+  }
+  // CEO (and any seat with decisionOptions) — direction prompts for the room
+  if (brief.decisionOptions?.length) {
+    for (const opt of brief.decisionOptions) {
+      if (!lines.includes(opt)) lines.push(opt);
+    }
+  }
+  return lines;
 }
 
 export const HUMAN_MSG_GATE = 6;

@@ -1,12 +1,31 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getPublishedCase } from "@/lib/db/queries";
 import { ensureHomeCase } from "@/lib/simulation/ensure-case";
 import { ResetSoloButton } from "@/app/components/reset-solo-button";
+import { HomeJoinPanel } from "@/app/components/group/home-join-panel";
+import { getAppMode } from "@/lib/mode";
+import { getParticipantByToken } from "@/lib/db/group-queries";
 
 /**
  * Admin hub — default landing. No login. Pick a mode and go.
+ * ?join=<token> jumps to the join flow for that seat.
  */
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ join?: string }>;
+}) {
+  const { join } = await searchParams;
+  if (join?.trim()) {
+    const token = join.trim();
+    const found = await getParticipantByToken(token).catch(() => null);
+    if (found && !found.isAi) {
+      redirect(`/group/join?token=${encodeURIComponent(token)}`);
+    }
+  }
+
+  const mode = await getAppMode();
   let caseOk = false;
   let setupError: string | null = null;
   try {
@@ -20,7 +39,7 @@ export default async function Home() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-16 md:px-8">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Admin
+        The Grey Area
       </p>
       <h1 className="mt-2 font-serif text-4xl text-foreground md:text-5xl">
         The Grey Area
@@ -49,7 +68,7 @@ export default async function Home() {
           className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
         >
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Student · single player
+            Single player
           </p>
           <p className="mt-2 font-serif text-2xl text-foreground">
             Play the simulation
@@ -59,21 +78,36 @@ export default async function Home() {
           </p>
         </Link>
 
-        <Link
-          href="/professor"
-          className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
-        >
+        <div className="border border-border px-6 py-5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Professor
+            Join a group
           </p>
           <p className="mt-2 font-serif text-2xl text-foreground">
-            Create group sessions
+            Enter a session code
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Assign seats (CEO, Marcus, David, Priya, Tom) and open each role in
-            its own window.
+            Or open a join link your professor sent (
+            <code className="text-xs">/?join=…</code>).
           </p>
-        </Link>
+          <HomeJoinPanel />
+        </div>
+
+        {mode === "professor" || mode === "admin" ? (
+          <Link
+            href="/professor"
+            className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
+          >
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">
+              Professor
+            </p>
+            <p className="mt-2 font-serif text-2xl text-foreground">
+              Group sessions
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Create sessions, copy join links, force-start, and release debriefs.
+            </p>
+          </Link>
+        ) : null}
       </div>
 
       {caseOk ? (

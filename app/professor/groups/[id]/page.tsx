@@ -16,6 +16,7 @@ import {
 import { SessionStaffControls } from "./staff-controls";
 import { ShareSeatLinks } from "./share-links";
 import { DeleteSessionButton } from "./delete-session-button";
+import { ProfessorLiveLobby } from "./live-lobby";
 
 export default async function ProfessorGroupDetailPage({
   params,
@@ -83,11 +84,13 @@ export default async function ProfessorGroupDetailPage({
           Share join links
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Send each student their link. They keep that seat for the session.
-          You can also open a seat in a new window to demo.
+          Paste these to participants. Format:{" "}
+          <code className="text-xs">/?join=…</code>
         </p>
         <ShareSeatLinks seats={humanSeats} sessionCode={session.code} />
       </section>
+
+      <ProfessorLiveLobby sessionId={session.id} status={session.status} />
 
       <SessionStaffControls
         sessionId={session.id}

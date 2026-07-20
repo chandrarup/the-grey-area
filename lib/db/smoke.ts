@@ -8,7 +8,7 @@ config({ path: ".env.local" });
 config();
 
 import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
+import { db, closeDb } from "@/lib/db";
 import {
   getOrCreateRun,
   getRun,
@@ -100,7 +100,9 @@ async function main() {
   console.log("All smoke checks passed.");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => closeDb());

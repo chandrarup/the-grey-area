@@ -5,7 +5,7 @@ config();
 
 import { eq } from "drizzle-orm";
 import { COST_OF_WINNING } from "@/lib/case/cost-of-winning";
-import { db } from "@/lib/db";
+import { db, closeDb } from "@/lib/db";
 import { cases, profiles } from "@/lib/db/schema";
 
 const DEV_PROFILES = [
@@ -99,7 +99,9 @@ async function main() {
   console.log("Done.");
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  })
+  .finally(() => closeDb());

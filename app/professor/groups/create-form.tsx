@@ -31,12 +31,15 @@ export function CreateSessionForm({
       <label className="text-xs uppercase tracking-wide text-muted-foreground">
         How many decisions? (1–5)
       </label>
+      <p className="mt-1 text-xs text-muted-foreground">
+        1 = the emergency meeting (~30 min). 5 = the full arc.
+      </p>
       <input
         name="decisionCount"
         type="number"
         min={1}
         max={5}
-        defaultValue={1}
+        defaultValue={5}
         className="mt-2 block w-24 border border-border bg-background px-3 py-2 text-sm"
       />
 
@@ -90,7 +93,7 @@ export function CreateSessionForm({
             ) : (
               <select
                 name={seat}
-                defaultValue="human"
+                defaultValue="ai"
                 className="border border-border bg-background px-2 py-1 text-sm"
               >
                 <option value="human">Human</option>

@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
       request.url,
     );
     const response = NextResponse.redirect(dest);
-    response.cookies.set(SEAT_COOKIE, participant.id, {
+    // Store join_token for API seat verification
+    response.cookies.set(SEAT_COOKIE, token, {
       path: "/",
       sameSite: "lax",
       httpOnly: true,

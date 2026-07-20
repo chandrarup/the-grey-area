@@ -189,23 +189,34 @@ export const groupAssessments = pgTable("group_assessments", {
   graderModel: text("grader_model"),
   rawOutput: text("raw_output"),
   assessment: jsonb("assessment"),
+  overrides: jsonb("overrides"),
   status: text("status").notNull().default("ai_draft"),
   professorNotes: text("professor_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-export const aiQueue = pgTable("ai_queue", {
-  id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
-  sessionId: uuid("session_id")
-    .notNull()
-    .references(() => groupSessions.id, { onDelete: "cascade" }),
-  roleKey: text("role_key").notNull(),
-  triggerMessageId: bigint("trigger_message_id", { mode: "number" }),
-  status: text("status").notNull().default("pending"), // pending|claimed|done|failed
-  claimedAt: timestamp("claimed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-});
+/** Idempotent AI reply queue — one row per (session, trigger message, role). */
+export const aiTurns = pgTable(
+  "ai_turns",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => groupSessions.id, { onDelete: "cascade" }),
+    triggerMessageId: bigint("trigger_message_id", { mode: "number" }).notNull(),
+    roleKey: text("role_key").notNull(),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    unique("ai_turns_session_trigger_role").on(
+      table.sessionId,
+      table.triggerMessageId,
+      table.roleKey,
+    ),
+  ],
+);
 
 export type Profile = typeof profiles.$inferSelect;
 export type CaseRow = typeof cases.$inferSelect;

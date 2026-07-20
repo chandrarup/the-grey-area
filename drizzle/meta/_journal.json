@@ -29,6 +29,13 @@
       "when": 1784311000000,
       "tag": "0003_session_expires_at",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784312000000,
+      "tag": "0004_supabase_realtime",
+      "breakpoints": true
     }
   ]
 }

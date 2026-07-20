@@ -1,10 +1,9 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getProfessorActor, getStudentActor } from "@/lib/mode";
-import { SEAT_COOKIE } from "@/lib/group-cookie";
+import { setSeatCookie, resolveSeatFromCookie } from "@/lib/group/seat-auth";
 import { getModelPrefs } from "@/lib/model-prefs";
 import {
   DEFAULT_GRADER_MODEL,
@@ -27,7 +26,7 @@ import {
   upsertGroupAssessment,
   listParticipants,
   getParticipantByToken,
-  enqueueAiReply,
+  claimAiTurn,
   claimPendingAi,
   finishAiJob,
   deleteExpiredGroupSessions,
@@ -113,32 +112,23 @@ export async function openSeatWindowAction(token: string) {
     displayName,
   });
 
-  const jar = await cookies();
-  jar.set(SEAT_COOKIE, participant.id, {
-    path: "/",
-    sameSite: "lax",
-    httpOnly: true,
-  });
+  await setSeatCookie(participant.joinToken ?? token);
 
-  return participant.sessionId;
+  return { sessionId: participant.sessionId, token: participant.joinToken ?? token };
 }
 
 export async function getSeatParticipantId(): Promise<string | null> {
-  const jar = await cookies();
-  return jar.get(SEAT_COOKIE)?.value ?? null;
+  const seat = await resolveSeatFromCookie();
+  return seat?.id ?? null;
 }
 
 export async function joinWithTokenAction(token: string, displayName: string) {
   const profile = await getStudentActor();
   const participant = await joinByToken({ profile, token, displayName });
-  const jar = await cookies();
-  jar.set(SEAT_COOKIE, participant.id, {
-    path: "/",
-    sameSite: "lax",
-    httpOnly: true,
-  });
+  if (!participant.joinToken) throw new Error("Seat has no join token");
+  await setSeatCookie(participant.joinToken);
   revalidatePath("/group");
-  return participant.sessionId;
+  return { sessionId: participant.sessionId, token: participant.joinToken };
 }
 
 export async function joinWithCodeAction(
@@ -156,13 +146,9 @@ export async function joinWithCodeAction(
     roleKey,
     displayName,
   });
-  const jar = await cookies();
-  jar.set(SEAT_COOKIE, participant.id, {
-    path: "/",
-    sameSite: "lax",
-    httpOnly: true,
-  });
-  return session.id;
+  if (!participant.joinToken) throw new Error("Seat has no join token");
+  await setSeatCookie(participant.joinToken);
+  return { sessionId: session.id, token: participant.joinToken };
 }
 
 export async function toggleReadyAction(participantId: string, ready: boolean) {
@@ -230,13 +216,13 @@ export async function sendGroupMessageAction(
   if (!session?.currentSceneId) throw new Error("No active scene");
   if (session.status !== "active") throw new Error("Session is not active");
 
-  const msg = await appendGroupMessage({
+  const msg = await appendGroupMessage(
     sessionId,
-    sceneId: session.currentSceneId,
+    session.currentSceneId,
     roleKey,
-    senderKind: "human",
+    "human",
     content,
-  });
+  );
 
   const participants = await listParticipants(sessionId);
   const caseConfig = getCase(session.caseSlug);
@@ -251,7 +237,7 @@ export async function sendGroupMessageAction(
       lower.includes((GROUP_ROLES[p.roleKey as SeatKey]?.name ?? "").split(" ")[0]?.toLowerCase() ?? "___");
     // Enqueue mentioned seats first; always enqueue all AI in cast (Crucible-like coverage)
     void mentioned;
-    await enqueueAiReply(sessionId, p.roleKey, msg.id);
+    await claimAiTurn(sessionId, msg.id, p.roleKey);
   }
 
   return { messageId: msg.id };
@@ -316,13 +302,7 @@ async function generateAiSeatReply(
     temperature: 0.7,
     maxTokens: 300,
   });
-  await appendGroupMessage({
-    sessionId,
-    sceneId,
-    roleKey,
-    senderKind: "ai",
-    content: result.data.text,
-  });
+  await appendGroupMessage(sessionId, sceneId, roleKey, "ai", result.data.text);
 }
 
 export async function commitGroupDecisionAction(input: {

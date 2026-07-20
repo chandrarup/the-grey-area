@@ -1,7 +1,7 @@
 import { and, asc, eq, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
-  aiQueue,
+  aiTurns,
   groupAssessments,
   groupDecisions,
   groupMessages,
@@ -40,7 +40,11 @@ export async function createGroupSession(params: {
   displayNames?: Partial<Record<SeatKey, string>>;
   roleplayModel?: string;
   graderModel?: string;
-}): Promise<{ session: GroupSession; participants: GroupParticipant[] }> {
+}): Promise<{
+  session: GroupSession;
+  participants: GroupParticipant[];
+  tokens: Record<string, string>;
+}> {
   if (params.seats.ceo !== "human") {
     throw new Error("CEO seat must be human");
   }
@@ -83,7 +87,12 @@ export async function createGroupSession(params: {
     participants.push(row);
   }
 
-  return { session, participants };
+  const tokens: Record<string, string> = {};
+  for (const p of participants) {
+    if (p.joinToken) tokens[p.roleKey] = p.joinToken;
+  }
+
+  return { session, participants, tokens };
 }
 
 export async function listGroupSessions(profile?: Profile): Promise<GroupSession[]> {
@@ -315,21 +324,39 @@ export async function startGroupSession(
   return updated;
 }
 
-export async function appendGroupMessage(params: {
-  sessionId: string;
-  sceneId: string;
-  roleKey: string;
-  senderKind: "human" | "ai" | "narrator";
-  content: string;
-}) {
+export async function appendGroupMessage(
+  sessionId: string,
+  sceneId: string,
+  roleKey: string,
+  senderKind: "human" | "ai" | "narrator",
+  content: string,
+) {
   const [row] = await db
     .insert(groupMessages)
-    .values(params)
+    .values({ sessionId, sceneId, roleKey, senderKind, content })
     .returning();
   return row;
 }
 
-export async function getGroupMessages(sessionId: string, afterId = 0) {
+/** @param sceneIdOrAfterId Scene id filter, or numeric message cursor for incremental fetch. */
+export async function getGroupMessages(
+  sessionId: string,
+  sceneIdOrAfterId?: string | number,
+) {
+  if (typeof sceneIdOrAfterId === "string") {
+    return db
+      .select()
+      .from(groupMessages)
+      .where(
+        and(
+          eq(groupMessages.sessionId, sessionId),
+          eq(groupMessages.sceneId, sceneIdOrAfterId),
+        ),
+      )
+      .orderBy(asc(groupMessages.id));
+  }
+
+  const afterId = sceneIdOrAfterId ?? 0;
   if (afterId > 0) {
     return db
       .select()
@@ -461,33 +488,43 @@ export async function getGroupAssessment(sessionId: string) {
   return row ?? null;
 }
 
-export async function enqueueAiReply(sessionId: string, roleKey: string, triggerMessageId?: number) {
-  const [row] = await db
-    .insert(aiQueue)
-    .values({
+/**
+ * Idempotent AI turn claim — returns false if this seat already queued for the message.
+ */
+export async function claimAiTurn(
+  sessionId: string,
+  triggerMessageId: number,
+  roleKey: string,
+): Promise<boolean> {
+  try {
+    await db.insert(aiTurns).values({
       sessionId,
+      triggerMessageId,
       roleKey,
-      triggerMessageId: triggerMessageId ?? null,
       status: "pending",
-    })
-    .returning();
-  return row;
+    });
+    return true;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/unique|duplicate key/i.test(msg)) return false;
+    throw err;
+  }
 }
 
 export async function claimPendingAi(sessionId: string, limit = 4) {
   const pending = await db
     .select()
-    .from(aiQueue)
-    .where(and(eq(aiQueue.sessionId, sessionId), eq(aiQueue.status, "pending")))
-    .orderBy(asc(aiQueue.id))
+    .from(aiTurns)
+    .where(and(eq(aiTurns.sessionId, sessionId), eq(aiTurns.status, "pending")))
+    .orderBy(asc(aiTurns.id))
     .limit(limit);
 
   const claimed = [];
   for (const job of pending) {
     const [updated] = await db
-      .update(aiQueue)
-      .set({ status: "claimed", claimedAt: new Date() })
-      .where(and(eq(aiQueue.id, job.id), eq(aiQueue.status, "pending")))
+      .update(aiTurns)
+      .set({ status: "claimed" })
+      .where(and(eq(aiTurns.id, job.id), eq(aiTurns.status, "pending")))
       .returning();
     if (updated) claimed.push(updated);
   }
@@ -495,29 +532,78 @@ export async function claimPendingAi(sessionId: string, limit = 4) {
 }
 
 export async function finishAiJob(id: number, status: "done" | "failed") {
-  await db.update(aiQueue).set({ status }).where(eq(aiQueue.id, id));
+  await db.update(aiTurns).set({ status }).where(eq(aiTurns.id, id));
 }
 
 export async function listThinkingRoleKeys(sessionId: string): Promise<string[]> {
   const rows = await db
     .select()
-    .from(aiQueue)
+    .from(aiTurns)
     .where(
-      and(
-        eq(aiQueue.sessionId, sessionId),
-        eq(aiQueue.status, "pending"),
-      ),
+      and(eq(aiTurns.sessionId, sessionId), eq(aiTurns.status, "pending")),
     );
   const claimed = await db
     .select()
-    .from(aiQueue)
+    .from(aiTurns)
     .where(
-      and(
-        eq(aiQueue.sessionId, sessionId),
-        eq(aiQueue.status, "claimed"),
-      ),
+      and(eq(aiTurns.sessionId, sessionId), eq(aiTurns.status, "claimed")),
     );
   return [...rows, ...claimed].map((r) => r.roleKey);
+}
+
+export async function advanceGroupScene(
+  sessionId: string,
+  sceneId: string,
+): Promise<GroupSession> {
+  const [updated] = await db
+    .update(groupSessions)
+    .set({ currentSceneId: sceneId })
+    .where(eq(groupSessions.id, sessionId))
+    .returning();
+  if (!updated) throw new Error("Session not found");
+  return updated;
+}
+
+export async function endSession(sessionId: string): Promise<GroupSession> {
+  const [updated] = await db
+    .update(groupSessions)
+    .set({ status: "committed", endedAt: new Date() })
+    .where(eq(groupSessions.id, sessionId))
+    .returning();
+  if (!updated) throw new Error("Session not found");
+  return updated;
+}
+
+/** Spec aliases — keep existing names for in-app call sites. */
+export const getSession = getGroupSession;
+export const getSessionByCode = getGroupSessionByCode;
+export const startSession = startGroupSession;
+
+export async function joinParticipant(
+  token: string,
+  displayName: string,
+  profile: Profile,
+) {
+  return joinByToken({ profile, token, displayName });
+}
+
+export async function setReady(
+  participantId: string,
+  ready: boolean,
+  profile: Profile,
+) {
+  return setParticipantReady(participantId, profile, ready);
+}
+
+/** @deprecated Use claimAiTurn */
+export async function enqueueAiReply(
+  sessionId: string,
+  roleKey: string,
+  triggerMessageId?: number,
+) {
+  if (triggerMessageId == null) return null;
+  const ok = await claimAiTurn(sessionId, triggerMessageId, roleKey);
+  return ok ? { sessionId, roleKey, triggerMessageId } : null;
 }
 
 export async function markSessionGraded(sessionId: string) {
