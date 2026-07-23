@@ -1,12 +1,14 @@
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   aiTurns,
   groupAssessments,
+  groupBatches,
   groupDecisions,
   groupMessages,
   groupParticipants,
   groupSessions,
+  type GroupBatch,
   type GroupParticipant,
   type GroupSession,
   type Profile,
@@ -38,8 +40,13 @@ export async function createGroupSession(params: {
   decisionCount: number;
   seats: Record<SeatKey, "human" | "ai">;
   displayNames?: Partial<Record<SeatKey, string>>;
+  /** Pre-assigned roster identity (before student joins). */
+  assignments?: Partial<
+    Record<SeatKey, { name: string; email: string }>
+  >;
   roleplayModel?: string;
   graderModel?: string;
+  batchId?: string | null;
 }): Promise<{
   session: GroupSession;
   participants: GroupParticipant[];
@@ -65,6 +72,7 @@ export async function createGroupSession(params: {
       graderModel: params.graderModel ?? "gemini-flash",
       clockSeconds: SESSION_TTL_SECONDS,
       expiresAt,
+      batchId: params.batchId ?? null,
     })
     .returning();
 
@@ -72,7 +80,11 @@ export async function createGroupSession(params: {
   for (const roleKey of SEAT_ORDER) {
     const kind = params.seats[roleKey] ?? "ai";
     const isAi = roleKey === "ceo" ? false : kind === "ai";
-    const presetName = params.displayNames?.[roleKey]?.trim() || null;
+    const assignment = params.assignments?.[roleKey];
+    const presetName =
+      assignment?.name?.trim() ||
+      params.displayNames?.[roleKey]?.trim() ||
+      null;
     const [row] = await db
       .insert(groupParticipants)
       .values({
@@ -81,6 +93,10 @@ export async function createGroupSession(params: {
         isAi,
         joinToken: isAi ? null : randomToken(),
         displayName: isAi ? null : presetName,
+        assignedName: isAi ? null : assignment?.name?.trim() || presetName,
+        assignedEmail: isAi
+          ? null
+          : assignment?.email?.trim().toLowerCase() || null,
         isReady: isAi,
       })
       .returning();
@@ -93,6 +109,145 @@ export async function createGroupSession(params: {
   }
 
   return { session, participants, tokens };
+}
+
+export type BatchRosterResultRow = {
+  participantId: string;
+  name: string;
+  email: string;
+  groupCode: string;
+  sessionId: string;
+  caseSlug: string;
+  roleKey: string;
+  joinToken: string;
+  inviteStatus: string;
+  invitedAt: string | null;
+};
+
+function toRosterRow(
+  p: GroupParticipant,
+  session: GroupSession,
+): BatchRosterResultRow | null {
+  if (p.isAi || !p.joinToken) return null;
+  return {
+    participantId: p.id,
+    name: p.assignedName ?? p.displayName ?? p.roleKey,
+    email: p.assignedEmail ?? "",
+    groupCode: session.code,
+    sessionId: session.id,
+    caseSlug: session.caseSlug,
+    roleKey: p.roleKey,
+    joinToken: p.joinToken,
+    inviteStatus: p.inviteStatus ?? "pending",
+    invitedAt: p.invitedAt ? p.invitedAt.toISOString() : null,
+  };
+}
+
+export async function createGroupBatch(params: {
+  createdBy: Profile;
+  name: string;
+  caseSlug: string;
+  decisionCount: number;
+  roleplayModel?: string;
+  graderModel?: string;
+  groups: {
+    seats: Record<SeatKey, "human" | "ai">;
+    assignments: Partial<Record<SeatKey, { name: string; email: string }>>;
+  }[];
+}): Promise<{
+  batch: GroupBatch;
+  sessions: GroupSession[];
+  roster: BatchRosterResultRow[];
+}> {
+  const [batch] = await db
+    .insert(groupBatches)
+    .values({
+      name: params.name,
+      caseSlug: params.caseSlug,
+      decisionCount: params.decisionCount,
+      roleplayModel: params.roleplayModel ?? "gemini-flash",
+      graderModel: params.graderModel ?? "gemini-flash",
+      createdBy: params.createdBy.id,
+    })
+    .returning();
+
+  const sessions: GroupSession[] = [];
+  const roster: BatchRosterResultRow[] = [];
+
+  for (const group of params.groups) {
+    if (group.seats.ceo !== "human" || !group.assignments.ceo) {
+      throw new Error("Every group must have a human CEO with a roster assignment");
+    }
+    const { session, participants } = await createGroupSession({
+      createdBy: params.createdBy,
+      caseSlug: params.caseSlug,
+      decisionCount: params.decisionCount,
+      seats: group.seats,
+      assignments: group.assignments,
+      roleplayModel: params.roleplayModel,
+      graderModel: params.graderModel,
+      batchId: batch.id,
+    });
+    sessions.push(session);
+    for (const p of participants) {
+      const row = toRosterRow(p, session);
+      if (row) roster.push(row);
+    }
+  }
+
+  return { batch, sessions, roster };
+}
+
+export async function getGroupBatch(batchId: string): Promise<GroupBatch | null> {
+  const [row] = await db
+    .select()
+    .from(groupBatches)
+    .where(eq(groupBatches.id, batchId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listBatchRoster(
+  batchId: string,
+): Promise<BatchRosterResultRow[]> {
+  const sessions = await db
+    .select()
+    .from(groupSessions)
+    .where(eq(groupSessions.batchId, batchId));
+  const roster: BatchRosterResultRow[] = [];
+  for (const session of sessions) {
+    const parts = await listParticipants(session.id);
+    for (const p of parts) {
+      const row = toRosterRow(p, session);
+      if (row) roster.push(row);
+    }
+  }
+  return roster;
+}
+
+export async function setParticipantInviteStatus(
+  participantId: string,
+  status: "pending" | "sent" | "failed",
+): Promise<void> {
+  await db
+    .update(groupParticipants)
+    .set({
+      inviteStatus: status,
+      invitedAt: status === "pending" ? null : new Date(),
+    })
+    .where(eq(groupParticipants.id, participantId));
+}
+
+export async function getParticipantInviteTarget(participantId: string) {
+  const [p] = await db
+    .select()
+    .from(groupParticipants)
+    .where(eq(groupParticipants.id, participantId))
+    .limit(1);
+  if (!p || p.isAi || !p.joinToken || !p.assignedEmail) return null;
+  const session = await getGroupSession(p.sessionId);
+  if (!session) return null;
+  return { participant: p, session };
 }
 
 export async function listGroupSessions(profile?: Profile): Promise<GroupSession[]> {
@@ -643,3 +798,357 @@ export async function getGroupSessionState(
     cursor,
   };
 }
+
+/** Minutes with no new message while status=active → stalled on the batch board. */
+export const BATCH_STALL_MINUTES = 5;
+
+export type BatchBoardMember = {
+  roleKey: string;
+  name: string;
+  joined: boolean;
+  isAi: boolean;
+};
+
+export type BatchBoardRow = {
+  sessionId: string;
+  code: string;
+  status: string;
+  decisionsMade: number;
+  decisionCount: number;
+  currentSceneId: string | null;
+  currentSceneTitle: string | null;
+  messageCount: number;
+  lastMessageAt: string | null;
+  stalled: boolean;
+  humanSeats: number;
+  joinedSeats: number;
+  members: BatchBoardMember[];
+  assessmentStatus: string | null;
+};
+
+export async function listSessionsForBatch(
+  batchId: string,
+): Promise<GroupSession[]> {
+  return db
+    .select()
+    .from(groupSessions)
+    .where(eq(groupSessions.batchId, batchId))
+    .orderBy(asc(groupSessions.createdAt));
+}
+
+export async function listBatchesForProfessor(
+  profileId: string,
+): Promise<GroupBatch[]> {
+  return db
+    .select()
+    .from(groupBatches)
+    .where(eq(groupBatches.createdBy, profileId))
+    .orderBy(desc(groupBatches.createdAt));
+}
+
+export async function getBatchBoardSnapshot(
+  batchId: string,
+  stallMinutes = BATCH_STALL_MINUTES,
+): Promise<BatchBoardRow[]> {
+  const sessions = await listSessionsForBatch(batchId);
+  if (sessions.length === 0) return [];
+
+  const sessionIds = sessions.map((s) => s.id);
+  const caseSlug = sessions[0]!.caseSlug;
+  const caseConfig = getCase(caseSlug);
+
+  const allParts = await db
+    .select()
+    .from(groupParticipants)
+    .where(inArray(groupParticipants.sessionId, sessionIds));
+
+  const msgStats = await db
+    .select({
+      sessionId: groupMessages.sessionId,
+      messageCount: sql<number>`count(*)::int`,
+      lastMessageAt: sql<Date | null>`max(${groupMessages.createdAt})`,
+    })
+    .from(groupMessages)
+    .where(inArray(groupMessages.sessionId, sessionIds))
+    .groupBy(groupMessages.sessionId);
+
+  const assessments = await db
+    .select({
+      sessionId: groupAssessments.sessionId,
+      status: groupAssessments.status,
+    })
+    .from(groupAssessments)
+    .where(inArray(groupAssessments.sessionId, sessionIds));
+
+  const msgBySession = new Map(
+    msgStats.map((m) => [m.sessionId, m] as const),
+  );
+  const assessBySession = new Map(
+    assessments.map((a) => [a.sessionId, a.status] as const),
+  );
+  const partsBySession = new Map<string, GroupParticipant[]>();
+  for (const p of allParts) {
+    const list = partsBySession.get(p.sessionId) ?? [];
+    list.push(p);
+    partsBySession.set(p.sessionId, list);
+  }
+
+  const stallMs = stallMinutes * 60_000;
+  const now = Date.now();
+
+  return sessions.map((session) => {
+    const parts = partsBySession.get(session.id) ?? [];
+    const humans = parts.filter((p) => !p.isAi);
+    const joined = humans.filter(
+      (p) => Boolean(p.profileId) || Boolean(p.displayName),
+    );
+    const stats = msgBySession.get(session.id);
+    const lastAt = stats?.lastMessageAt
+      ? new Date(stats.lastMessageAt)
+      : null;
+    const stalled =
+      session.status === "active" &&
+      (!lastAt || now - lastAt.getTime() > stallMs);
+
+    const sceneId = session.currentSceneId;
+    const sceneTitle = sceneId
+      ? caseConfig.scenes[sceneId]?.title ?? sceneId
+      : null;
+
+    const members: BatchBoardMember[] = parts
+      .slice()
+      .sort(
+        (a, b) =>
+          SEAT_ORDER.indexOf(a.roleKey as SeatKey) -
+          SEAT_ORDER.indexOf(b.roleKey as SeatKey),
+      )
+      .map((p) => ({
+        roleKey: p.roleKey,
+        name:
+          p.assignedName ??
+          p.displayName ??
+          (p.isAi
+            ? (getCase(caseSlug).cast.find((c) => c.id === p.roleKey)?.name ??
+              p.roleKey)
+            : p.roleKey),
+        joined: p.isAi
+          ? true
+          : Boolean(p.profileId) || Boolean(p.displayName),
+        isAi: p.isAi,
+      }));
+
+    return {
+      sessionId: session.id,
+      code: session.code,
+      status: session.status,
+      decisionsMade: session.decisionsMade,
+      decisionCount: session.decisionCount,
+      currentSceneId: sceneId,
+      currentSceneTitle: sceneTitle,
+      messageCount: Number(stats?.messageCount ?? 0),
+      lastMessageAt: lastAt?.toISOString() ?? null,
+      stalled,
+      humanSeats: humans.length,
+      joinedSeats: joined.length,
+      members,
+      assessmentStatus: assessBySession.get(session.id) ?? null,
+    };
+  });
+}
+
+export type CohortDecisionBucket = {
+  label: string;
+  count: number;
+};
+
+export type CohortSceneDivergence = {
+  sceneId: string;
+  sceneTitle: string;
+  uniqueChoices: number;
+  totalGroups: number;
+  topChoice: string | null;
+};
+
+export type CohortScoreAvg = {
+  key: string;
+  label: string;
+  average: number;
+  n: number;
+};
+
+export type BatchCohortRollup = {
+  groupCount: number;
+  gradedCount: number;
+  finalDecisionDistribution: CohortDecisionBucket[];
+  sceneDivergence: CohortSceneDivergence[];
+  averageScores: CohortScoreAvg[];
+};
+
+export async function getBatchCohortRollup(
+  batchId: string,
+): Promise<BatchCohortRollup> {
+  const sessions = await listSessionsForBatch(batchId);
+  if (sessions.length === 0) {
+    return {
+      groupCount: 0,
+      gradedCount: 0,
+      finalDecisionDistribution: [],
+      sceneDivergence: [],
+      averageScores: [],
+    };
+  }
+
+  const sessionIds = sessions.map((s) => s.id);
+  const caseConfig = getCase(sessions[0]!.caseSlug);
+
+  const decisions = await db
+    .select()
+    .from(groupDecisions)
+    .where(inArray(groupDecisions.sessionId, sessionIds))
+    .orderBy(asc(groupDecisions.id));
+
+  const assessments = await db
+    .select()
+    .from(groupAssessments)
+    .where(inArray(groupAssessments.sessionId, sessionIds));
+
+  const bySession = new Map<string, typeof decisions>();
+  for (const d of decisions) {
+    const list = bySession.get(d.sessionId) ?? [];
+    list.push(d);
+    bySession.set(d.sessionId, list);
+  }
+
+  const finished = sessions.filter((s) =>
+    ["committed", "graded", "released"].includes(s.status),
+  );
+
+  const finalCounts = new Map<string, number>();
+  for (const s of finished) {
+    const list = bySession.get(s.id) ?? [];
+    const last = list[list.length - 1];
+    if (!last) continue;
+    const label = last.decision.trim() || last.optionKey || "Unknown";
+    finalCounts.set(label, (finalCounts.get(label) ?? 0) + 1);
+  }
+
+  const finalDecisionDistribution = [...finalCounts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const sceneMap = new Map<
+    string,
+    { choices: Map<string, number>; groups: Set<string> }
+  >();
+  for (const d of decisions) {
+    const entry = sceneMap.get(d.sceneId) ?? {
+      choices: new Map(),
+      groups: new Set(),
+    };
+    const key = d.optionKey || d.decision.trim() || "unknown";
+    entry.choices.set(key, (entry.choices.get(key) ?? 0) + 1);
+    entry.groups.add(d.sessionId);
+    sceneMap.set(d.sceneId, entry);
+  }
+
+  const sceneDivergence: CohortSceneDivergence[] = [...sceneMap.entries()]
+    .map(([sceneId, data]) => {
+      let topChoice: string | null = null;
+      let topN = 0;
+      for (const [choice, n] of data.choices) {
+        if (n > topN) {
+          topN = n;
+          topChoice = choice;
+        }
+      }
+      return {
+        sceneId,
+        sceneTitle: caseConfig.scenes[sceneId]?.title ?? sceneId,
+        uniqueChoices: data.choices.size,
+        totalGroups: data.groups.size,
+        topChoice,
+      };
+    })
+    .sort((a, b) => b.uniqueChoices - a.uniqueChoices);
+
+  const scoreAcc = new Map<string, { label: string; sum: number; n: number }>();
+  for (const row of assessments) {
+    const a = row.assessment as {
+      readiness_scores?: { key: string; label: string; score: number }[];
+    } | null;
+    if (!a?.readiness_scores?.length) continue;
+    for (const s of a.readiness_scores) {
+      if (typeof s.score !== "number") continue;
+      const cur = scoreAcc.get(s.key) ?? {
+        label: s.label || s.key,
+        sum: 0,
+        n: 0,
+      };
+      cur.sum += s.score;
+      cur.n += 1;
+      if (s.label) cur.label = s.label;
+      scoreAcc.set(s.key, cur);
+    }
+  }
+
+  const averageScores: CohortScoreAvg[] = [...scoreAcc.entries()]
+    .map(([key, v]) => ({
+      key,
+      label: v.label,
+      average: Math.round((v.sum / v.n) * 10) / 10,
+      n: v.n,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    groupCount: sessions.length,
+    gradedCount: assessments.filter((a) => a.assessment).length,
+    finalDecisionDistribution,
+    sceneDivergence,
+    averageScores,
+  };
+}
+
+export type CohortInsightsPayload = {
+  insights: string[];
+  generatedAt: string;
+  model: string;
+};
+
+export async function saveBatchCohortInsights(
+  batchId: string,
+  insights: string[],
+  model: string,
+): Promise<CohortInsightsPayload> {
+  const payload: CohortInsightsPayload = {
+    insights,
+    generatedAt: new Date().toISOString(),
+    model,
+  };
+  await db
+    .update(groupBatches)
+    .set({
+      cohortInsights: payload,
+      cohortInsightsAt: new Date(),
+      cohortInsightsModel: model,
+    })
+    .where(eq(groupBatches.id, batchId));
+  return payload;
+}
+
+export function readCachedCohortInsights(
+  batch: GroupBatch,
+): CohortInsightsPayload | null {
+  if (!batch.cohortInsights) return null;
+  const raw = batch.cohortInsights as Partial<CohortInsightsPayload>;
+  if (!Array.isArray(raw.insights) || raw.insights.length === 0) return null;
+  return {
+    insights: raw.insights.map(String),
+    generatedAt:
+      raw.generatedAt ??
+      batch.cohortInsightsAt?.toISOString() ??
+      new Date().toISOString(),
+    model: raw.model ?? batch.cohortInsightsModel ?? "unknown",
+  };
+}
+

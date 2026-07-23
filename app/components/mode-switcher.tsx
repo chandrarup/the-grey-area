@@ -22,6 +22,7 @@ export function ModeSwitcher({ current }: { current: AppMode }) {
             key={mode.id}
             type="button"
             disabled={pending || active}
+            title={`Switch to ${mode.label} mode`}
             onClick={() => startTransition(() => setAppMode(mode.id))}
             className={`px-2.5 py-1 text-xs font-medium transition-colors ${
               active

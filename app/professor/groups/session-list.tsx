@@ -17,6 +17,7 @@ type SessionRow = {
   roleplayModel: string;
   expired: boolean;
   remainingLabel: string | null;
+  batchId?: string | null;
 };
 
 export function ProfessorSessionList({ sessions }: { sessions: SessionRow[] }) {
@@ -73,11 +74,20 @@ export function ProfessorSessionList({ sessions }: { sessions: SessionRow[] }) {
                 {s.roleplayModel}
                 {s.remainingLabel ? ` · ${s.remainingLabel}` : ""}
               </span>
+              {s.batchId ? (
+                <Link
+                  href={`/professor/groups/batch/${s.batchId}`}
+                  className="ml-2 text-xs text-muted-foreground underline"
+                >
+                  batch
+                </Link>
+              ) : null}
             </div>
             <button
               type="button"
               disabled={pending}
-              className="shrink-0 border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title={`Delete session ${s.code}`}
+              className="interactive shrink-0 border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
               onClick={() =>
                 startTransition(async () => {
                   if (

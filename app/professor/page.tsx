@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getProfessorActor } from "@/lib/mode";
-import { listGroupSessions } from "@/lib/db/group-queries";
+import {
+  listBatchesForProfessor,
+  listGroupSessions,
+} from "@/lib/db/group-queries";
 import { getModelPrefs } from "@/lib/model-prefs";
 import {
   formatSessionRemaining,
@@ -16,6 +19,7 @@ import { ProfessorSessionList } from "./groups/session-list";
 export default async function ProfessorPage() {
   const profile = await getProfessorActor();
   const sessions = await listGroupSessions(profile);
+  const batches = await listBatchesForProfessor(profile.id);
   const prefs = await getModelPrefs();
 
   const rows = sessions.map((s) => {
@@ -35,6 +39,7 @@ export default async function ProfessorPage() {
           : s.status === "lobby" || s.status === "active"
             ? formatSessionRemaining(remaining)
             : null,
+      batchId: s.batchId,
     };
   });
 
@@ -52,10 +57,40 @@ export default async function ProfessorPage() {
         the lobby or meeting. CEO always commits the final decision.
       </p>
 
+      <p className="mt-6">
+        <Link
+          href="/professor/groups/new-batch"
+          className="inline-block border border-border bg-accent px-4 py-2.5 text-sm text-accent-foreground transition-all hover:brightness-110"
+        >
+          Create groups from roster →
+        </Link>
+      </p>
+
       <CreateSessionForm
         defaultRoleplayModel={prefs.roleplayModel}
         defaultGraderModel={prefs.graderModel}
       />
+
+      {batches.length > 0 ? (
+        <section className="mt-12">
+          <h2 className="text-sm font-medium text-foreground">Your batches</h2>
+          <ul className="mt-4 divide-y divide-border border border-border">
+            {batches.map((b) => (
+              <li key={b.id} className="px-4 py-3 text-sm">
+                <Link
+                  href={`/professor/groups/batch/${b.id}`}
+                  className="font-medium text-foreground underline-offset-2 hover:underline"
+                >
+                  {b.name}
+                </Link>
+                <span className="ml-2 text-muted-foreground">
+                  {b.caseSlug} · {b.decisionCount} decisions
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <h2 className="mt-12 text-sm font-medium text-foreground">Your sessions</h2>
       <div className="mt-4 border border-border">

@@ -112,7 +112,8 @@ export function CreateSessionForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-6 bg-accent px-5 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
+        title={pending ? "Creating session…" : "Create session"}
+        className="interactive mt-6 border border-transparent bg-accent px-5 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
       >
         {pending ? "Creating…" : "Create session"}
       </button>

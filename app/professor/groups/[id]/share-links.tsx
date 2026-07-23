@@ -105,7 +105,7 @@ export function ShareSeatLinks({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="border border-border px-3 py-1.5 text-xs"
+                  className="cursor-pointer border border-border px-3 py-1.5 text-xs transition-all hover:border-accent hover:bg-surface hover:text-foreground"
                   onClick={() => void copy(seat.roleKey, url)}
                 >
                   {copied === seat.roleKey
@@ -116,7 +116,7 @@ export function ShareSeatLinks({
                   href={`/group/join?token=${encodeURIComponent(seat.token)}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="border border-border bg-surface px-3 py-1.5 text-xs"
+                  className="cursor-pointer border border-border bg-surface px-3 py-1.5 text-xs transition-all hover:border-accent hover:bg-background hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_30%,transparent)]"
                 >
                   Open {seat.roleKey} in new tab
                 </a>

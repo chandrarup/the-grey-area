@@ -50,9 +50,9 @@ export function AnswerComposer(props: {
                 <button
                   key={o.key}
                   type="button"
-                  className={`border px-3 py-2 text-left text-sm ${
+                    className={`cursor-pointer border px-3 py-2 text-left text-sm transition-all hover:border-accent hover:bg-surface ${
                     props.selectedKey === o.key
-                      ? "border-accent bg-surface"
+                      ? "border-accent bg-surface shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
                       : "border-border"
                   }`}
                   onClick={() => props.onSelectOption?.(o.key)}
@@ -62,9 +62,9 @@ export function AnswerComposer(props: {
               ))}
               <button
                 type="button"
-                className={`border px-3 py-2 text-left text-sm ${
+                className={`cursor-pointer border px-3 py-2 text-left text-sm transition-all hover:border-accent hover:bg-surface ${
                   props.selectedKey === "custom"
-                    ? "border-accent bg-surface"
+                    ? "border-accent bg-surface shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
                     : "border-border"
                 }`}
                 onClick={() => props.onSelectOption?.("custom")}
@@ -91,7 +91,7 @@ export function AnswerComposer(props: {
             <button
               type="button"
               disabled={props.commitDisabled}
-              className="bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-50"
+              className="cursor-pointer bg-accent px-4 py-2 text-sm text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => void props.onCommit?.()}
             >
               Commit
@@ -110,7 +110,7 @@ export function AnswerComposer(props: {
             <button
               key={line.slice(0, 48)}
               type="button"
-              className="max-w-full truncate rounded-full border border-border bg-surface px-2.5 py-1 text-left text-[11px] text-muted-foreground hover:border-accent hover:text-foreground"
+              className="max-w-full cursor-pointer truncate rounded-full border border-border bg-surface px-2.5 py-1 text-left text-[11px] text-muted-foreground transition-all hover:border-accent hover:bg-background hover:text-foreground hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_30%,transparent)] active:scale-[0.98]"
               title={line}
               onClick={() => setText(line)}
             >
@@ -140,7 +140,7 @@ export function AnswerComposer(props: {
         <button
           type="button"
           disabled={props.sending || props.disabled || !text.trim()}
-          className="mb-0.5 shrink-0 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:opacity-40"
+          className="mb-0.5 shrink-0 cursor-pointer rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           onClick={() => {
             if (!text.trim()) return;
             const body = text.trim();

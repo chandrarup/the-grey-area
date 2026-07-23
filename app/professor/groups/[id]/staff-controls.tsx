@@ -6,6 +6,7 @@ import {
   gradeGroupAction,
   releaseGroupAction,
   saveGroupAssessmentAction,
+  saveProfessorNotesAction,
   startMeetingAction,
 } from "@/app/group/actions";
 
@@ -75,6 +76,40 @@ export function SessionStaffControls(props: {
       <p className="text-sm text-muted-foreground">
         Human seats joined: {props.humanSeatsOpened}/{props.humanSeatsTotal}
       </p>
+
+      <div className="border border-border p-4">
+        <label className="block text-sm">
+          <span className="text-xs uppercase text-muted-foreground">
+            Professor feedback
+          </span>
+          <textarea
+            className="mt-1 w-full border border-border bg-background px-3 py-2"
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Visible to the group only after you release the debrief."
+          />
+        </label>
+        <button
+          type="button"
+          disabled={pending}
+          className="mt-3 border border-border px-3 py-1.5 text-xs disabled:opacity-50"
+          onClick={() =>
+            startTransition(async () => {
+              try {
+                await saveProfessorNotesAction(props.sessionId, notes);
+                router.refresh();
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "Could not save notes",
+                );
+              }
+            })
+          }
+        >
+          Save feedback
+        </button>
+      </div>
 
       {props.status === "lobby" ? (
         <button
@@ -226,17 +261,6 @@ export function SessionStaffControls(props: {
                   ))}
                 </div>
               ))}
-              <label className="block">
-                <span className="text-xs uppercase text-muted-foreground">
-                  Professor notes
-                </span>
-                <textarea
-                  className="mt-1 w-full border border-border bg-background px-3 py-2"
-                  rows={2}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </label>
               <p className="text-xs text-muted-foreground">
                 Assessment status: {props.assessmentStatus ?? "—"}
               </p>

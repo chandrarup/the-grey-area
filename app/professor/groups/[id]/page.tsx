@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getProfessorActor } from "@/lib/mode";
 import {
   getGroupAssessment,
+  getGroupMessages,
   getGroupSession,
   listGroupDecisions,
   listParticipants,
@@ -17,14 +18,20 @@ import { SessionStaffControls } from "./staff-controls";
 import { ShareSeatLinks } from "./share-links";
 import { DeleteSessionButton } from "./delete-session-button";
 import { ProfessorLiveLobby } from "./live-lobby";
+import { StaffLiveTranscript } from "./live-transcript";
+import { GroupPathTaken } from "./path-taken";
+import { AssessmentInsights } from "./assessment-insights";
 
 export default async function ProfessorGroupDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ batch?: string }>;
 }) {
   await getProfessorActor();
   const { id } = await params;
+  const { batch: batchId } = await searchParams;
   const session = await getGroupSession(id);
   if (!session) {
     return <p className="p-8">Session not found.</p>;
@@ -32,6 +39,7 @@ export default async function ProfessorGroupDetailPage({
   const participants = await listParticipants(id);
   const decisions = await listGroupDecisions(id);
   const assessment = await getGroupAssessment(id);
+  const messages = await getGroupMessages(id);
 
   const humanSeats = participants
     .filter((p) => !p.isAi && p.joinToken)
@@ -53,10 +61,18 @@ export default async function ProfessorGroupDetailPage({
         ? "Expired"
         : null;
 
+  const backHref = batchId
+    ? `/professor/groups/batch/${batchId}`
+    : session.batchId
+      ? `/professor/groups/batch/${session.batchId}`
+      : "/professor";
+  const backLabel =
+    batchId || session.batchId ? "← Batch board" : "← Sessions";
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
-      <Link href="/professor" className="text-sm underline">
-        ← Sessions
+      <Link href={backHref} className="text-sm underline">
+        {backLabel}
       </Link>
       <h1 className="mt-4 font-serif text-3xl text-foreground">
         Session {session.code}
@@ -92,6 +108,30 @@ export default async function ProfessorGroupDetailPage({
 
       <ProfessorLiveLobby sessionId={session.id} status={session.status} />
 
+      {(session.status === "lobby" ||
+        session.status === "active" ||
+        session.status === "committed" ||
+        session.status === "graded" ||
+        session.status === "released") && (
+        <StaffLiveTranscript
+          sessionId={session.id}
+          caseSlug={session.caseSlug}
+          initialMessages={messages.map((m) => ({
+            id: m.id,
+            roleKey: m.roleKey,
+            senderKind: m.senderKind,
+            content: m.content,
+            sceneId: m.sceneId,
+          }))}
+        />
+      )}
+
+      <GroupPathTaken caseSlug={session.caseSlug} decisions={decisions} />
+
+      {assessment?.assessment ? (
+        <AssessmentInsights assessment={assessment.assessment} />
+      ) : null}
+
       <SessionStaffControls
         sessionId={session.id}
         status={session.status}
@@ -102,20 +142,6 @@ export default async function ProfessorGroupDetailPage({
         humanSeatsOpened={opened}
         humanSeatsTotal={humanSeats.length}
       />
-
-      {decisions.length > 0 ? (
-        <section className="mt-10">
-          <h2 className="text-sm font-medium text-foreground">Decisions</h2>
-          <ul className="mt-3 space-y-2 text-sm">
-            {decisions.map((d) => (
-              <li key={d.id} className="border border-border px-3 py-2">
-                <p className="font-medium text-foreground">{d.decision}</p>
-                <p className="mt-1 text-muted-foreground">{d.reasoning}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       <DeleteSessionButton sessionId={session.id} code={session.code} />
     </div>

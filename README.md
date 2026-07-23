@@ -20,6 +20,10 @@ Set at least:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project **Settings → API → anon public** |
 | `SUPABASE_SERVICE_ROLE_KEY` | Project **Settings → API → service_role** (server only — never expose to the browser) |
 | `DEV_IDENTITY` | `true` locally for the mode toggle (Admin / Professor / Student) |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key (server only) — batch seat invites |
+| `EMAIL_FROM` | Verified sender, e.g. `The Grey Area <invites@yourdomain.com>` |
+| `EMAIL_TEST_TO` | Optional: redirect all invites to this inbox (intended recipient is logged) |
+| `NEXT_PUBLIC_APP_BASE_URL` | Canonical app URL used in invite join links |
 
 `DEV_IDENTITY=true` enables the fake identity picker. Leave it unset in production — real auth is not wired yet.
 
@@ -47,6 +51,8 @@ Add the same environment variables in **Project → Settings → Environment Var
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — safe for browser bundles; used for Realtime postgres_changes on group tables.
 - `SUPABASE_SERVICE_ROLE_KEY` — **Production / Preview only on the server.** Do not prefix with `NEXT_PUBLIC_`. Used by server routes for mutations (when wired); group writes today go through Next.js server actions + Drizzle.
 - `DEV_IDENTITY` — omit or `false` in production unless you intentionally keep the demo toggle.
+- `RESEND_API_KEY`, `EMAIL_FROM` — required for batch email invites; optionally `EMAIL_TEST_TO` for inbox testing.
+- `NEXT_PUBLIC_APP_BASE_URL` — production origin for join links in emails.
 - LLM keys as needed (`GEMINI_API_KEY`, etc.).
 
 After the first deploy, run migrations against the Supabase database (`npm run db:migrate` locally with production `DATABASE_URL`, or use Supabase SQL editor for one-off applies).

@@ -61,6 +61,17 @@ const groupAssessmentSchema = z.object({
   what_to_improve: z.array(z.string()).min(3).max(3),
   better_decisions: z.array(z.string()).min(3).max(3),
   evidence: z.array(z.string()).max(4),
+  readiness_scores: z
+    .array(
+      z.object({
+        key: z.string(),
+        label: z.string(),
+        score: Score,
+        rationale: z.string().optional(),
+      }),
+    )
+    .min(1)
+    .max(12),
 });
 
 export type GroupAssessmentPayload = z.infer<typeof groupAssessmentSchema>;
@@ -71,7 +82,7 @@ Evaluate the QUALITY of ethical reasoning, leadership judgment, and decision-mak
 
 Return JSON matching the schema. Assess all readiness dimensions with scores 1-10. Keep each prose field concise (2-5 sentences). The coaching_letter should be a short board-facing letter.`;
 
-const GROUP_GRADING_SYSTEM = `You are grading a group leadership ethics simulation debrief. Focus on collective process, not individuals. Never name participants. Return JSON matching the schema.`;
+const GROUP_GRADING_SYSTEM = `You are grading a group leadership ethics simulation debrief. Focus on collective process, not individuals. Never name participants. Return JSON matching the schema. Include readiness_scores (1-10) for each scoring area listed in the prompt.`;
 
 function buildSoloPayload(params: {
   caseConfig: CaseConfig;
@@ -180,6 +191,9 @@ export async function gradeGroupSession(params: {
   decisionsSummary: string;
   model?: string;
 }): Promise<GroupAssessmentPayload> {
+  const scoringLines = params.caseConfig.rubric.scoringAreas.map(
+    (a) => `- ${a.key}: ${a.label}`,
+  );
   const userContent = [
     `CASE: ${params.caseConfig.title}`,
     "",
@@ -188,6 +202,9 @@ export async function gradeGroupSession(params: {
     "",
     "TRANSCRIPT:",
     params.transcript,
+    "",
+    "SCORING AREAS (use these exact keys in readiness_scores):",
+    ...scoringLines,
   ].join("\n");
 
   const model = params.model ?? DEFAULT_GRADER_MODEL;
@@ -199,7 +216,7 @@ export async function gradeGroupSession(params: {
     messages: [{ role: "user", content: userContent }],
     schema: groupAssessmentSchema,
     temperature: 0,
-    maxTokens: 2500,
+    maxTokens: 3500,
   });
 
   return result.data;

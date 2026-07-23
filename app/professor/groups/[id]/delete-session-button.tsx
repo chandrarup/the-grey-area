@@ -18,7 +18,8 @@ export function DeleteSessionButton({
     <button
       type="button"
       disabled={pending}
-      className="mt-6 border border-red-300 px-4 py-2 text-sm text-red-800 dark:border-red-900 dark:text-red-400 disabled:opacity-50"
+      title="Delete the whole session"
+      className="interactive mt-6 border border-red-300 px-4 py-2 text-sm text-red-800 dark:border-red-900 dark:text-red-400 disabled:opacity-50"
       onClick={() =>
         startTransition(async () => {
           if (

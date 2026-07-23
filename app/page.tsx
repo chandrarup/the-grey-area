@@ -65,7 +65,7 @@ export default async function Home({
       <div className="mt-12 grid gap-4">
         <Link
           href="/simulation/leadership-team"
-          className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
+          className="block border border-border px-6 py-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-accent hover:bg-surface hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
         >
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Single player
@@ -78,7 +78,7 @@ export default async function Home({
           </p>
         </Link>
 
-        <div className="border border-border px-6 py-5">
+        <div className="border border-border px-6 py-5 transition-colors hover:border-accent/50">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             Join a group
           </p>
@@ -95,7 +95,7 @@ export default async function Home({
         {mode === "professor" || mode === "admin" ? (
           <Link
             href="/professor"
-            className="block border border-border px-6 py-5 transition-colors hover:border-accent hover:bg-surface"
+            className="block border border-border px-6 py-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-accent hover:bg-surface hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]"
           >
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
               Professor

@@ -415,6 +415,17 @@ export async function releaseGroupAction(sessionId: string, notes: string) {
   revalidatePath(`/group/${sessionId}`);
 }
 
+export async function saveProfessorNotesAction(
+  sessionId: string,
+  notes: string,
+) {
+  await getProfessorActor();
+  await upsertGroupAssessment(sessionId, {
+    professorNotes: notes,
+  });
+  revalidatePath(`/professor/groups/${sessionId}`);
+}
+
 export async function deleteGroupSessionAction(sessionId: string) {
   const profile = await getProfessorActor();
   await deleteGroupSession(sessionId, profile);

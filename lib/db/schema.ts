@@ -114,6 +114,20 @@ export const assessments = pgTable("assessments", {
 });
 
 /** Group mode — professor-created multiplayer sessions */
+export const groupBatches = pgTable("group_batches", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  caseSlug: text("case_slug").notNull(),
+  decisionCount: integer("decision_count").notNull().default(5),
+  roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
+  graderModel: text("grader_model").notNull().default("gemini-flash"),
+  cohortInsights: jsonb("cohort_insights"),
+  cohortInsightsAt: timestamp("cohort_insights_at", { withTimezone: true }),
+  cohortInsightsModel: text("cohort_insights_model"),
+  createdBy: uuid("created_by").references(() => profiles.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
 export const groupSessions = pgTable("group_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   code: text("code").notNull().unique(),
@@ -126,6 +140,7 @@ export const groupSessions = pgTable("group_sessions", {
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
   graderModel: text("grader_model").notNull().default("gemini-flash"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
+  batchId: uuid("batch_id").references(() => groupBatches.id, { onDelete: "set null" }),
   createdBy: uuid("created_by").references(() => profiles.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: true }),
@@ -143,6 +158,10 @@ export const groupParticipants = pgTable(
     isAi: boolean("is_ai").notNull().default(false),
     joinToken: text("join_token").unique(),
     displayName: text("display_name"),
+    assignedName: text("assigned_name"),
+    assignedEmail: text("assigned_email"),
+    inviteStatus: text("invite_status").notNull().default("pending"), // pending|sent|failed
+    invitedAt: timestamp("invited_at", { withTimezone: true }),
     profileId: uuid("profile_id").references(() => profiles.id),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     isReady: boolean("is_ready").notNull().default(false),
@@ -226,6 +245,7 @@ export type Decision = typeof decisions.$inferSelect;
 export type Assessment = typeof assessments.$inferSelect;
 export type GroupSession = typeof groupSessions.$inferSelect;
 export type GroupParticipant = typeof groupParticipants.$inferSelect;
+export type GroupBatch = typeof groupBatches.$inferSelect;
 export type GroupMessage = typeof groupMessages.$inferSelect;
 export type GroupDecision = typeof groupDecisions.$inferSelect;
 export type GroupAssessment = typeof groupAssessments.$inferSelect;
