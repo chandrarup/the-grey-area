@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { generateCohortInsightsAction } from "@/app/professor/groups/batch/actions";
 import type {
   BatchCohortRollup,
   CohortInsightsPayload,
 } from "@/lib/db/group-queries";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 function ScoreBar({ label, average }: { label: string; average: number }) {
   const pct = Math.min(100, Math.round((average / 10) * 100));
@@ -22,6 +24,8 @@ function ScoreBar({ label, average }: { label: string; average: number }) {
   );
 }
 
+const GENERATE_TIMEOUT_MS = 90_000;
+
 export function CohortInsightsPanel({
   batchId,
   initialRollup,
@@ -33,8 +37,49 @@ export function CohortInsightsPanel({
 }) {
   const [rollup] = useState(initialRollup);
   const [insights, setInsights] = useState(initialInsights);
-  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const canGenerate = rollup.gradedCount > 0;
+
+  async function onGenerate() {
+    if (busy) return;
+    setError(null);
+
+    if (!canGenerate) {
+      setError(
+        "No graded groups yet. Open a finished group (status committed), run Generate AI grade, then come back here.",
+      );
+      return;
+    }
+
+    setBusy(true);
+    let timer: number | undefined;
+    try {
+      await withBusyBar(async () => {
+        const next = await Promise.race([
+          generateCohortInsightsAction(batchId, true),
+          new Promise<never>((_, reject) => {
+            timer = window.setTimeout(() => {
+              reject(
+                new Error(
+                  "Insights generation timed out. Check the grader model / API key, then try again.",
+                ),
+              );
+            }, GENERATE_TIMEOUT_MS);
+          }),
+        ]);
+        setInsights(next);
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not generate insights",
+      );
+    } finally {
+      if (timer != null) window.clearTimeout(timer);
+      setBusy(false);
+    }
+  }
 
   return (
     <section className="mt-12 space-y-8 border-t border-border pt-10">
@@ -117,37 +162,31 @@ export function CohortInsightsPanel({
           <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             AI cohort notes
           </h3>
-          <button
+          <BusyButton
             type="button"
-            disabled={pending}
-            className="border border-border bg-accent px-3 py-1.5 text-xs text-accent-foreground disabled:opacity-50"
-            onClick={() =>
-              startTransition(async () => {
-                setError(null);
-                try {
-                  const next = await generateCohortInsightsAction(
-                    batchId,
-                    true,
-                  );
-                  setInsights(next);
-                } catch (err) {
-                  setError(
-                    err instanceof Error
-                      ? err.message
-                      : "Could not generate insights",
-                  );
-                }
-              })
+            pending={busy}
+            pendingLabel="Generating…"
+            disabled={!canGenerate}
+            title={
+              canGenerate
+                ? "Generate cohort-level patterns from graded groups"
+                : "Grade at least one finished group first"
             }
+            className="border border-border bg-accent px-3 py-1.5 text-xs text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => void onGenerate()}
           >
-            {pending
-              ? "Generating…"
-              : insights
-                ? "Regenerate"
-                : "Generate insights"}
-          </button>
+            {insights ? "Regenerate" : "Generate insights"}
+          </BusyButton>
         </div>
-        {insights ? (
+        {!canGenerate ? (
+          <p className="mt-3 border border-border border-l-2 border-l-amber-600 bg-surface px-3 py-2 text-sm text-foreground">
+            Cohort notes need graded groups. Open a{" "}
+            <span className="font-medium">committed</span> group tile → run{" "}
+            <span className="font-medium">Generate AI grade</span> → then
+            generate notes here. Students only see feedback after you{" "}
+            <span className="font-medium">Release</span>.
+          </p>
+        ) : insights ? (
           <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
             {insights.insights.map((line, i) => (
               <li key={i} className="text-foreground">
@@ -157,7 +196,7 @@ export function CohortInsightsPanel({
           </ul>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">
-            After groups are graded, generate 3–5 cohort-level patterns.
+            {rollup.gradedCount} graded — generate 3–5 cohort-level patterns.
           </p>
         )}
         {insights?.generatedAt ? (
@@ -166,7 +205,11 @@ export function CohortInsightsPanel({
             {insights.model}
           </p>
         ) : null}
-        {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+        {error ? (
+          <p className="mt-2 text-sm text-red-700 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
     </section>
   );

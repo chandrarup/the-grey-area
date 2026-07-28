@@ -8,13 +8,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-12 md:px-8">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Settings
-      </p>
-      <h1 className="mt-2 font-serif text-3xl text-foreground">Models</h1>
+      <h1 className="font-serif text-3xl text-foreground">Model defaults</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Defaults for roleplay (meeting AI / scene director) and grading. New
-        group sessions inherit these; you can still override per session.
+        Defaults for meeting AI and grading. New sessions inherit these.
       </p>
 
       <form action={saveModelPrefsAction} className="mt-8 space-y-6">
@@ -61,8 +57,8 @@ export default async function SettingsPage() {
       </form>
 
       <p className="mt-10 text-xs text-muted-foreground">
-        <Link href="/" className="underline underline-offset-2">
-          ← Home
+        <Link href="/professor" className="underline underline-offset-2">
+          ← Sessions
         </Link>
       </p>
     </div>

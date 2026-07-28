@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getProfessorActor } from "@/lib/mode";
 import {
   getBatchBoardSnapshot,
@@ -10,6 +10,7 @@ import {
 import { getCase } from "@/lib/case/registry";
 import { BatchBoardClient } from "./batch-board";
 import { CohortInsightsPanel } from "./cohort-insights";
+import { BatchFlowNav } from "@/app/professor/groups/batch-flow-nav";
 
 export default async function ProfessorBatchMonitorPage({
   params,
@@ -21,6 +22,10 @@ export default async function ProfessorBatchMonitorPage({
   const batch = await getGroupBatch(id);
   if (!batch) notFound();
 
+  if (batch.status === "draft") {
+    redirect(`/professor/groups/batch/${id}/edit`);
+  }
+
   const caseConfig = getCase(batch.caseSlug);
   const rows = await getBatchBoardSnapshot(id);
   const rollup = await getBatchCohortRollup(id);
@@ -31,6 +36,11 @@ export default async function ProfessorBatchMonitorPage({
       <Link href="/professor" className="text-sm underline">
         ← Sessions
       </Link>
+      <BatchFlowNav
+        batchId={batch.id}
+        current="monitor"
+        batchStatus={batch.status}
+      />
       <p className="mt-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Batch monitor
       </p>
@@ -38,6 +48,15 @@ export default async function ProfessorBatchMonitorPage({
       <p className="mt-2 text-sm text-muted-foreground">
         {caseConfig.title} · {batch.decisionCount} decisions ·{" "}
         {rows.length} groups
+      </p>
+
+      <p className="mt-4">
+        <Link
+          href={`/professor/groups/batch/${batch.id}/edit`}
+          className="border border-border px-3 py-1.5 text-sm"
+        >
+          Edit groups
+        </Link>
       </p>
 
       <div className="mt-10">

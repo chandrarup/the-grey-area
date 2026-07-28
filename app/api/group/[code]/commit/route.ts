@@ -149,12 +149,10 @@ export async function POST(
       if (updated && updated.status !== "committed") {
         await endSession(session.id);
       }
-      // Grade in background path — await so draft exists
-      try {
-        await gradeAndStore(session.id);
-      } catch (err) {
+      // Do not block the CEO commit response on a slow/failing grader.
+      void gradeAndStore(session.id).catch((err) => {
         console.error("[group-grade]", session.id, err);
-      }
+      });
     }
 
     const finalSession = await getGroupSession(session.id);

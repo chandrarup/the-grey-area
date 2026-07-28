@@ -5,6 +5,8 @@ import { useState, useTransition } from "react";
 import { joinWithCodeAction } from "@/app/group/actions";
 import { SEAT_ORDER, type SeatKey } from "@/lib/case/group-roles";
 import { storeSeatToken } from "@/lib/group/seat-token-client";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 export function HomeJoinPanel() {
   const router = useRouter();
@@ -25,15 +27,17 @@ export function HomeJoinPanel() {
         setError(null);
         startTransition(async () => {
           try {
-            const result = await joinWithCodeAction(
-              code.trim(),
-              seat,
-              name.trim(),
-            );
-            storeSeatToken(result.sessionId, result.token);
-            router.push(
-              `/group/${result.sessionId}?t=${encodeURIComponent(result.token)}`,
-            );
+            await withBusyBar(async () => {
+              const result = await joinWithCodeAction(
+                code.trim(),
+                seat,
+                name.trim(),
+              );
+              storeSeatToken(result.sessionId, result.token);
+              router.push(
+                `/group/${result.sessionId}?t=${encodeURIComponent(result.token)}`,
+              );
+            });
           } catch (err) {
             setError(err instanceof Error ? err.message : "Join failed");
           }
@@ -46,18 +50,21 @@ export function HomeJoinPanel() {
         onChange={(e) => setCode(e.target.value.toUpperCase())}
         placeholder="Session code (e.g. K7QP2M)"
         required
+        disabled={pending}
       />
       <input
         className={input}
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Your display name"
-        required
+        placeholder="Display name (optional)"
+        autoComplete="nickname"
+        disabled={pending}
       />
       <select
         className={input}
         value={seat}
         onChange={(e) => setSeat(e.target.value as SeatKey)}
+        disabled={pending}
       >
         {SEAT_ORDER.map((s) => (
           <option key={s} value={s}>
@@ -65,13 +72,14 @@ export function HomeJoinPanel() {
           </option>
         ))}
       </select>
-      <button
+      <BusyButton
         type="submit"
-        disabled={pending}
+        pending={pending}
+        pendingLabel="Joining…"
         className="bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-50"
       >
-        {pending ? "Joining…" : "Join session"}
-      </button>
+        Join session
+      </BusyButton>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </form>
   );

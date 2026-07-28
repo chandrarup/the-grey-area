@@ -147,6 +147,22 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
       ? countCompletePaths(caseConfig, caseConfig.startScene, 0, errors, "")
       : 0;
 
+  // Case-specific shape check for The Cost of Winning (three escalating decisions).
+  if (caseConfig.slug === "cost-of-winning") {
+    if (caseConfig.maxDepth !== 3) {
+      errors.push(`cost-of-winning maxDepth must be 3, got ${caseConfig.maxDepth}`);
+    }
+    const expected: Record<number, number> = { 1: 1, 2: 3, 3: 3 };
+    for (const [d, n] of Object.entries(expected)) {
+      const depth = Number(d);
+      if ((scenesPerDepth[depth] ?? 0) !== n) {
+        errors.push(
+          `cost-of-winning expected ${n} scene(s) at depth ${depth}, got ${scenesPerDepth[depth] ?? 0}`,
+        );
+      }
+    }
+  }
+
   return {
     slug: caseConfig.slug,
     sceneCount: scenes.length,

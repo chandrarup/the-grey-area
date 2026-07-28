@@ -9,6 +9,8 @@ import {
   saveProfessorNotesAction,
   startMeetingAction,
 } from "@/app/group/actions";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 type AssessmentShape = {
   epilogue: string;
@@ -77,6 +79,46 @@ export function SessionStaffControls(props: {
         Human seats joined: {props.humanSeatsOpened}/{props.humanSeatsTotal}
       </p>
 
+      {props.status === "committed" && !props.hasAssessment ? (
+        <div className="space-y-3 border border-border border-l-2 border-l-accent bg-surface p-4">
+          <p className="text-sm text-foreground">
+            This group finished, but AI feedback was not saved yet (grading may
+            have failed or still be running). Generate a draft, review it, then
+            release so students can see the debrief.
+          </p>
+          <BusyButton
+            type="button"
+            pending={pending}
+            pendingLabel="Grading… this can take up to a minute"
+            className="bg-accent px-4 py-2 text-sm text-accent-foreground"
+            onClick={() =>
+              startTransition(async () => {
+                try {
+                  await withBusyBar(async () => {
+                    await gradeGroupAction(props.sessionId);
+                    router.refresh();
+                  });
+                } catch (err) {
+                  setError(
+                    err instanceof Error ? err.message : "Grade failed",
+                  );
+                }
+              })
+            }
+          >
+            Generate AI grade
+          </BusyButton>
+        </div>
+      ) : null}
+
+      {props.status === "graded" && props.hasAssessment ? (
+        <p className="border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+          AI draft is ready below. Use{" "}
+          <span className="text-foreground">Release to group</span> when you
+          want students to see it.
+        </p>
+      ) : null}
+
       <div className="border border-border p-4">
         <label className="block text-sm">
           <span className="text-xs uppercase text-muted-foreground">
@@ -90,15 +132,18 @@ export function SessionStaffControls(props: {
             placeholder="Visible to the group only after you release the debrief."
           />
         </label>
-        <button
+        <BusyButton
           type="button"
-          disabled={pending}
+          pending={pending}
+          pendingLabel="Saving…"
           className="mt-3 border border-border px-3 py-1.5 text-xs disabled:opacity-50"
           onClick={() =>
             startTransition(async () => {
               try {
-                await saveProfessorNotesAction(props.sessionId, notes);
-                router.refresh();
+                await withBusyBar(async () => {
+                  await saveProfessorNotesAction(props.sessionId, notes);
+                  router.refresh();
+                });
               } catch (err) {
                 setError(
                   err instanceof Error ? err.message : "Could not save notes",
@@ -108,19 +153,22 @@ export function SessionStaffControls(props: {
           }
         >
           Save feedback
-        </button>
+        </BusyButton>
       </div>
 
       {props.status === "lobby" ? (
-        <button
+        <BusyButton
           type="button"
-          disabled={pending}
-          className="border border-border px-4 py-2 text-sm"
+          pending={pending}
+          pendingLabel="Starting…"
+          className="border border-border px-4 py-2 text-sm disabled:opacity-50"
           onClick={() =>
             startTransition(async () => {
               try {
-                await startMeetingAction(props.sessionId, true);
-                router.refresh();
+                await withBusyBar(async () => {
+                  await startMeetingAction(props.sessionId, true);
+                  router.refresh();
+                });
               } catch (err) {
                 setError(
                   err instanceof Error ? err.message : "Force start failed",
@@ -130,7 +178,7 @@ export function SessionStaffControls(props: {
           }
         >
           Force start meeting
-        </button>
+        </BusyButton>
       ) : null}
 
       {(props.status === "committed" ||
@@ -138,15 +186,18 @@ export function SessionStaffControls(props: {
         props.status === "released") && (
         <div className="space-y-4 border border-border p-4">
           <div className="flex flex-wrap gap-2">
-            <button
+            <BusyButton
               type="button"
-              disabled={pending}
+              pending={pending}
+              pendingLabel="Grading…"
               className="border border-border px-4 py-2 text-sm"
               onClick={() =>
                 startTransition(async () => {
                   try {
-                    await gradeGroupAction(props.sessionId);
-                    router.refresh();
+                    await withBusyBar(async () => {
+                      await gradeGroupAction(props.sessionId);
+                      router.refresh();
+                    });
                   } catch (err) {
                     setError(
                       err instanceof Error ? err.message : "Grade failed",
@@ -156,20 +207,24 @@ export function SessionStaffControls(props: {
               }
             >
               {props.hasAssessment ? "Re-run AI grade" : "Generate AI grade"}
-            </button>
-            <button
+            </BusyButton>
+            <BusyButton
               type="button"
-              disabled={pending || !props.hasAssessment}
+              pending={pending}
+              pendingLabel="Saving…"
+              disabled={!props.hasAssessment}
               className="border border-border px-4 py-2 text-sm disabled:opacity-50"
               onClick={() =>
                 startTransition(async () => {
                   try {
-                    await saveGroupAssessmentAction(
-                      props.sessionId,
-                      draft,
-                      notes,
-                    );
-                    router.refresh();
+                    await withBusyBar(async () => {
+                      await saveGroupAssessmentAction(
+                        props.sessionId,
+                        draft,
+                        notes,
+                      );
+                      router.refresh();
+                    });
                   } catch (err) {
                     setError(err instanceof Error ? err.message : "Save failed");
                   }
@@ -177,21 +232,25 @@ export function SessionStaffControls(props: {
               }
             >
               Save edits
-            </button>
-            <button
+            </BusyButton>
+            <BusyButton
               type="button"
-              disabled={pending || !props.hasAssessment}
+              pending={pending}
+              pendingLabel="Releasing…"
+              disabled={!props.hasAssessment}
               className="bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-50"
               onClick={() =>
                 startTransition(async () => {
                   try {
-                    await saveGroupAssessmentAction(
-                      props.sessionId,
-                      draft,
-                      notes,
-                    );
-                    await releaseGroupAction(props.sessionId, notes);
-                    router.refresh();
+                    await withBusyBar(async () => {
+                      await saveGroupAssessmentAction(
+                        props.sessionId,
+                        draft,
+                        notes,
+                      );
+                      await releaseGroupAction(props.sessionId, notes);
+                      router.refresh();
+                    });
                   } catch (err) {
                     setError(
                       err instanceof Error ? err.message : "Release failed",
@@ -201,7 +260,7 @@ export function SessionStaffControls(props: {
               }
             >
               Release to group
-            </button>
+            </BusyButton>
           </div>
 
           {props.hasAssessment ? (

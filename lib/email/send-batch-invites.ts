@@ -15,14 +15,16 @@ import {
   buildInviteText,
   type InviteEmailPayload,
 } from "@/lib/email/invite-template";
+import type { InviteEnvCheck } from "@/lib/email/types";
 import {
   appBaseUrlServer,
+  checkInviteEnv,
   emailFromAddress,
   emailTestTo,
   getResend,
 } from "@/lib/email/resend";
 
-const SEND_GAP_MS = 350; // ~3/sec — stay under provider rate limits
+const SEND_GAP_MS = 350;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -41,6 +43,7 @@ function payloadForRow(row: BatchRosterResultRow): InviteEmailPayload {
     caseTitle,
     roleKey: row.roleKey,
     groupCode: row.groupCode,
+    groupDisplayName: row.groupDisplayName,
     joinUrl: joinUrlForToken(row.joinToken),
   };
 }
@@ -53,22 +56,47 @@ export type InviteSendResult = {
   error?: string;
 };
 
+function formatResendError(error: unknown): string {
+  if (!error) return "Unknown Resend error";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object") {
+    const e = error as { message?: string; name?: string; statusCode?: number };
+    const parts = [
+      e.name,
+      e.statusCode ? `HTTP ${e.statusCode}` : null,
+      e.message,
+    ].filter(Boolean);
+    if (parts.length) return parts.join(": ");
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
 async function sendOneInvite(
   row: BatchRosterResultRow,
+  opts?: { overrideTo?: string | null; persistStatus?: boolean },
 ): Promise<InviteSendResult> {
   const payload = payloadForRow(row);
-  const testTo = emailTestTo();
+  const overrideTo = opts?.overrideTo?.trim() || null;
+  /** Global EMAIL_TEST_TO redirects class mail; explicit override is for "Send test to myself". */
+  const testTo = overrideTo || emailTestTo();
   const deliveredTo = testTo || row.email;
+  const persistStatus = opts?.persistStatus !== false && !overrideTo;
 
   if (testTo) {
     console.info(
-      `[invite] TEST MODE → ${testTo} (intended ${row.email}) participant=${row.participantId} role=${row.roleKey} group=${row.groupCode}`,
+      `[invite] → ${testTo} (intended ${row.email}) participant=${row.participantId} role=${row.roleKey} group=${row.groupDisplayName || row.groupCode}`,
     );
   }
 
   try {
     const resend = getResend();
-    const { error } = await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: emailFromAddress(),
       to: [deliveredTo],
       subject: buildInviteSubject(payload),
@@ -79,16 +107,25 @@ async function sendOneInvite(
         : undefined,
     });
     if (error) {
-      await setParticipantInviteStatus(row.participantId, "failed");
+      const message = formatResendError(error);
+      console.error(`[invite] FAILED intended=${row.email}`, error);
+      if (persistStatus) {
+        await setParticipantInviteStatus(row.participantId, "failed", message);
+      }
       return {
         participantId: row.participantId,
         intendedEmail: row.email,
         deliveredTo,
         status: "failed",
-        error: error.message,
+        error: message,
       };
     }
-    await setParticipantInviteStatus(row.participantId, "sent");
+    console.info(
+      `[invite] SENT id=${data?.id ?? "?"} intended=${row.email} to=${deliveredTo}`,
+    );
+    if (persistStatus) {
+      await setParticipantInviteStatus(row.participantId, "sent", null);
+    }
     return {
       participantId: row.participantId,
       intendedEmail: row.email,
@@ -96,8 +133,11 @@ async function sendOneInvite(
       status: "sent",
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await setParticipantInviteStatus(row.participantId, "failed");
+    const message = formatResendError(err);
+    console.error(`[invite] EXCEPTION intended=${row.email}`, err);
+    if (persistStatus) {
+      await setParticipantInviteStatus(row.participantId, "failed", message);
+    }
     return {
       participantId: row.participantId,
       intendedEmail: row.email,
@@ -108,15 +148,28 @@ async function sendOneInvite(
   }
 }
 
+export function getInvitePreflight(): InviteEnvCheck {
+  return checkInviteEnv();
+}
+
 export async function sendBatchInvites(
   batchId: string,
   opts?: { onlyFailed?: boolean; participantIds?: string[] },
 ): Promise<{
   results: InviteSendResult[];
   roster: BatchRosterResultRow[];
+  preflight: InviteEnvCheck;
 }> {
+  const preflight = checkInviteEnv();
+  if (!preflight.ok) {
+    throw new Error(preflight.message ?? "Email is not configured.");
+  }
+
   const batch = await getGroupBatch(batchId);
   if (!batch) throw new Error("Batch not found");
+  if (batch.status === "draft") {
+    throw new Error("Confirm groups first — this batch has no sessions yet.");
+  }
 
   let roster = await listBatchRoster(batchId);
   roster = roster.filter((r) => r.email.trim().length > 0);
@@ -127,28 +180,43 @@ export async function sendBatchInvites(
   } else if (opts?.onlyFailed) {
     roster = roster.filter((r) => r.inviteStatus === "failed");
   } else {
-    // Default: pending + failed (skip already sent unless explicit resend)
     roster = roster.filter(
       (r) => r.inviteStatus === "pending" || r.inviteStatus === "failed",
     );
   }
 
+  if (roster.length === 0) {
+    return {
+      results: [],
+      roster: await listBatchRoster(batchId),
+      preflight,
+    };
+  }
+
   const results: InviteSendResult[] = [];
   for (let i = 0; i < roster.length; i++) {
     const row = roster[i]!;
-    results.push(await sendOneInvite(row));
+    results.push(await sendOneInvite(row, { persistStatus: true }));
     if (i < roster.length - 1) await sleep(SEND_GAP_MS);
   }
 
-  return { results, roster: await listBatchRoster(batchId) };
+  return {
+    results,
+    roster: await listBatchRoster(batchId),
+    preflight,
+  };
 }
 
 export async function resendParticipantInvite(
   participantId: string,
 ): Promise<InviteSendResult> {
+  const preflight = checkInviteEnv();
+  if (!preflight.ok) {
+    throw new Error(preflight.message ?? "Email is not configured.");
+  }
   const target = await getParticipantInviteTarget(participantId);
   if (!target) throw new Error("Participant not found or missing email/token");
-  const row = {
+  const row: BatchRosterResultRow = {
     participantId: target.participant.id,
     name:
       target.participant.assignedName ??
@@ -156,12 +224,49 @@ export async function resendParticipantInvite(
       target.participant.roleKey,
     email: target.participant.assignedEmail!,
     groupCode: target.session.code,
+    groupDisplayName:
+      target.session.displayName?.trim() || target.session.code,
     sessionId: target.session.id,
     caseSlug: target.session.caseSlug,
     roleKey: target.participant.roleKey,
     joinToken: target.participant.joinToken!,
     inviteStatus: target.participant.inviteStatus,
+    inviteError: target.participant.inviteError ?? null,
     invitedAt: target.participant.invitedAt?.toISOString() ?? null,
   };
-  return sendOneInvite(row);
+  return sendOneInvite(row, { persistStatus: true });
+}
+
+/**
+ * Send one invite payload to a test inbox (EMAIL_TEST_TO or override),
+ * using the first human seat in the batch as the template.
+ * Does not update that seat's invite_status.
+ */
+export async function sendTestInvite(
+  batchId: string,
+  toAddress?: string | null,
+): Promise<InviteSendResult & { preflight: InviteEnvCheck }> {
+  const preflight = checkInviteEnv();
+  if (!preflight.ok) {
+    throw new Error(preflight.message ?? "Email is not configured.");
+  }
+  const to = toAddress?.trim() || emailTestTo();
+  if (!to) {
+    throw new Error(
+      "No test address. Set EMAIL_TEST_TO or type an address in the test field.",
+    );
+  }
+
+  const roster = (await listBatchRoster(batchId)).filter(
+    (r) => r.email.trim().length > 0,
+  );
+  if (roster.length === 0) {
+    throw new Error("No roster seats with email to use as a test template.");
+  }
+  const row = roster[0]!;
+  const result = await sendOneInvite(row, {
+    overrideTo: to,
+    persistStatus: false,
+  });
+  return { ...result, preflight };
 }

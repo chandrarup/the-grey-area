@@ -1,16 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MarkdownBody } from "@/app/components/markdown-body";
 
 type Page = { title: string; body: string };
 
-/** Shared (non-confidential) briefing reader for the group lobby. */
-export function SharedBriefingPager({ pages }: { pages: Page[] }) {
+/**
+ * Shared (non-confidential) briefing reader.
+ * Fires onComplete once when the learner reaches the last page (or clicks Continue).
+ */
+export function SharedBriefingPager({
+  pages,
+  storageKey,
+  onComplete,
+}: {
+  pages: Page[];
+  /** Persist completion across refresh (e.g. sessionId:roleKey) */
+  storageKey?: string;
+  onComplete?: () => void;
+}) {
   const [index, setIndex] = useState(0);
+  const last = pages.length > 0 && index === pages.length - 1;
+
+  useEffect(() => {
+    if (!last) return;
+    onComplete?.();
+    if (storageKey) {
+      try {
+        sessionStorage.setItem(`tga_brief_done:${storageKey}`, "1");
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [last, onComplete, storageKey]);
+
   if (pages.length === 0) return null;
   const page = pages[index]!;
-  const last = index === pages.length - 1;
 
   return (
     <div>
@@ -40,10 +65,19 @@ export function SharedBriefingPager({ pages }: { pages: Page[] }) {
           </button>
         ) : (
           <p className="self-center text-xs text-muted-foreground">
-            End of shared briefing
+            End of shared briefing — your confidential brief is below.
           </p>
         )}
       </div>
     </div>
   );
+}
+
+/** Returns true if this browser already finished the shared briefing for the key. */
+export function hasCompletedBriefing(storageKey: string): boolean {
+  try {
+    return sessionStorage.getItem(`tga_brief_done:${storageKey}`) === "1";
+  } catch {
+    return false;
+  }
 }

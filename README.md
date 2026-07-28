@@ -1,8 +1,12 @@
-# The Grey Area
+# The Cost of Winning
 
-The Grey Area is **Stage 1: AI-Powered Executive Simulation** of a three-stage ethics program, the Transformational Ethics Experience for the CaliBaja North American Leadership Academy (Stage 2 = a facilitated Ethics Workshop; Stage 3 = an ongoing Ethics Learning Community — those are delivered outside this app). This app immerses participants in the case **The Cost of Winning** and gives AI-driven feedback on their decisions, biases and blind spots.
+> **Contributors / agents:** read [`PROJECT.md`](./PROJECT.md) first, then [`MEMORY.md`](./MEMORY.md).
 
-The Grey Area is an AI ethics simulation where participants play solo against AI executives or join a live multiplayer executive meeting, each student in an assigned role. Professors create sessions (or whole class batches), share join links, monitor progress, grade with AI assistance, and release feedback. It is Stage 1 of the CaliBaja academy program; Stages 2 and 3 happen outside this app.
+**The Cost of Winning** is Stage 1: AI-Powered Executive Simulation of a three-stage ethics program, the Transformational Ethics Experience for the CaliBaja North American Leadership Academy (Stage 2 = a facilitated Ethics Workshop; Stage 3 = an ongoing Ethics Learning Community — those are delivered outside this app). This app immerses participants in the case and gives AI-driven feedback on their decisions, biases and blind spots.
+
+It is an AI ethics simulation: play solo against AI executives, or join a live multiplayer executive meeting where each student has an assigned role. Instructors create sessions (or whole-class batches), share join links, monitor progress, grade with AI assistance, and release feedback.
+
+> Internal repo / package name remains `the-grey-area`; that name must not appear in user-facing product copy.
 
 ## How this was built
 
@@ -25,7 +29,7 @@ Cases are authored as typed config in `lib/case/` so the simulation engine stays
 
 **Prerequisites:** Node.js **20+**, npm, and a [Supabase](https://supabase.com) project (Postgres + Realtime).
 
-1. **Clone and install**
+1. **Install**
 
    ```bash
    npm install
@@ -37,18 +41,20 @@ Cases are authored as typed config in `lib/case/` so the simulation engine stays
    cp .env.example .env.local
    ```
 
-   Fill in at least:
-
    | Variable | Purpose |
    |----------|---------|
-   | `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (URI, port 6543). Used by Drizzle migrations, seed, and server queries. |
+   | `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (URI, port 6543) |
    | `NEXT_PUBLIC_SUPABASE_URL` | Project **Settings → API → Project URL** |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project **Settings → API → anon public** (browser Realtime subscriptions) |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Project **Settings → API → service_role** — **server only**, never `NEXT_PUBLIC_` |
-   | `DEV_IDENTITY` | Set to `true` locally to enable the header mode toggle (Admin / Professor / Student) |
-   | `GEMINI_API_KEY` | At least one LLM key (also `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` as needed) |
-   | `NEXT_PUBLIC_APP_BASE_URL` | Optional locally; canonical URL for join links in emails (e.g. production origin) |
-   | `RESEND_API_KEY`, `EMAIL_FROM` | Required only for batch email invites; optional `EMAIL_TEST_TO` redirects all mail to one inbox for testing |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project **Settings → API → anon public** |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Project **Settings → API → service_role** — server only |
+   | `DEV_IDENTITY` | `true` locally enables a small **Switch role** control in area headers |
+   | `GEMINI_API_KEY` | At least one LLM key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` as needed) |
+   | `NEXT_PUBLIC_APP_BASE_URL` | Canonical URL for join links in emails (**required** for batch invites) |
+   | `RESEND_API_KEY` | Resend API key for batch seat invites |
+   | `EMAIL_FROM` | Verified sender, e.g. `The Cost of Winning <invites@yourdomain.com>` (**required** — no silent default) |
+   | `EMAIL_TEST_TO` | Optional: redirect every invite to this inbox while testing (intended recipient is logged) |
+
+   **Resend sandbox vs class mail:** Resend’s default sandbox from-address (`onboarding@resend.dev`) can only deliver to the Resend account owner’s own email. Other recipients fail. To email a real class, [verify a domain in Resend](https://resend.com/domains), then set `EMAIL_FROM` to an address on that domain. Use **Send test to myself** on the invites screen (or `EMAIL_TEST_TO`) to verify configuration before mailing the roster.
 
 3. **Database**
 
@@ -57,88 +63,77 @@ Cases are authored as typed config in `lib/case/` so the simulation engine stays
    npm run db:seed
    ```
 
-   `db:push` is available as a dev shortcut if you prefer pushing schema without migration files.
-
 4. **Start**
 
    ```bash
    npm run dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000).
+   Open [http://localhost:3000](http://localhost:3000) — the marketing home. Choose **I'm a student** or **I'm an instructor**.
 
-5. **Useful checks**
+5. **Checks**
 
    ```bash
-   npm run validate:cases   # validate case config in lib/case/
-   npm run db:smoke         # quick DB connectivity smoke test
+   npm run validate:cases
+   npm run db:smoke
    ```
 
-### Seeing the professor / admin side locally
+### Local instructor / admin access
 
-With `DEV_IDENTITY=true`, use the **Admin / Professor / Student** toggle in the site header. Professor mode maps to the seeded profile `professor@dev.local`; admin maps to `admin@dev.local`. Run `npm run db:seed` first so those profiles exist.
+With `DEV_IDENTITY=true`, use **Switch role** in the student or instructor header (Admin / Professor / Student). Seeded profiles come from `npm run db:seed` (`professor@dev.local`, `admin@dev.local`, etc.).
 
-Alternatively, promote a profile in SQL:
+Or promote in SQL:
 
 ```sql
 UPDATE profiles SET role = 'professor' WHERE email = 'your@email.test';
 ```
 
-The `/dev/identity` page (also gated by `DEV_IDENTITY=true`) lets you pick any seeded profile via cookie for flows that use `requireProfile()`.
+`/dev/identity` (also gated by `DEV_IDENTITY`) picks any seeded profile by cookie.
 
 ## Using the product
 
 ### For students
 
-**Single player:** Switch to **Student** in the header, then follow the simulation flow — meet the leadership team, read the case briefing, work through decisions in conversation with AI executives, and receive an AI-generated debrief on your reasoning.
+From the home page, choose **I'm a student**, then **Start solo play** — meet the team, read the briefing, work through decisions with AI executives, and get feedback.
 
-**Group:** Open the unique link your professor sent (`/?join=…` or `/group/join?token=…`). Read your confidential role brief, enter your name, mark ready, and join the live meeting. Discuss in character; the **CEO** seat commits each decision. After the meeting, debrief appears when the professor releases it.
+For a live meeting, open the unique invite link from your instructor (`/?join=…`). You land on join, read your confidential brief, mark ready, and take part; the CEO commits decisions.
 
-### For professors
+### For instructors
 
-Switch to **Professor** in the header, then go to `/professor`.
-
-- **Create a session** — choose decision count (1–5), roleplay/grader models, and which seats are Human vs AI; share per-seat join links.
-- **Create groups from roster** (`/professor/groups/new-batch`) — upload an Excel/CSV roster, auto-split into balanced groups, confirm, copy links or **send email invites** (Resend).
-- **Monitor a batch** (`/professor/groups/batch/[id]`) — live board per group (progress, messages, stalled flag), cohort rollup, optional AI cohort insights.
-- **Session detail** (`/professor/groups/[id]`) — live lobby, read-only transcript, path taken, AI assessment with readiness bars, professor feedback notes, generate grade, edit, and **release** to the group.
-- **Solo runs** (`/professor/runs`) — review individual student simulation runs.
-- **Settings** (`/settings`) — default LLM models for roleplay and grading.
-
-Sessions expire after **30 minutes** in lobby or active meeting unless extended in code.
+Choose **I'm an instructor**. Create a session or a roster batch (Create → Edit groups → Send invites → Monitor — you can move between those steps at any time). Groups get memorable names (e.g. Harbor Table); the short code stays as a backup join id. Share per-seat links or email invites, monitor the batch board, open a group for live transcript and assessment, write feedback, and release the debrief. Solo student runs live under **Solo runs**. Model defaults are under **Settings**.
 
 ## Project structure
 
 ```
 app/                    Next.js App Router — pages, API routes, server actions
-  simulation/           Solo student flow (briefing, decisions, debrief)
-  group/                Multiplayer join + live meeting UI
-  professor/            Professor home, sessions, batches, grading tools
+  student/              Student entry hub
+  simulation/           Solo student flow
+  group/                Multiplayer join + live meeting
+  professor/            Instructor sessions, batches, grading
   api/group/[code]/     Group REST: state, messages, commits, AI turns
-  api/professor/        Professor APIs (e.g. batch board snapshot)
-lib/case/               Case config ("The Cost of Winning"), types, validation
-lib/llm/                Single schema-validated LLM entry point + model registry
+lib/case/               Case config, types, validation
+lib/llm/                Schema-validated LLM entry point
 lib/db/                 Drizzle schema, queries, migrations, seed
-lib/group/              Seat auth, roster parsing, batch planning, AI turn logic
-lib/realtime/           Supabase Realtime hooks and shared state types
-lib/engine/             Scene director, solo/group grading
-lib/email/              Resend client and batch invite templates
+lib/group/              Seat auth, roster, batch planning
+lib/realtime/           Supabase Realtime hooks
+lib/auth/role-guard.ts  Role decision for area layouts (swap for Supabase Auth here)
+lib/email/              Resend invite templates
 drizzle/                SQL migrations
 ```
 
 ## Status & roadmap
 
-Single-player and live multiplayer work today on **dev-identity** (header mode toggle + per-seat join tokens). Batch roster import, Resend email invites, and the batch monitor board are implemented but still demo-grade alongside anon Realtime reads. **Real Supabase Auth**, membership-scoped RLS, and production hardening are the main next milestones.
+Single-player and live multiplayer work on **dev-identity** (header switch + join tokens). Batch roster import, email invites, and the batch monitor are implemented but demo-grade with anon Realtime reads. **Real Supabase Auth**, membership-scoped RLS, and production hardening are the main next milestones.
 
 ## Deploying (Vercel)
 
-Set the same environment variables in **Project → Settings → Environment Variables**. Use the Session pooler for `DATABASE_URL`. Omit or set `DEV_IDENTITY=false` in production unless you intentionally keep the demo toggle. After first deploy, run `npm run db:migrate` against the production database (locally with production `DATABASE_URL`, or via Supabase SQL).
+Set the same environment variables. Use the Session pooler for `DATABASE_URL`. Omit or set `DEV_IDENTITY=false` in production. After first deploy, run `npm run db:migrate` against the production database.
 
 | Script | Purpose |
 |--------|---------|
 | `npm run db:generate` | Generate SQL migrations from `lib/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations |
 | `npm run db:push` | Push schema directly (dev convenience) |
-| `npm run db:seed` | Upsert *The Cost of Winning* + dev profiles |
+| `npm run db:seed` | Upsert the case + dev profiles |
 | `npm run validate:cases` | Validate case configs |
 | `npm run db:smoke` | DB smoke test |

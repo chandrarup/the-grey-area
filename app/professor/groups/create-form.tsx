@@ -5,13 +5,17 @@ import { useTransition } from "react";
 import { createSessionAction } from "@/app/group/actions";
 import { SEAT_ORDER } from "@/lib/case/group-roles";
 import { MODELS } from "@/lib/llm/models";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 export function CreateSessionForm({
   defaultRoleplayModel,
   defaultGraderModel,
+  showModelPickers = false,
 }: {
   defaultRoleplayModel: string;
   defaultGraderModel: string;
+  showModelPickers?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -23,12 +27,15 @@ export function CreateSessionForm({
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
         startTransition(async () => {
-          const id = await createSessionAction(fd);
-          router.push(`/professor/groups/${id}`);
+          await withBusyBar(async () => {
+            const id = await createSessionAction(fd);
+            router.push(`/professor/groups/${id}`);
+          });
         });
       }}
     >
-      <label className="text-xs uppercase tracking-wide text-muted-foreground">
+      <h2 className="text-sm font-medium text-foreground">New session</h2>
+      <label className="mt-4 block text-xs uppercase tracking-wide text-muted-foreground">
         How many decisions? (1–5)
       </label>
       <p className="mt-1 text-xs text-muted-foreground">
@@ -39,44 +46,51 @@ export function CreateSessionForm({
         type="number"
         min={1}
         max={5}
-        defaultValue={5}
+        defaultValue={3}
         className="mt-2 block w-24 border border-border bg-background px-3 py-2 text-sm"
       />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">
-            Roleplay model
-          </span>
-          <select
-            name="roleplayModel"
-            defaultValue={defaultRoleplayModel}
-            className="mt-2 block w-full border border-border bg-background px-2 py-2 text-sm"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">
-            Grader model
-          </span>
-          <select
-            name="graderModel"
-            defaultValue={defaultGraderModel}
-            className="mt-2 block w-full border border-border bg-background px-2 py-2 text-sm"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {showModelPickers ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Roleplay model
+            </span>
+            <select
+              name="roleplayModel"
+              defaultValue={defaultRoleplayModel}
+              className="mt-2 block w-full border border-border bg-background px-2 py-2 text-sm"
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Grader model
+            </span>
+            <select
+              name="graderModel"
+              defaultValue={defaultGraderModel}
+              className="mt-2 block w-full border border-border bg-background px-2 py-2 text-sm"
+            >
+              {MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : (
+        <>
+          <input type="hidden" name="roleplayModel" value={defaultRoleplayModel} />
+          <input type="hidden" name="graderModel" value={defaultGraderModel} />
+        </>
+      )}
 
       <p className="mt-6 text-xs uppercase tracking-wide text-muted-foreground">
         Seats — Human gets a join link; AI fills the role
@@ -109,14 +123,15 @@ export function CreateSessionForm({
         ))}
       </div>
 
-      <button
+      <BusyButton
         type="submit"
-        disabled={pending}
+        pending={pending}
+        pendingLabel="Creating…"
         title={pending ? "Creating session…" : "Create session"}
         className="interactive mt-6 border border-transparent bg-accent px-5 py-2.5 text-sm text-accent-foreground disabled:opacity-50"
       >
-        {pending ? "Creating…" : "Create session"}
-      </button>
+        Create session
+      </BusyButton>
     </form>
   );
 }

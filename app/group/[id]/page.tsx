@@ -13,7 +13,7 @@ import {
   type SeatKey,
 } from "@/lib/case/group-roles";
 import { isSessionExpired } from "@/lib/group-session-lifetime";
-import { SharedBriefingPager } from "@/app/components/group/shared-briefing-pager";
+import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { GroupMeetingClient } from "./meeting-client";
 
@@ -80,174 +80,200 @@ export default async function GroupSessionPage({
 
   if (session.status === "lobby") {
     const scene0 = caseConfig.scenes[caseConfig.startScene];
+    const briefKey = `${session.id}:${roleKey}`;
     return (
       <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Lobby · {session.code} · your seat: {brief.title}
+          Lobby · {session.displayName?.trim() || session.code} · your seat:{" "}
+          {brief.title}
+          {session.displayName?.trim() ? (
+            <span className="font-mono"> · code {session.code}</span>
+          ) : null}
         </p>
         <h1 className="mt-2 font-serif text-3xl text-foreground">
           Prepare as {brief.name}
         </h1>
 
-        <section className="mt-10">
-          <SharedBriefingPager pages={caseConfig.briefingPages} />
-        </section>
-
-        <section className="mt-12 border-l-2 border-accent bg-surface px-5 py-5">
-          <p className="text-xs uppercase tracking-wide text-accent">
-            CONFIDENTIAL — do not share.
-          </p>
-          <h2 className="mt-2 font-serif text-2xl text-foreground">
-            {brief.name}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{brief.title}</p>
-
-          <div className="mt-6 space-y-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Your stance
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-foreground">
-                {brief.initialStance}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Central objective
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-foreground">
-                {brief.centralObjective}
-              </p>
-            </div>
-          </div>
-
-          <dl className="mt-6 grid gap-3 sm:grid-cols-2">
-            {Object.entries(brief.atAGlance).map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {k}
-                </dt>
-                <dd className="mt-1 text-sm text-foreground">{v}</dd>
-              </div>
-            ))}
-          </dl>
-
-          {brief.rebuttals.length > 0 ? (
-            <div className="mt-6">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                If you hear… / You can respond…
-              </p>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
-                      <th className="py-2 pr-3 font-medium">If you hear</th>
-                      <th className="py-2 font-medium">You can respond</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {brief.rebuttals.map((r) => (
-                      <tr key={r.ifYouHear} className="border-b border-border/60 align-top">
-                        <td className="py-2 pr-3 text-muted-foreground">
-                          {r.ifYouHear}
-                        </td>
-                        <td className="py-2 text-foreground">{r.youCanRespond}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : null}
-
-          {brief.openingStatement ? (
-            <div className="mt-6 border border-border bg-background px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Opening statement
-              </p>
-              <p className="mt-2 text-sm italic leading-relaxed text-foreground">
-                {brief.openingStatement}
-              </p>
-            </div>
-          ) : null}
-
-          <p className="mt-6 text-sm text-foreground">
-            <span className="font-medium">Success looks like:</span>{" "}
-            {brief.successCondition}
-          </p>
-
-          {brief.privateNote ? (
-            <p className="mt-6 border-l-2 border-accent pl-3 text-sm italic text-muted-foreground">
-              Private note: {brief.privateNote}
+        <LobbyBriefingGate
+          storageKey={briefKey}
+          pages={caseConfig.briefingPages}
+        >
+          <section className="border-l-2 border-accent bg-surface px-5 py-5">
+            <p className="text-xs uppercase tracking-wide text-accent">
+              CONFIDENTIAL — do not share. · {brief.title}
             </p>
-          ) : null}
+            <h2 className="mt-2 font-serif text-2xl text-foreground">
+              {brief.name}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">{brief.title}</p>
 
-          {roleKey === "ceo" && scene0 ? (
-            <div className="mt-8">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Decision options (CEO only)
-              </p>
-              <ul className="mt-3 space-y-2">
-                {scene0.options.map((o) => (
-                  <li
-                    key={o.key}
-                    className="border border-border bg-background px-3 py-2 text-sm"
-                  >
-                    {o.label}
-                  </li>
-                ))}
-              </ul>
+            <div className="mt-6 space-y-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Your stance
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground">
+                  {brief.initialStance}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Central objective
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground">
+                  {brief.centralObjective}
+                </p>
+              </div>
             </div>
-          ) : null}
-        </section>
 
-        <section className="mt-10">
-          <h2 className="text-sm font-medium text-foreground">
-            Who else is in the meeting
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Names and titles only — no other role briefs.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm">
-            {publicRoster.map((p) => (
-              <li key={p.id}>
-                <span className="text-foreground">{p.name}</span>
-                <span className="text-muted-foreground"> — {p.title}</span>
-                {p.isAi ? (
-                  <span className="text-muted-foreground"> (AI)</span>
-                ) : null}
-                {p.isYou ? (
-                  <span className="text-muted-foreground"> (you)</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
+            <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+              {Object.entries(brief.atAGlance).map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {k}
+                  </dt>
+                  <dd className="mt-1 text-sm text-foreground">{v}</dd>
+                </div>
+              ))}
+            </dl>
 
-        <GroupMeetingClient
-          mode="lobby"
-          sessionId={session.id}
-          sessionCode={session.code}
-          roleKey={roleKey}
-          participantId={me.id}
-          joinToken={me.joinToken ?? seatToken ?? ""}
-          isReady={Boolean(me.isReady)}
-          isCeo={roleKey === "ceo"}
-          status={session.status}
-          decisionsMade={session.decisionsMade}
-          decisionCount={session.decisionCount}
-          scene={null}
-          cast={caseConfig.cast}
-          sceneCast={[]}
-          messages={[]}
-          options={[]}
-        />
+            {brief.rebuttals.length > 0 ? (
+              <div className="mt-6">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  If you hear… / You can respond…
+                </p>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                        <th className="py-2 pr-3 font-medium">If you hear</th>
+                        <th className="py-2 font-medium">You can respond</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brief.rebuttals.map((r) => (
+                        <tr
+                          key={r.ifYouHear}
+                          className="border-b border-border/60 align-top"
+                        >
+                          <td className="py-2 pr-3 text-muted-foreground">
+                            {r.ifYouHear}
+                          </td>
+                          <td className="py-2 text-foreground">
+                            {r.youCanRespond}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {brief.openingStatement ? (
+              <div className="mt-6 border border-border bg-background px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Opening statement
+                </p>
+                <p className="mt-2 text-sm italic leading-relaxed text-foreground">
+                  {brief.openingStatement}
+                </p>
+              </div>
+            ) : null}
+
+            <p className="mt-6 text-sm text-foreground">
+              <span className="font-medium">Success looks like:</span>{" "}
+              {brief.successCondition}
+            </p>
+
+            {brief.privateNote ? (
+              <p className="mt-6 border-l-2 border-accent pl-3 text-sm italic text-muted-foreground">
+                Private note: {brief.privateNote}
+              </p>
+            ) : null}
+
+            {roleKey === "ceo" && scene0 ? (
+              <div className="mt-8">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Decision options (CEO only)
+                </p>
+                <ul className="mt-3 space-y-2">
+                  {scene0.options.map((o) => (
+                    <li
+                      key={o.key}
+                      className="border border-border bg-background px-3 py-2 text-sm"
+                    >
+                      {o.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="mt-10">
+            <h2 className="text-sm font-medium text-foreground">
+              Who else is in the meeting
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Names and titles only — no other role briefs.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm">
+              {publicRoster.map((p) => (
+                <li key={p.id}>
+                  <span className="text-foreground">{p.name}</span>
+                  <span className="text-muted-foreground"> — {p.title}</span>
+                  {p.isAi ? (
+                    <span className="text-muted-foreground"> (AI)</span>
+                  ) : null}
+                  {p.isYou ? (
+                    <span className="text-muted-foreground"> (you)</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <GroupMeetingClient
+            mode="lobby"
+            sessionId={session.id}
+            sessionCode={session.code}
+            roleKey={roleKey}
+            participantId={me.id}
+            joinToken={me.joinToken ?? seatToken ?? ""}
+            isReady={Boolean(me.isReady)}
+            isCeo={roleKey === "ceo"}
+            status={session.status}
+            decisionsMade={session.decisionsMade}
+            decisionCount={session.decisionCount}
+            scene={null}
+            cast={caseConfig.cast}
+            sceneCast={[]}
+            messages={[]}
+            options={[]}
+          />
+        </LobbyBriefingGate>
       </div>
     );
   }
 
-  const sceneId = session.currentSceneId;
-  const scene = sceneId ? caseConfig.scenes[sceneId] : null;
+  const sceneIdRaw = session.currentSceneId;
+  let sceneId =
+    sceneIdRaw && caseConfig.scenes[sceneIdRaw]
+      ? sceneIdRaw
+      : caseConfig.startScene;
+  let scene = caseConfig.scenes[sceneId] ?? null;
+
+  // Repair orphaned scene ids left over from case rewrites (e.g. 5→3 scenes).
+  if (
+    session.status === "active" &&
+    (!sceneIdRaw || !caseConfig.scenes[sceneIdRaw])
+  ) {
+    sceneId = caseConfig.startScene;
+    scene = caseConfig.scenes[sceneId] ?? null;
+    const { repairGroupSessionScene } = await import("@/lib/db/group-queries");
+    await repairGroupSessionScene(session.id, sceneId).catch(() => null);
+  }
 
   if (
     session.status === "released" &&
@@ -265,7 +291,7 @@ export default async function GroupSessionPage({
     return (
       <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Released debrief · {session.code}
+          Released debrief · {session.displayName?.trim() || session.code}
         </p>
         <h1 className="mt-2 font-serif text-3xl text-foreground">
           Group debrief
@@ -355,7 +381,10 @@ export default async function GroupSessionPage({
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">
-        Meeting · {session.code}
+        Meeting · {session.displayName?.trim() || session.code}
+        {session.displayName?.trim() ? (
+          <span className="font-mono"> · code {session.code}</span>
+        ) : null}
       </p>
 
       <GroupMeetingClient

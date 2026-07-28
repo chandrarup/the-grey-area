@@ -29,6 +29,8 @@ import {
   seatHeaders,
   storeSeatToken,
 } from "@/lib/group/seat-token-client";
+import { LoadingSpinner } from "@/app/components/loading-spinner";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 type Msg = RealtimeMessage;
 
@@ -82,6 +84,7 @@ export function GroupMeetingClient(props: {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [committing, setCommitting] = useState(false);
   const [status, setStatus] = useState(props.status);
   const [isReady, setIsReady] = useState(props.isReady);
   const [messages, setMessages] = useState<Msg[]>(props.messages);
@@ -102,6 +105,31 @@ export function GroupMeetingClient(props: {
   const sceneIdRef = useRef(props.scene?.id ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const tickRef = useRef<(() => Promise<void>) | null>(null);
+  const stickToBottomRef = useRef(true);
+  const scrollInstantRef = useRef(false);
+  const [animateIds, setAnimateIds] = useState<Set<number>>(() => new Set());
+  const pendingOptimisticRef = useRef<{
+    id: number;
+    content: string;
+    roleKey: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setStatus(props.status);
+    setIsReady(props.isReady);
+    if (props.scene?.id) {
+      setSceneId(props.scene.id);
+      sceneIdRef.current = props.scene.id;
+    }
+  }, [props.status, props.isReady, props.scene?.id]);
+
+  // Active but no scene payload — force a refresh so chat can mount.
+  useEffect(() => {
+    if (props.mode === "meeting" && status === "active" && !props.scene) {
+      const t = setTimeout(() => router.refresh(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [props.mode, status, props.scene, router]);
 
   useEffect(() => {
     const fromUrl =
@@ -125,7 +153,16 @@ export function GroupMeetingClient(props: {
     setMessages((prev) => {
       const map = new Map(prev.filter((m) => m.id > 0).map((m) => [m.id, m]));
       for (const m of props.messages) map.set(m.id, m);
-      return Array.from(map.values()).sort((a, b) => a.id - b.id);
+      // Drop optimistic rows once a matching confirmed message exists
+      const confirmed = Array.from(map.values());
+      const temps = prev.filter((m) => m.id < 0);
+      const keptTemps = temps.filter(
+        (t) =>
+          !confirmed.some(
+            (c) => c.content === t.content && c.roleKey === t.roleKey,
+          ),
+      );
+      return [...confirmed, ...keptTemps].sort((a, b) => a.id - b.id);
     });
     cursorRef.current = Math.max(
       cursorRef.current,
@@ -133,16 +170,45 @@ export function GroupMeetingClient(props: {
     );
   }, [props.messages]);
 
-  const mergeMessage = useCallback((m: Msg) => {
+  const mergeMessage = useCallback((m: Msg, opts?: { animate?: boolean }) => {
     setMessages((prev) => {
-      if (prev.some((x) => x.id === m.id)) return prev;
-      // Replace optimistic temp ids
-      const withoutTemp = prev.filter(
-        (x) => !(x.id < 0 && x.content === m.content && x.roleKey === m.roleKey),
-      );
-      return [...withoutTemp, m].sort((a, b) => a.id - b.id);
+      if (m.id > 0) {
+        const existingIdx = prev.findIndex((x) => x.id === m.id);
+        if (existingIdx >= 0) {
+          const next = [...prev];
+          next[existingIdx] = m;
+          return next;
+        }
+        // Replace optimistic placeholder in place
+        const tempIdx = prev.findIndex(
+          (x) =>
+            x.id < 0 &&
+            x.content === m.content &&
+            x.roleKey === m.roleKey,
+        );
+        if (tempIdx >= 0) {
+          const next = [...prev];
+          next[tempIdx] = m;
+          if (pendingOptimisticRef.current?.id === prev[tempIdx]!.id) {
+            pendingOptimisticRef.current = null;
+          }
+          return next;
+        }
+        return [...prev, m].sort((a, b) => a.id - b.id);
+      }
+      // Optimistic insert
+      return [...prev, m];
     });
-    if (m.id > 0) cursorRef.current = Math.max(cursorRef.current, m.id);
+    if (m.id > 0) {
+      cursorRef.current = Math.max(cursorRef.current, m.id);
+      if (opts?.animate) {
+        setAnimateIds((prev) => {
+          const next = new Set(prev);
+          next.add(m.id);
+          return next;
+        });
+      }
+    }
   }, []);
 
   const mergeState = useCallback(
@@ -158,9 +224,19 @@ export function GroupMeetingClient(props: {
 
       if (state.messages.length > 0) {
         setMessages((prev) => {
-          const map = new Map(prev.filter((m) => m.id > 0).map((m) => [m.id, m]));
+          const map = new Map(
+            prev.filter((m) => m.id > 0).map((m) => [m.id, m]),
+          );
           for (const m of state.messages) map.set(m.id, m);
-          return Array.from(map.values()).sort((a, b) => a.id - b.id);
+          const confirmed = Array.from(map.values());
+          const temps = prev.filter((m) => m.id < 0);
+          const keptTemps = temps.filter(
+            (t) =>
+              !confirmed.some(
+                (c) => c.content === t.content && c.roleKey === t.roleKey,
+              ),
+          );
+          return [...confirmed, ...keptTemps].sort((a, b) => a.id - b.id);
         });
         cursorRef.current = Math.max(
           cursorRef.current,
@@ -222,21 +298,30 @@ export function GroupMeetingClient(props: {
   useGroupRealtime(props.sessionId, {
     onChange: () => void tickRef.current?.(),
     onMessageInsert: (row) => {
-      mergeMessage({
-        id: Number(row.id),
-        roleKey: String(row.role_key),
-        senderKind: String(row.sender_kind),
-        content: String(row.content),
-        sceneId: String(row.scene_id),
-      });
+      const roleKey = String(row.role_key);
+      mergeMessage(
+        {
+          id: Number(row.id),
+          roleKey,
+          senderKind: String(row.sender_kind),
+          content: String(row.content),
+          sceneId: String(row.scene_id),
+        },
+        { animate: roleKey !== props.roleKey },
+      );
     },
   });
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages, thinkingRoleKeys, sending]);
+    if (!el || !stickToBottomRef.current) return;
+    const instant = scrollInstantRef.current;
+    scrollInstantRef.current = false;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: instant ? "auto" : "auto",
+    });
+  }, [messages, thinkingRoleKeys]);
 
   useEffect(() => {
     const t = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
@@ -248,6 +333,13 @@ export function GroupMeetingClient(props: {
     setSending(true);
     setError(null);
     const optimisticId = -Date.now();
+    pendingOptimisticRef.current = {
+      id: optimisticId,
+      content: body,
+      roleKey: props.roleKey,
+    };
+    stickToBottomRef.current = true;
+    scrollInstantRef.current = true;
     mergeMessage({
       id: optimisticId,
       roleKey: props.roleKey,
@@ -256,65 +348,76 @@ export function GroupMeetingClient(props: {
       sceneId: sceneId ?? props.scene?.id ?? "",
     });
     try {
-      const res = await fetch(`/api/group/${props.sessionCode}/message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...seatHeaders(seatToken),
-        },
-        body: JSON.stringify({ roleKey: props.roleKey, text: body }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Send failed");
-      if (data.message) mergeMessage(data.message);
-
-      const mentioned: string[] = data.mentionedAiRoles ?? [];
-      setThinkingRoleKeys(mentioned);
-      for (const role of mentioned) {
-        void fetch(`/api/group/${props.sessionCode}/ai-turn`, {
+      await withBusyBar(async () => {
+        const res = await fetch(`/api/group/${props.sessionCode}/message`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...seatHeaders(seatToken),
           },
-          body: JSON.stringify({
-            triggerMessageId: data.message.id,
-            roleKey: role,
-          }),
-        }).finally(() => {
-          setThinkingRoleKeys((prev) => prev.filter((r) => r !== role));
-          void tickRef.current?.();
+          body: JSON.stringify({ roleKey: props.roleKey, text: body }),
         });
-      }
-      void tickRef.current?.();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Send failed");
+        if (data.message) {
+          mergeMessage(data.message as Msg, { animate: false });
+        }
+
+        const mentioned: string[] = data.mentionedAiRoles ?? [];
+        setThinkingRoleKeys(mentioned);
+        for (const role of mentioned) {
+          void fetch(`/api/group/${props.sessionCode}/ai-turn`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...seatHeaders(seatToken),
+            },
+            body: JSON.stringify({
+              triggerMessageId: data.message.id,
+              roleKey: role,
+            }),
+          }).finally(() => {
+            setThinkingRoleKeys((prev) => prev.filter((r) => r !== role));
+            void tickRef.current?.();
+          });
+        }
+        void tickRef.current?.();
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Send failed");
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      pendingOptimisticRef.current = null;
     } finally {
       setSending(false);
     }
   }
 
   async function commit() {
+    if (committing) return;
     setError(null);
+    setCommitting(true);
     try {
-      const res = await fetch(`/api/group/${props.sessionCode}/commit`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...seatHeaders(seatToken),
-        },
-        body: JSON.stringify({
-          optionKey: optionKey === "custom" ? undefined : optionKey,
-          customText: optionKey === "custom" ? customText : undefined,
-          reasoning,
-        }),
+      await withBusyBar(async () => {
+        const res = await fetch(`/api/group/${props.sessionCode}/commit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...seatHeaders(seatToken),
+          },
+          body: JSON.stringify({
+            optionKey: optionKey === "custom" ? undefined : optionKey,
+            customText: optionKey === "custom" ? customText : undefined,
+            reasoning,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Commit failed");
+        router.refresh();
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Commit failed");
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Commit failed");
+    } finally {
+      setCommitting(false);
     }
   }
 
@@ -367,15 +470,38 @@ export function GroupMeetingClient(props: {
           <button
             type="button"
             disabled={pending}
-            className="border border-border px-4 py-2 text-sm"
-            onClick={() =>
+            className="border border-border px-4 py-2 text-sm disabled:opacity-50"
+            onClick={() => {
+              const next = !isReady;
+              setIsReady(next);
+              setParticipants((prev) =>
+                prev.map((p) =>
+                  p.id === props.participantId ? { ...p, isReady: next } : p,
+                ),
+              );
               startTransition(async () => {
-                await toggleReadyAction(props.participantId, !isReady);
-                setIsReady(!isReady);
-              })
-            }
+                try {
+                  await withBusyBar(async () => {
+                    await toggleReadyAction(props.participantId, next);
+                  });
+                } catch (err) {
+                  setIsReady(!next);
+                  setError(
+                    err instanceof Error ? err.message : "Could not update ready",
+                  );
+                }
+              });
+            }}
           >
-            {isReady ? "Unready" : "I've read my brief — Ready"}
+            {pending ? (
+              <LoadingSpinner
+                label={isReady ? "Saving…" : "Updating…"}
+              />
+            ) : isReady ? (
+              "Unready"
+            ) : (
+              "I've read my brief — Ready"
+            )}
           </button>
           {props.isCeo ? (
             <button
@@ -399,12 +525,14 @@ export function GroupMeetingClient(props: {
               onClick={() =>
                 startTransition(async () => {
                   try {
-                    await startMeetingAction(
-                      props.sessionId,
-                      false,
-                      props.participantId,
-                    );
-                    router.refresh();
+                    await withBusyBar(async () => {
+                      await startMeetingAction(
+                        props.sessionId,
+                        false,
+                        props.participantId,
+                      );
+                      router.refresh();
+                    });
                   } catch (err) {
                     setError(
                       err instanceof Error ? err.message : "Cannot start",
@@ -413,7 +541,11 @@ export function GroupMeetingClient(props: {
                 })
               }
             >
-              Start meeting
+              {pending && canCeoStart ? (
+                <LoadingSpinner label="Starting…" className="text-accent-foreground" />
+              ) : (
+                "Start meeting"
+              )}
             </button>
           ) : null}
         </div>
@@ -438,12 +570,30 @@ export function GroupMeetingClient(props: {
 
   if (status !== "active" || !props.scene) {
     return (
-      <div className="mt-8">
-        <p className="text-sm text-muted-foreground">
-          {status === "committed" || status === "graded"
-            ? "Meeting concluded — the debrief will appear when your professor releases it."
-            : "Waiting for the next scene or professor debrief."}
-        </p>
+      <div className="mt-8 space-y-3">
+        {status === "active" && !props.scene ? (
+          <>
+            <LoadingSpinner label="Loading meeting scene…" />
+            <p className="text-sm text-muted-foreground">
+              Scene data is missing or out of date. Refreshing…
+            </p>
+            <button
+              type="button"
+              className="border border-border px-3 py-1.5 text-xs"
+              onClick={() => router.refresh()}
+            >
+              Refresh now
+            </button>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {status === "committed" || status === "graded"
+              ? "Meeting concluded — the debrief will appear when your professor releases it."
+              : status === "lobby"
+                ? "Waiting for the CEO to start the meeting…"
+                : "Waiting for the next scene or professor debrief."}
+          </p>
+        )}
       </div>
     );
   }
@@ -549,6 +699,12 @@ export function GroupMeetingClient(props: {
       <div className="overflow-hidden rounded-2xl border border-border bg-background">
         <div
           ref={scrollRef}
+          onScroll={() => {
+            const el = scrollRef.current;
+            if (!el) return;
+            const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+            stickToBottomRef.current = dist < 80;
+          }}
           className="chat-thread flex h-[min(48vh,24rem)] flex-col gap-3 overflow-y-auto px-3 py-4 sm:px-4"
         >
           {sceneMessages.map((m) => {
@@ -588,6 +744,7 @@ export function GroupMeetingClient(props: {
                       : title
                 }
                 text={m.content}
+                animate={m.id > 0 && animateIds.has(m.id)}
               />
             );
           })}
@@ -605,7 +762,14 @@ export function GroupMeetingClient(props: {
             suggestions={suggestions}
             sending={sending}
             onSend={sendMessage}
-            placeholder="Speak in character… (@mention AI seats to pull them in)"
+            mentionTargets={props.sceneCast
+              .filter((s) => s.id !== props.roleKey)
+              .map((s) => ({
+                roleKey: s.id,
+                name: s.name,
+                title: s.title,
+              }))}
+            placeholder="Speak in character… Tag a character below to address them"
           />
           {error ? (
             <p className="mt-2 text-sm text-red-700">{error}</p>
@@ -631,11 +795,13 @@ export function GroupMeetingClient(props: {
             commitUnlocked={commitUnlocked}
             unlockHint={`Commit unlocks after ${HUMAN_MSG_GATE} human messages (${humanCount}/${HUMAN_MSG_GATE}).`}
             commitDisabled={
+              committing ||
               pending ||
               !optionKey ||
               reasoning.trim().length < 20 ||
               (optionKey === "custom" && !customText.trim())
             }
+            committing={committing}
             onCommit={commit}
           />
         </div>

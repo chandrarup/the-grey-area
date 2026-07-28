@@ -47,6 +47,8 @@ export async function createGroupSession(params: {
   roleplayModel?: string;
   graderModel?: string;
   batchId?: string | null;
+  /** Friendly group label (Harbor Table, etc.) */
+  displayName?: string | null;
 }): Promise<{
   session: GroupSession;
   participants: GroupParticipant[];
@@ -56,25 +58,35 @@ export async function createGroupSession(params: {
     throw new Error("CEO seat must be human");
   }
   const caseConfig = getCase(params.caseSlug);
-  const code = randomCode();
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
 
-  const [session] = await db
-    .insert(groupSessions)
-    .values({
-      code,
-      caseSlug: params.caseSlug,
-      decisionCount: Math.min(5, Math.max(1, params.decisionCount)),
-      currentSceneId: caseConfig.startScene,
-      status: "lobby",
-      createdBy: params.createdBy.id,
-      roleplayModel: params.roleplayModel ?? "gemini-flash",
-      graderModel: params.graderModel ?? "gemini-flash",
-      clockSeconds: SESSION_TTL_SECONDS,
-      expiresAt,
-      batchId: params.batchId ?? null,
-    })
-    .returning();
+  let session: GroupSession | undefined;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      const [row] = await db
+        .insert(groupSessions)
+        .values({
+          code: randomCode(),
+          displayName: params.displayName?.trim() || null,
+          caseSlug: params.caseSlug,
+          decisionCount: Math.min(5, Math.max(1, params.decisionCount)),
+          currentSceneId: caseConfig.startScene,
+          status: "lobby",
+          createdBy: params.createdBy.id,
+          roleplayModel: params.roleplayModel ?? "gemini-flash",
+          graderModel: params.graderModel ?? "gemini-flash",
+          clockSeconds: SESSION_TTL_SECONDS,
+          expiresAt,
+          batchId: params.batchId ?? null,
+        })
+        .returning();
+      session = row;
+      break;
+    } catch {
+      // unique code collision — retry
+    }
+  }
+  if (!session) throw new Error("Could not allocate a unique group code");
 
   const participants: GroupParticipant[] = [];
   for (const roleKey of SEAT_ORDER) {
@@ -116,11 +128,13 @@ export type BatchRosterResultRow = {
   name: string;
   email: string;
   groupCode: string;
+  groupDisplayName: string;
   sessionId: string;
   caseSlug: string;
   roleKey: string;
   joinToken: string;
   inviteStatus: string;
+  inviteError: string | null;
   invitedAt: string | null;
 };
 
@@ -134,11 +148,13 @@ function toRosterRow(
     name: p.assignedName ?? p.displayName ?? p.roleKey,
     email: p.assignedEmail ?? "",
     groupCode: session.code,
+    groupDisplayName: session.displayName?.trim() || session.code,
     sessionId: session.id,
     caseSlug: session.caseSlug,
     roleKey: p.roleKey,
     joinToken: p.joinToken,
     inviteStatus: p.inviteStatus ?? "pending",
+    inviteError: p.inviteError ?? null,
     invitedAt: p.invitedAt ? p.invitedAt.toISOString() : null,
   };
 }
@@ -151,33 +167,75 @@ export async function createGroupBatch(params: {
   roleplayModel?: string;
   graderModel?: string;
   groups: {
+    displayName?: string;
     seats: Record<SeatKey, "human" | "ai">;
     assignments: Partial<Record<SeatKey, { name: string; email: string }>>;
   }[];
+  /** When updating an existing draft batch */
+  batchId?: string;
 }): Promise<{
   batch: GroupBatch;
   sessions: GroupSession[];
   roster: BatchRosterResultRow[];
 }> {
-  const [batch] = await db
-    .insert(groupBatches)
-    .values({
-      name: params.name,
-      caseSlug: params.caseSlug,
-      decisionCount: params.decisionCount,
-      roleplayModel: params.roleplayModel ?? "gemini-flash",
-      graderModel: params.graderModel ?? "gemini-flash",
-      createdBy: params.createdBy.id,
-    })
-    .returning();
+  const { pickUniqueGroupNames } = await import("@/lib/group/group-names");
+  const names = pickUniqueGroupNames(
+    params.groups.length,
+    params.groups.map((g) => g.displayName?.trim() || "").filter(Boolean),
+  );
+
+  let batch: GroupBatch;
+  if (params.batchId) {
+    const existing = await getGroupBatch(params.batchId);
+    if (!existing) throw new Error("Batch not found");
+    if (existing.status === "ready") {
+      // Already materialized — return current roster
+      return {
+        batch: existing,
+        sessions: await listSessionsForBatch(existing.id),
+        roster: await listBatchRoster(existing.id),
+      };
+    }
+    const [updated] = await db
+      .update(groupBatches)
+      .set({
+        name: params.name,
+        caseSlug: params.caseSlug,
+        decisionCount: params.decisionCount,
+        roleplayModel: params.roleplayModel ?? existing.roleplayModel,
+        graderModel: params.graderModel ?? existing.graderModel,
+        status: "ready",
+        draftPlan: null,
+      })
+      .where(eq(groupBatches.id, existing.id))
+      .returning();
+    batch = updated;
+  } else {
+    const [created] = await db
+      .insert(groupBatches)
+      .values({
+        name: params.name,
+        caseSlug: params.caseSlug,
+        decisionCount: params.decisionCount,
+        roleplayModel: params.roleplayModel ?? "gemini-flash",
+        graderModel: params.graderModel ?? "gemini-flash",
+        status: "ready",
+        createdBy: params.createdBy.id,
+      })
+      .returning();
+    batch = created;
+  }
 
   const sessions: GroupSession[] = [];
   const roster: BatchRosterResultRow[] = [];
 
-  for (const group of params.groups) {
+  for (let i = 0; i < params.groups.length; i++) {
+    const group = params.groups[i]!;
     if (group.seats.ceo !== "human" || !group.assignments.ceo) {
       throw new Error("Every group must have a human CEO with a roster assignment");
     }
+    const displayName =
+      group.displayName?.trim() || names[i] || `Group ${i + 1}`;
     const { session, participants } = await createGroupSession({
       createdBy: params.createdBy,
       caseSlug: params.caseSlug,
@@ -187,6 +245,7 @@ export async function createGroupBatch(params: {
       roleplayModel: params.roleplayModel,
       graderModel: params.graderModel,
       batchId: batch.id,
+      displayName,
     });
     sessions.push(session);
     for (const p of participants) {
@@ -196,6 +255,130 @@ export async function createGroupBatch(params: {
   }
 
   return { batch, sessions, roster };
+}
+
+export type DraftBatchPayload = {
+  batchName: string;
+  caseSlug: string;
+  decisionCount: number;
+  minGroupSize: number;
+  roleplayModel: string;
+  graderModel: string;
+  plan: {
+    minGroupSize: number;
+    groups: {
+      id: string;
+      displayName: string;
+      members: {
+        studentId: string;
+        name: string;
+        email: string;
+        roleKey: string;
+      }[];
+      aiSeats: string[];
+    }[];
+  };
+};
+
+export async function saveDraftBatch(params: {
+  createdBy: Profile;
+  batchId?: string | null;
+  payload: DraftBatchPayload;
+}): Promise<GroupBatch> {
+  if (params.batchId) {
+    const existing = await getGroupBatch(params.batchId);
+    if (!existing) throw new Error("Batch not found");
+    if (existing.status === "ready") {
+      throw new Error("This batch is already confirmed — use Edit groups to rename.");
+    }
+    const [updated] = await db
+      .update(groupBatches)
+      .set({
+        name: params.payload.batchName.trim() || existing.name,
+        caseSlug: params.payload.caseSlug,
+        decisionCount: params.payload.decisionCount,
+        roleplayModel: params.payload.roleplayModel,
+        graderModel: params.payload.graderModel,
+        draftPlan: params.payload,
+        status: "draft",
+      })
+      .where(eq(groupBatches.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(groupBatches)
+    .values({
+      name:
+        params.payload.batchName.trim() ||
+        `Batch ${new Date().toLocaleDateString()}`,
+      caseSlug: params.payload.caseSlug,
+      decisionCount: params.payload.decisionCount,
+      roleplayModel: params.payload.roleplayModel,
+      graderModel: params.payload.graderModel,
+      status: "draft",
+      draftPlan: params.payload,
+      createdBy: params.createdBy.id,
+    })
+    .returning();
+  return created;
+}
+
+export async function renameGroupSession(
+  sessionId: string,
+  displayName: string,
+): Promise<GroupSession> {
+  const name = displayName.trim();
+  if (!name) throw new Error("Group name cannot be empty");
+  const [updated] = await db
+    .update(groupSessions)
+    .set({ displayName: name })
+    .where(eq(groupSessions.id, sessionId))
+    .returning();
+  if (!updated) throw new Error("Session not found");
+  return updated;
+}
+
+/** Rebuild a BatchPlan from ready sessions (for Edit groups). */
+export async function planFromBatchSessions(
+  batchId: string,
+): Promise<DraftBatchPayload | null> {
+  const batch = await getGroupBatch(batchId);
+  if (!batch) return null;
+  if (batch.status === "draft" && batch.draftPlan) {
+    return batch.draftPlan as DraftBatchPayload;
+  }
+
+  const sessions = await listSessionsForBatch(batchId);
+  const groups = [];
+  for (const session of sessions) {
+    const parts = await listParticipants(session.id);
+    const humans = parts.filter((p) => !p.isAi);
+    const members = humans.map((p) => ({
+      studentId: p.id,
+      name: p.assignedName ?? p.displayName ?? p.roleKey,
+      email: p.assignedEmail ?? "",
+      roleKey: p.roleKey,
+    }));
+    const filled = new Set(members.map((m) => m.roleKey));
+    groups.push({
+      id: session.id,
+      displayName: session.displayName?.trim() || session.code,
+      members,
+      aiSeats: SEAT_ORDER.filter((s) => !filled.has(s)),
+    });
+  }
+
+  return {
+    batchName: batch.name,
+    caseSlug: batch.caseSlug,
+    decisionCount: batch.decisionCount,
+    minGroupSize: 4,
+    roleplayModel: batch.roleplayModel,
+    graderModel: batch.graderModel,
+    plan: { minGroupSize: 4, groups },
+  };
 }
 
 export async function getGroupBatch(batchId: string): Promise<GroupBatch | null> {
@@ -228,11 +411,13 @@ export async function listBatchRoster(
 export async function setParticipantInviteStatus(
   participantId: string,
   status: "pending" | "sent" | "failed",
+  error?: string | null,
 ): Promise<void> {
   await db
     .update(groupParticipants)
     .set({
       inviteStatus: status,
+      inviteError: status === "failed" ? error?.trim() || "Send failed" : null,
       invitedAt: status === "pending" ? null : new Date(),
     })
     .where(eq(groupParticipants.id, participantId));
@@ -376,6 +561,8 @@ export async function joinGroupSeat(params: {
   sessionId: string;
   roleKey: SeatKey;
   displayName: string;
+  /** When set and matches the seat's join_token, allow reclaiming a taken seat. */
+  reclaimToken?: string | null;
 }): Promise<GroupParticipant> {
   const session = await getGroupSession(params.sessionId);
   if (!session) throw new Error("Session not found");
@@ -396,13 +583,33 @@ export async function joinGroupSeat(params: {
     throw new Error("Seat not available");
   }
   if (participant.profileId && participant.profileId !== params.profile.id) {
-    throw new Error("Seat already taken");
+    // Invite token reclaim: same seat token may re-claim even if another
+    // browser profile held it (cookie / student-actor collision).
+    const tokenMatches =
+      Boolean(params.reclaimToken) &&
+      Boolean(participant.joinToken) &&
+      params.reclaimToken === participant.joinToken;
+    if (!tokenMatches) {
+      throw new Error("Seat already taken");
+    }
   }
+
+  const { seatDisplayName } = await import("@/lib/case/group-roles");
+  const typed = params.displayName.trim();
+  const resolvedName =
+    typed ||
+    participant.assignedName?.trim() ||
+    (participant.displayName?.trim() &&
+    !/^you\b/i.test(participant.displayName)
+      ? participant.displayName.trim()
+      : null) ||
+    params.profile.name?.trim() ||
+    seatDisplayName(params.roleKey);
 
   const [updated] = await db
     .update(groupParticipants)
     .set({
-      displayName: params.displayName,
+      displayName: resolvedName,
       profileId: params.profile.id,
       joinedAt: new Date(),
     })
@@ -424,6 +631,7 @@ export async function joinByToken(params: {
     sessionId: found.sessionId,
     roleKey: found.roleKey as SeatKey,
     displayName: params.displayName,
+    reclaimToken: params.token,
   });
 }
 
@@ -471,12 +679,34 @@ export async function startGroupSession(
     }
   }
 
+  const caseConfig = getCase(session.caseSlug);
+  const startScene = caseConfig.startScene;
+  const sceneOk =
+    session.currentSceneId && caseConfig.scenes[session.currentSceneId]
+      ? session.currentSceneId
+      : startScene;
+
   const [updated] = await db
     .update(groupSessions)
-    .set({ status: "active", startedAt: new Date() })
+    .set({
+      status: "active",
+      startedAt: new Date(),
+      currentSceneId: sceneOk,
+    })
     .where(eq(groupSessions.id, sessionId))
     .returning();
   return updated;
+}
+
+/** Fix active sessions whose current_scene_id no longer exists in case config. */
+export async function repairGroupSessionScene(
+  sessionId: string,
+  sceneId: string,
+): Promise<void> {
+  await db
+    .update(groupSessions)
+    .set({ currentSceneId: sceneId })
+    .where(eq(groupSessions.id, sessionId));
 }
 
 export async function appendGroupMessage(
@@ -812,6 +1042,7 @@ export type BatchBoardMember = {
 export type BatchBoardRow = {
   sessionId: string;
   code: string;
+  displayName: string;
   status: string;
   decisionsMade: number;
   decisionCount: number;
@@ -821,7 +1052,11 @@ export type BatchBoardRow = {
   lastMessageAt: string | null;
   stalled: boolean;
   humanSeats: number;
+  /** Seats that claimed via profileId (opened their link) — not roster assignment alone. */
   joinedSeats: number;
+  invitePending: number;
+  inviteSent: number;
+  inviteFailed: number;
   members: BatchBoardMember[];
   assessmentStatus: string | null;
 };
@@ -899,9 +1134,15 @@ export async function getBatchBoardSnapshot(
   return sessions.map((session) => {
     const parts = partsBySession.get(session.id) ?? [];
     const humans = parts.filter((p) => !p.isAi);
-    const joined = humans.filter(
-      (p) => Boolean(p.profileId) || Boolean(p.displayName),
-    );
+    // Joined = claimed seat (profile linked). Roster displayName alone is NOT joined.
+    const joined = humans.filter((p) => Boolean(p.profileId));
+    const invitePending = humans.filter(
+      (p) => (p.inviteStatus ?? "pending") === "pending",
+    ).length;
+    const inviteSent = humans.filter((p) => p.inviteStatus === "sent").length;
+    const inviteFailed = humans.filter(
+      (p) => p.inviteStatus === "failed",
+    ).length;
     const stats = msgBySession.get(session.id);
     const lastAt = stats?.lastMessageAt
       ? new Date(stats.lastMessageAt)
@@ -931,15 +1172,14 @@ export async function getBatchBoardSnapshot(
             ? (getCase(caseSlug).cast.find((c) => c.id === p.roleKey)?.name ??
               p.roleKey)
             : p.roleKey),
-        joined: p.isAi
-          ? true
-          : Boolean(p.profileId) || Boolean(p.displayName),
+        joined: p.isAi ? true : Boolean(p.profileId),
         isAi: p.isAi,
       }));
 
     return {
       sessionId: session.id,
       code: session.code,
+      displayName: session.displayName?.trim() || session.code,
       status: session.status,
       decisionsMade: session.decisionsMade,
       decisionCount: session.decisionCount,
@@ -950,6 +1190,9 @@ export async function getBatchBoardSnapshot(
       stalled,
       humanSeats: humans.length,
       joinedSeats: joined.length,
+      invitePending,
+      inviteSent,
+      inviteFailed,
       members,
       assessmentStatus: assessBySession.get(session.id) ?? null,
     };

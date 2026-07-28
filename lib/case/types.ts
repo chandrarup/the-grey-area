@@ -34,7 +34,7 @@ export type SceneProp = {
 
 export type Scene = {
   id: string;
-  depth: number; // 1..5
+  depth: number; // 1..maxDepth (this case: 3)
   title: string;
   timeLabel: string;
   brief: string;

@@ -47,7 +47,7 @@ export const SHARED_CASE_CONTEXT = {
     },
     {
       title: "This meeting",
-      body: "It is Monday morning. The new CEO has **about thirty minutes** with Marcus, David, Priya, and Tom. The CEO alone commits the company’s direction. Advisors argue their case, surface risks and options, and help the CEO decide — they do not cast the final vote.",
+      body: "It is Monday morning. The new CEO has **about thirty minutes** with Marcus, David, Priya, and Tom. The CEO alone commits the company’s direction across **three decisions**. Advisors argue their case, surface risks and options, and help the CEO decide — they do not cast the final vote.",
     },
   ],
 } as const;
@@ -104,11 +104,9 @@ export const GROUP_ROLES: Record<SeatKey, GroupRoleBrief> = {
     openingStatement:
       "Thank you for making the time. I have not decided anything yet. Marcus — start with what Salim is actually offering, including the fee. Then I want each of you to tell me the one risk or opportunity the others are underweighting.",
     decisionOptions: [
-      "Decline further discussions with Salim",
-      "Meet Salim without making a commitment",
-      "Begin enhanced due diligence while continuing preliminary discussions",
-      "Authorise Marcus to negotiate subject to specific conditions",
-      "Pursue another course of action",
+      "Refuse further discussions with Salim",
+      "Engage with hard conditions — diligence first, no commitment until review clears",
+      "Authorise Marcus to negotiate and move fast",
     ],
     successCondition:
       "The team leaves understanding the standard you will hold and why. Your decision will not determine whether the company wins Ardania — not yet. It will determine how Global Infrastructure Solutions chooses to compete.",

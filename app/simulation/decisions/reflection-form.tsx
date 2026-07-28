@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveReflections } from "../actions";
 import { stagePath } from "../stages";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 const inputClasses =
   "mt-2 w-full border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-accent focus:outline-none";
@@ -30,11 +32,13 @@ export function ReflectionForm({
     }
     setError(null);
     startTransition(async () => {
-      await saveReflections(
-        runId,
-        answers.map((a) => a.trim()),
-      );
-      router.push(stagePath("debrief"));
+      await withBusyBar(async () => {
+        await saveReflections(
+          runId,
+          answers.map((a) => a.trim()),
+        );
+        router.push(stagePath("debrief"));
+      });
     });
   }
 
@@ -62,19 +66,21 @@ export function ReflectionForm({
               }}
               rows={3}
               className={inputClasses}
+              disabled={pending}
             />
           </div>
         ))}
         {error ? (
           <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
         ) : null}
-        <button
+        <BusyButton
           type="submit"
-          disabled={pending}
+          pending={pending}
+          pendingLabel="Submitting…"
           className="self-start bg-accent px-6 py-3 text-sm font-medium text-accent-foreground disabled:opacity-50"
         >
-          {pending ? "Submitting…" : "Submit reflections"}
-        </button>
+          Submit reflections
+        </BusyButton>
       </form>
     </div>
   );

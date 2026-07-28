@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   deleteExpiredGroupSessionsAction,
   deleteGroupSessionAction,
 } from "@/app/group/actions";
+import { LoadingSpinner } from "@/app/components/loading-spinner";
 
 type SessionRow = {
   id: string;
   code: string;
+  displayName?: string | null;
   status: string;
   decisionsMade: number;
   decisionCount: number;
@@ -23,6 +25,7 @@ type SessionRow = {
 export function ProfessorSessionList({ sessions }: { sessions: SessionRow[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   const expiredCount = sessions.filter((s) => s.expired).length;
 
@@ -34,8 +37,20 @@ export function ProfessorSessionList({ sessions }: { sessions: SessionRow[] }) {
     );
   }
 
+  function openSession(id: string) {
+    setOpeningId(id);
+    startTransition(() => {
+      router.push(`/professor/groups/${id}`);
+    });
+  }
+
   return (
     <div>
+      {openingId ? (
+        <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+          <LoadingSpinner label="Opening group…" />
+        </div>
+      ) : null}
       {expiredCount > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
           <p className="text-xs text-muted-foreground">
@@ -63,15 +78,25 @@ export function ProfessorSessionList({ sessions }: { sessions: SessionRow[] }) {
             className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
           >
             <div className="min-w-0">
-              <Link
-                href={`/professor/groups/${s.id}`}
+              <button
+                type="button"
                 className="font-medium text-foreground underline-offset-2 hover:underline"
+                disabled={pending}
+                onClick={() => openSession(s.id)}
               >
-                {s.code}
-              </Link>
+                {openingId === s.id ? (
+                  <LoadingSpinner label={s.displayName?.trim() || s.code} />
+                ) : (
+                  s.displayName?.trim() || s.code
+                )}
+              </button>
+              {s.displayName?.trim() ? (
+                <span className="ml-1 font-mono text-[10px] text-muted-foreground">
+                  {s.code}
+                </span>
+              ) : null}
               <span className="ml-2 text-muted-foreground">
-                {s.status} · {s.decisionsMade}/{s.decisionCount} ·{" "}
-                {s.roleplayModel}
+                {s.status} · {s.decisionsMade}/{s.decisionCount}
                 {s.remainingLabel ? ` · ${s.remainingLabel}` : ""}
               </span>
               {s.batchId ? (

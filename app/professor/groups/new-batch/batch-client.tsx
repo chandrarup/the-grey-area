@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { GROUP_ROLES, SEAT_ORDER, type SeatKey } from "@/lib/case/group-roles";
 import { MODELS } from "@/lib/llm/models";
@@ -15,54 +15,143 @@ import {
   type PlannedGroup,
   type RosterStudent,
 } from "@/lib/group/batch-plan";
-import { confirmBatchAction, resendInviteAction, sendBatchInvitesAction } from "@/app/professor/groups/batch-actions";
-import type { BatchRosterResultRow } from "@/lib/db/group-queries";
-
-type Step = "upload" | "groups" | "results";
-
-function appBaseUrl() {
-  if (typeof window === "undefined") return "";
-  return (
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.replace(/\/$/, "") ||
-    window.location.origin
-  );
-}
-
-function joinUrl(token: string) {
-  return `${appBaseUrl()}/?join=${encodeURIComponent(token)}`;
-}
+import type { DraftBatchPayload } from "@/lib/db/group-queries";
+import {
+  confirmBatchAction,
+  renameGroupAction,
+  saveDraftBatchAction,
+} from "@/app/professor/groups/batch-actions";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 export function NewBatchClient({
   defaultRoleplayModel,
   defaultGraderModel,
+  showModelPickers = false,
+  batchId: initialBatchId = null,
+  batchStatus = null,
+  initialDraft = null,
 }: {
   defaultRoleplayModel: string;
   defaultGraderModel: string;
+  showModelPickers?: boolean;
+  batchId?: string | null;
+  batchStatus?: string | null;
+  initialDraft?: DraftBatchPayload | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [step, setStep] = useState<Step>("upload");
-  const [students, setStudents] = useState<RosterStudent[]>([]);
+  const [batchId, setBatchId] = useState<string | null>(initialBatchId);
+  const isReady = batchStatus === "ready";
+
+  const [students, setStudents] = useState<RosterStudent[]>(() => {
+    if (!initialDraft) return [];
+    return initialDraft.plan.groups.flatMap((g) =>
+      g.members.map((m) => ({
+        id: m.studentId,
+        name: m.name,
+        email: m.email,
+      })),
+    );
+  });
   const [parseErrors, setParseErrors] = useState<string[]>([]);
-  const [batchName, setBatchName] = useState("");
-  const [decisionCount, setDecisionCount] = useState(5);
-  const [minGroupSize, setMinGroupSize] = useState(4);
-  const [roleplayModel, setRoleplayModel] = useState(defaultRoleplayModel);
-  const [graderModel, setGraderModel] = useState(defaultGraderModel);
-  const [plan, setPlan] = useState<BatchPlan | null>(null);
+  const [batchName, setBatchName] = useState(
+    initialDraft?.batchName ?? "",
+  );
+  const [decisionCount, setDecisionCount] = useState(
+    initialDraft?.decisionCount ?? 3,
+  );
+  const [minGroupSize, setMinGroupSize] = useState(
+    initialDraft?.minGroupSize ?? 4,
+  );
+  const [roleplayModel, setRoleplayModel] = useState(
+    initialDraft?.roleplayModel ?? defaultRoleplayModel,
+  );
+  const [graderModel, setGraderModel] = useState(
+    initialDraft?.graderModel ?? defaultGraderModel,
+  );
+  const [plan, setPlan] = useState<BatchPlan | null>(() => {
+    if (!initialDraft) return null;
+    return {
+      minGroupSize: initialDraft.plan.minGroupSize,
+      groups: initialDraft.plan.groups.map((g) =>
+        recomputeAiSeats({
+          id: g.id,
+          displayName: g.displayName,
+          members: g.members.map((m) => ({
+            studentId: m.studentId,
+            name: m.name,
+            email: m.email,
+            roleKey: m.roleKey as SeatKey,
+          })),
+          aiSeats: g.aiSeats as SeatKey[],
+        }),
+      ),
+    };
+  });
+  const [step, setStep] = useState<"upload" | "groups">(
+    initialDraft?.plan.groups.length ? "groups" : "upload",
+  );
   const [error, setError] = useState<string | null>(null);
-  const [roster, setRoster] = useState<BatchRosterResultRow[]>([]);
-  const [batchId, setBatchId] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [inviteBusy, setInviteBusy] = useState(false);
-  const [inviteNote, setInviteNote] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const planErrors = useMemo(
     () => (plan ? validatePlan(plan) : []),
     [plan],
   );
+
+  const persistDraft = useCallback(
+    async (nextPlan: BatchPlan, opts?: { navigate?: boolean }) => {
+      try {
+        const { batchId: id } = await saveDraftBatchAction({
+          batchId,
+          batchName,
+          caseSlug: "cost-of-winning",
+          decisionCount,
+          minGroupSize,
+          roleplayModel,
+          graderModel,
+          plan: nextPlan,
+        });
+        setBatchId(id);
+        setSaveNote("Draft saved");
+        setTimeout(() => setSaveNote(null), 1500);
+        if (opts?.navigate && id !== batchId) {
+          router.replace(`/professor/groups/batch/${id}/edit`);
+        }
+        return id;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save draft");
+        return null;
+      }
+    },
+    [
+      batchId,
+      batchName,
+      decisionCount,
+      minGroupSize,
+      roleplayModel,
+      graderModel,
+      router,
+    ],
+  );
+
+  function scheduleSave(nextPlan: BatchPlan) {
+    if (isReady) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void persistDraft(nextPlan);
+    }, 600);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   async function onFile(file: File) {
     setError(null);
@@ -91,266 +180,82 @@ export function NewBatchClient({
     setStudents((rows) => rows.filter((r) => r.id !== id));
   }
 
-  function buildPlan(list: RosterStudent[] = students) {
+  async function buildPlan(list: RosterStudent[] = students) {
     const groups = splitRosterIntoGroups(list, {
       minSize: minGroupSize,
       maxSize: SEAT_ORDER.length,
       shuffleFirst: true,
     }).map(recomputeAiSeats);
-    setPlan({ groups, minGroupSize });
+    const next = { groups, minGroupSize };
+    setPlan(next);
     setStep("groups");
+    if (!isReady) {
+      const id = await persistDraft(next, { navigate: true });
+      if (id && !batchId) {
+        router.replace(`/professor/groups/batch/${id}/edit`);
+      }
+    }
   }
 
   function reshuffle() {
-    if (!students.length) return;
-    buildPlan(students);
+    if (!students.length || isReady) return;
+    void buildPlan(students);
   }
 
   function onDropToGroup(groupId: string) {
-    if (!plan || !dragId) return;
-    setPlan(moveMember(plan, dragId, groupId));
+    if (!plan || !dragId || isReady) return;
+    const next = moveMember(plan, dragId, groupId);
+    setPlan(next);
     setDragId(null);
+    scheduleSave(next);
+  }
+
+  function renameInPlan(groupId: string, displayName: string) {
+    if (!plan) return;
+    const next: BatchPlan = {
+      ...plan,
+      groups: plan.groups.map((g) =>
+        g.id === groupId ? { ...g, displayName } : g,
+      ),
+    };
+    setPlan(next);
+    if (isReady && batchId) {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        void renameGroupAction(groupId, displayName, batchId);
+      }, 500);
+    } else {
+      scheduleSave(next);
+    }
   }
 
   function confirm() {
-    if (!plan) return;
+    if (!plan || isReady) return;
     setError(null);
     startTransition(async () => {
       try {
-        const result = await confirmBatchAction({
-          batchName,
-          caseSlug: "cost-of-winning",
-          decisionCount,
-          minGroupSize,
-          roleplayModel,
-          graderModel,
-          groups: plan.groups,
+        await withBusyBar(async () => {
+          const result = await confirmBatchAction({
+            batchId,
+            batchName,
+            caseSlug: "cost-of-winning",
+            decisionCount,
+            minGroupSize,
+            roleplayModel,
+            graderModel,
+            groups: plan.groups,
+          });
+          router.push(`/professor/groups/batch/${result.batchId}/invites`);
+          router.refresh();
         });
-        setBatchId(result.batchId);
-        setRoster(result.roster);
-        setStep("results");
-        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Create failed");
       }
     });
   }
 
-  async function copyText(label: string, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(label);
-      setTimeout(() => setCopied(null), 1500);
-    } catch {
-      setCopied("failed");
-    }
-  }
-
   const input =
     "mt-1 w-full border border-border bg-background px-3 py-2 text-sm";
-
-  if (step === "results") {
-    const allLines = roster
-      .map(
-        (r) =>
-          `${r.name}\t${r.email}\t${r.groupCode}\t${GROUP_ROLES[r.roleKey as SeatKey]?.title ?? r.roleKey}\t${joinUrl(r.joinToken)}`,
-      )
-      .join("\n");
-
-    const counts = {
-      pending: roster.filter((r) => r.inviteStatus === "pending").length,
-      sent: roster.filter((r) => r.inviteStatus === "sent").length,
-      failed: roster.filter((r) => r.inviteStatus === "failed").length,
-    };
-
-    async function runInvites(mode: "pending" | "failed") {
-      if (!batchId) return;
-      setInviteBusy(true);
-      setInviteNote(null);
-      setError(null);
-      try {
-        const { results, roster: next } = await sendBatchInvitesAction(
-          batchId,
-          mode,
-        );
-        setRoster(next);
-        const sent = results.filter((r) => r.status === "sent").length;
-        const failed = results.filter((r) => r.status === "failed").length;
-        setInviteNote(
-          `Sent ${sent}${failed ? ` · ${failed} failed` : ""}${
-            results[0]?.deliveredTo && results[0].deliveredTo !== results[0].intendedEmail
-              ? ` · test inbox ${results[0].deliveredTo}`
-              : ""
-          }`,
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Invite send failed");
-      } finally {
-        setInviteBusy(false);
-      }
-    }
-
-    async function resendOne(participantId: string) {
-      setInviteBusy(true);
-      setError(null);
-      try {
-        const { result } = await resendInviteAction(participantId);
-        setRoster((rows) =>
-          rows.map((r) =>
-            r.participantId === participantId
-              ? {
-                  ...r,
-                  inviteStatus: result.status,
-                  invitedAt: new Date().toISOString(),
-                }
-              : r,
-          ),
-        );
-        setInviteNote(
-          result.status === "sent"
-            ? `Resent to ${result.intendedEmail}`
-            : `Resend failed: ${result.error ?? "unknown"}`,
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Resend failed");
-      } finally {
-        setInviteBusy(false);
-      }
-    }
-
-    return (
-      <div className="mt-8 space-y-6">
-        <div>
-          <h2 className="font-serif text-2xl text-foreground">Batch ready</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {roster.length} students across{" "}
-            {new Set(roster.map((r) => r.groupCode)).size} groups
-            {batchId ? ` · batch ${batchId.slice(0, 8)}…` : ""}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Invites: {counts.pending} pending · {counts.sent} sent ·{" "}
-            {counts.failed} failed
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="border border-border bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-40"
-            disabled={!batchId || inviteBusy}
-            onClick={() => void runInvites("pending")}
-          >
-            {inviteBusy ? "Sending…" : "Send invites"}
-          </button>
-          {counts.failed > 0 ? (
-            <button
-              type="button"
-              className="border border-border px-4 py-2 text-sm disabled:opacity-40"
-              disabled={!batchId || inviteBusy}
-              onClick={() => void runInvites("failed")}
-            >
-              Resend all failed
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="border border-border px-4 py-2 text-sm"
-            onClick={() => void copyText("all", allLines)}
-          >
-            {copied === "all" ? "Copied all" : "Copy all links"}
-          </button>
-        </div>
-        {inviteNote ? (
-          <p className="text-sm text-muted-foreground">{inviteNote}</p>
-        ) : null}
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-
-        <div className="overflow-x-auto border border-border">
-          <table className="w-full min-w-[48rem] text-left text-sm">
-            <thead className="bg-surface text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Group</th>
-                <th className="px-3 py-2">Character</th>
-                <th className="px-3 py-2">Invite</th>
-                <th className="px-3 py-2">Link</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roster.map((r) => (
-                <tr key={r.participantId} className="border-t border-border">
-                  <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{r.email}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{r.groupCode}</td>
-                  <td className="px-3 py-2">
-                    <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                      {r.roleKey}
-                    </span>{" "}
-                    {GROUP_ROLES[r.roleKey as SeatKey]?.name ?? r.roleKey}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={
-                        r.inviteStatus === "sent"
-                          ? "text-xs text-emerald-700 dark:text-emerald-400"
-                          : r.inviteStatus === "failed"
-                            ? "text-xs text-red-700"
-                            : "text-xs text-muted-foreground"
-                      }
-                    >
-                      {r.inviteStatus}
-                    </span>
-                    {r.inviteStatus === "failed" || r.inviteStatus === "sent" ? (
-                      <button
-                        type="button"
-                        className="ml-2 text-xs underline disabled:opacity-40"
-                        disabled={inviteBusy}
-                        onClick={() => void resendOne(r.participantId)}
-                      >
-                        Resend
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="ml-2 text-xs underline disabled:opacity-40"
-                        disabled={inviteBusy}
-                        onClick={() => void resendOne(r.participantId)}
-                      >
-                        Send
-                      </button>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      className="text-xs underline"
-                      onClick={() =>
-                        void copyText(r.joinToken, joinUrl(r.joinToken))
-                      }
-                    >
-                      {copied === r.joinToken ? "Copied" : "Copy link"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <a href="/professor" className="inline-block text-sm underline">
-          ← Back to sessions
-        </a>
-        {batchId ? (
-          <a
-            href={`/professor/groups/batch/${batchId}`}
-            className="ml-4 inline-block border border-border bg-accent px-4 py-2 text-sm text-accent-foreground"
-          >
-            Open batch monitor →
-          </a>
-        ) : null}
-      </div>
-    );
-  }
 
   if (step === "groups" && plan) {
     return (
@@ -358,36 +263,62 @@ export function NewBatchClient({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-serif text-2xl text-foreground">
-              Review groups
+              {isReady ? "Edit groups" : "Review groups"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {plan.groups.length} groups · {students.length} students · drag
-              to move · change character with the seat menu
+              {plan.groups.length} groups · {students.length} students
+              {isReady
+                ? " · rename inline (seats locked after create)"
+                : " · drag to move · rename groups · change character with the seat menu"}
             </p>
+            {saveNote ? (
+              <p className="mt-1 text-xs text-muted-foreground">{saveNote}</p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="border border-border px-3 py-2 text-sm"
-              onClick={() => setStep("upload")}
-            >
-              ← Edit roster
-            </button>
-            <button
-              type="button"
-              className="border border-border px-3 py-2 text-sm"
-              onClick={reshuffle}
-            >
-              Regenerate / reshuffle
-            </button>
-            <button
-              type="button"
-              disabled={pending || planErrors.length > 0}
-              className="bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-40"
-              onClick={confirm}
-            >
-              {pending ? "Creating…" : "Confirm & create sessions"}
-            </button>
+            {!isReady ? (
+              <>
+                <button
+                  type="button"
+                  className="border border-border px-3 py-2 text-sm"
+                  onClick={() => setStep("upload")}
+                >
+                  ← Edit roster
+                </button>
+                <button
+                  type="button"
+                  className="border border-border px-3 py-2 text-sm"
+                  onClick={reshuffle}
+                >
+                  Regenerate / reshuffle
+                </button>
+                <button
+                  type="button"
+                  className="border border-border px-3 py-2 text-sm"
+                  disabled={pending}
+                  onClick={() => plan && void persistDraft(plan)}
+                >
+                  Save draft
+                </button>
+                <BusyButton
+                  type="button"
+                  pending={pending}
+                  pendingLabel="Creating…"
+                  disabled={planErrors.length > 0}
+                  className="bg-accent px-4 py-2 text-sm text-accent-foreground disabled:opacity-40"
+                  onClick={confirm}
+                >
+                  Confirm & create sessions
+                </BusyButton>
+              </>
+            ) : batchId ? (
+              <a
+                href={`/professor/groups/batch/${batchId}/invites`}
+                className="border border-border bg-accent px-4 py-2 text-sm text-accent-foreground"
+              >
+                Send invites →
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -401,17 +332,21 @@ export function NewBatchClient({
         {error ? <p className="text-sm text-red-700">{error}</p> : null}
 
         <div className="grid gap-4 md:grid-cols-2">
-          {plan.groups.map((group, gi) => (
+          {plan.groups.map((group) => (
             <GroupCard
               key={group.id}
-              index={gi}
               group={group}
+              locked={isReady}
               dragId={dragId}
               onDragStart={setDragId}
               onDrop={() => onDropToGroup(group.id)}
-              onChangeSeat={(studentId, roleKey) =>
-                setPlan(changeSeat(plan, studentId, roleKey))
-              }
+              onChangeSeat={(studentId, roleKey) => {
+                if (isReady || !plan) return;
+                const next = changeSeat(plan, studentId, roleKey);
+                setPlan(next);
+                scheduleSave(next);
+              }}
+              onRename={(name) => renameInPlan(group.id, name)}
             />
           ))}
         </div>
@@ -430,6 +365,7 @@ export function NewBatchClient({
             value={batchName}
             onChange={(e) => setBatchName(e.target.value)}
             placeholder="Spring 2026 Section A"
+            disabled={isReady}
           />
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -441,6 +377,7 @@ export function NewBatchClient({
               max={5}
               className={input}
               value={decisionCount}
+              disabled={isReady}
               onChange={(e) => setDecisionCount(Number(e.target.value) || 5)}
             />
           </label>
@@ -452,40 +389,47 @@ export function NewBatchClient({
               max={SEAT_ORDER.length}
               className={input}
               value={minGroupSize}
+              disabled={isReady}
               onChange={(e) => setMinGroupSize(Number(e.target.value) || 4)}
             />
             <span className="mt-1 block text-[10px]">
               Max is {SEAT_ORDER.length} (one per seat). Short groups fill with AI.
             </span>
           </label>
-          <label className="block text-xs text-muted-foreground">
-            Roleplay model
-            <select
-              className={input}
-              value={roleplayModel}
-              onChange={(e) => setRoleplayModel(e.target.value)}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs text-muted-foreground">
-            Grader model
-            <select
-              className={input}
-              value={graderModel}
-              onChange={(e) => setGraderModel(e.target.value)}
-            >
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {showModelPickers ? (
+            <>
+              <label className="block text-xs text-muted-foreground">
+                Roleplay model
+                <select
+                  className={input}
+                  value={roleplayModel}
+                  disabled={isReady}
+                  onChange={(e) => setRoleplayModel(e.target.value)}
+                >
+                  {MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs text-muted-foreground">
+                Grader model
+                <select
+                  className={input}
+                  value={graderModel}
+                  disabled={isReady}
+                  onChange={(e) => setGraderModel(e.target.value)}
+                >
+                  {MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : null}
         </div>
       </section>
 
@@ -510,6 +454,7 @@ export function NewBatchClient({
           </span>
           <input
             type="file"
+            disabled={isReady}
             accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -534,13 +479,15 @@ export function NewBatchClient({
             <h2 className="text-sm font-medium text-foreground">
               Preview · {students.length} students
             </h2>
-            <button
-              type="button"
-              className="bg-accent px-4 py-2 text-sm text-accent-foreground"
-              onClick={() => buildPlan()}
-            >
-              Auto-split into groups →
-            </button>
+            {!isReady ? (
+              <button
+                type="button"
+                className="bg-accent px-4 py-2 text-sm text-accent-foreground"
+                onClick={() => void buildPlan()}
+              >
+                Auto-split into groups →
+              </button>
+            ) : null}
           </div>
           <ul className="divide-y divide-border border border-border">
             {students.map((s) => (
@@ -551,6 +498,7 @@ export function NewBatchClient({
                 <input
                   className="min-w-[8rem] flex-1 border border-border bg-background px-2 py-1 text-sm"
                   value={s.name}
+                  disabled={isReady}
                   onChange={(e) =>
                     updateStudent(s.id, { name: e.target.value })
                   }
@@ -558,17 +506,20 @@ export function NewBatchClient({
                 <input
                   className="min-w-[10rem] flex-[1.2] border border-border bg-background px-2 py-1 text-sm"
                   value={s.email}
+                  disabled={isReady}
                   onChange={(e) =>
                     updateStudent(s.id, { email: e.target.value })
                   }
                 />
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline"
-                  onClick={() => removeStudent(s.id)}
-                >
-                  Remove
-                </button>
+                {!isReady ? (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => removeStudent(s.id)}
+                  >
+                    Remove
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -579,19 +530,21 @@ export function NewBatchClient({
 }
 
 function GroupCard({
-  index,
   group,
+  locked,
   dragId,
   onDragStart,
   onDrop,
   onChangeSeat,
+  onRename,
 }: {
-  index: number;
   group: PlannedGroup;
+  locked: boolean;
   dragId: string | null;
   onDragStart: (id: string) => void;
   onDrop: () => void;
   onChangeSeat: (studentId: string, roleKey: SeatKey) => void;
+  onRename: (name: string) => void;
 }) {
   const errors = validatePlan({
     groups: [group],
@@ -601,19 +554,25 @@ function GroupCard({
   return (
     <div
       className={`border border-border bg-background p-4 ${
-        dragId ? "border-dashed border-accent" : ""
+        dragId && !locked ? "border-dashed border-accent" : ""
       }`}
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => {
+        if (!locked) e.preventDefault();
+      }}
       onDrop={(e) => {
+        if (locked) return;
         e.preventDefault();
         onDrop();
       }}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-serif text-lg text-foreground">
-          Group {index + 1}
-        </h3>
-        <p className="text-xs text-muted-foreground">
+        <input
+          className="min-w-0 flex-1 border-0 border-b border-transparent bg-transparent font-serif text-lg text-foreground outline-none focus:border-border"
+          value={group.displayName}
+          aria-label="Group name"
+          onChange={(e) => onRename(e.target.value)}
+        />
+        <p className="shrink-0 text-xs text-muted-foreground">
           {group.members.length} human
           {group.aiSeats.length
             ? ` · AI: ${group.aiSeats.join(", ")}`
@@ -627,9 +586,13 @@ function GroupCard({
         {group.members.map((m) => (
           <li
             key={m.studentId}
-            draggable
-            onDragStart={() => onDragStart(m.studentId)}
-            className="cursor-grab rounded border border-border bg-surface px-2 py-2 active:cursor-grabbing"
+            draggable={!locked}
+            onDragStart={() => {
+              if (!locked) onDragStart(m.studentId);
+            }}
+            className={`rounded border border-border bg-surface px-2 py-2 ${
+              locked ? "" : "cursor-grab active:cursor-grabbing"
+            }`}
           >
             <div className="flex flex-wrap items-center gap-2">
               <div className="min-w-0 flex-1">
@@ -641,8 +604,9 @@ function GroupCard({
                 </p>
               </div>
               <select
-                className="border border-border bg-background px-2 py-1 text-xs"
+                className="border border-border bg-background px-2 py-1 text-xs disabled:opacity-60"
                 value={m.roleKey}
+                disabled={locked}
                 onChange={(e) =>
                   onChangeSeat(m.studentId, e.target.value as SeatKey)
                 }

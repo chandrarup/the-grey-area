@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/queries";
 import { ReleaseForm, GradeButton } from "../release-form";
 import { ResetSoloButton } from "@/app/components/reset-solo-button";
+import { isDevIdentityEnabled } from "@/lib/auth/role-guard";
 
 /** Optional: view solo student runs. Kept secondary to groups. */
 export default async function ProfessorRunsPage({
@@ -20,6 +21,7 @@ export default async function ProfessorRunsPage({
   const rows = await listRunsWithProfiles(profile);
   const selectedId = params.run;
   const selected = rows.find((r) => r.run.id === selectedId);
+  const showReset = isDevIdentityEnabled();
 
   let detail: {
     decisions: Awaited<ReturnType<typeof getDecisions>>;
@@ -37,10 +39,10 @@ export default async function ProfessorRunsPage({
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-12 md:px-8">
-      <Link href="/professor" className="text-sm underline">
-        ← Groups
-      </Link>
-      <h1 className="mt-4 font-serif text-3xl text-foreground">Solo runs</h1>
+      <h1 className="font-serif text-3xl text-foreground">Solo runs</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Review individual student simulation attempts.
+      </p>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_1.2fr]">
         <ul className="divide-y divide-border border border-border">
@@ -87,11 +89,13 @@ export default async function ProfessorRunsPage({
               </ul>
               <div className="mt-6 flex flex-wrap gap-3">
                 <GradeButton runId={selected.run.id} />
-                <ResetSoloButton
-                  runId={selected.run.id}
-                  asStaff
-                  label="Reset this run"
-                />
+                {showReset ? (
+                  <ResetSoloButton
+                    runId={selected.run.id}
+                    asStaff
+                    label="Reset this run"
+                  />
+                ) : null}
               </div>
               {detail.assessment ? (
                 <div className="mt-6">

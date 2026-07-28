@@ -15,6 +15,8 @@ import { CastAvatar } from "@/app/components/chat/cast-avatar";
 import { MessageBubble, memberLabel } from "@/app/components/chat/message-bubble";
 import { ThinkingIndicator } from "@/app/components/chat/thinking-indicator";
 import { stagePath } from "../stages";
+import { BusyButton } from "@/app/components/busy-button";
+import { withBusyBar } from "@/app/components/navigation-progress";
 
 type DbMessage = {
   id: number;
@@ -254,17 +256,19 @@ export function DecisionWorkspace(props: Props) {
     setError(null);
     setIsLoading(true);
     try {
-      const result = await commitSceneDecision({
-        runId,
-        caseSlug,
-        sceneId: scene.id,
-        optionKey: selectedKey,
-        reasoning: reasoning.trim(),
+      await withBusyBar(async () => {
+        const result = await commitSceneDecision({
+          runId,
+          caseSlug,
+          sceneId: scene.id,
+          optionKey: selectedKey,
+          reasoning: reasoning.trim(),
+        });
+        if (result.consequence) {
+          setConsequence(result.consequence);
+        }
+        setTerminal(result.isTerminal);
       });
-      if (result.consequence) {
-        setConsequence(result.consequence);
-      }
-      setTerminal(result.isTerminal);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Commit failed.");
     } finally {
@@ -315,19 +319,22 @@ export function DecisionWorkspace(props: Props) {
             </article>
           ))}
         </div>
-        <button
+        <BusyButton
           type="button"
+          pending={pending}
+          pendingLabel="Opening…"
           className="mt-10 bg-accent px-6 py-3 text-sm font-medium text-accent-foreground"
           onClick={() => {
             startTransition(async () => {
-              await acknowledgeProps(runId);
-              setShowProps(false);
+              await withBusyBar(async () => {
+                await acknowledgeProps(runId);
+                setShowProps(false);
+              });
             });
           }}
-          disabled={pending}
         >
           Enter the meeting
-        </button>
+        </BusyButton>
       </div>
     );
   }
@@ -455,14 +462,16 @@ export function DecisionWorkspace(props: Props) {
               className="min-h-[2.75rem] flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none disabled:opacity-60"
               placeholder="Message the room…"
             />
-            <button
+            <BusyButton
               type="button"
+              pending={isLoading}
+              pendingLabel="Sending…"
               onClick={handleSend}
-              disabled={isLoading || !input.trim()}
+              disabled={!input.trim()}
               className="mb-0.5 shrink-0 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:opacity-40"
             >
               Send
-            </button>
+            </BusyButton>
           </div>
           {error && !pickerUnlocked ? (
             <p className="mt-2 text-sm text-red-700 dark:text-red-400">{error}</p>
@@ -516,14 +525,16 @@ export function DecisionWorkspace(props: Props) {
                 </button>
               ))}
             </div>
-            <button
+            <BusyButton
               type="button"
+              pending={isLoading}
+              pendingLabel="Committing…"
               onClick={handleCommit}
-              disabled={isLoading || !selectedKey}
+              disabled={!selectedKey}
               className="mt-6 bg-accent px-6 py-3 text-sm font-medium text-accent-foreground disabled:opacity-50"
             >
               Commit decision
-            </button>
+            </BusyButton>
           </>
         )}
       </div>

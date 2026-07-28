@@ -19,6 +19,6 @@ export function homePathForRole(role: Profile["role"]): string {
     case "professor":
       return "/professor";
     default:
-      return "/";
+      return "/student";
   }
 }

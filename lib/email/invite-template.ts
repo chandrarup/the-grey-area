@@ -6,6 +6,7 @@ export type InviteEmailPayload = {
   caseTitle: string;
   roleKey: string;
   groupCode: string;
+  groupDisplayName?: string | null;
   joinUrl: string;
 };
 
@@ -19,20 +20,25 @@ export function roleOneLiner(roleKey: string): string {
 export function buildInviteSubject(payload: InviteEmailPayload): string {
   const brief = GROUP_ROLES[payload.roleKey as SeatKey];
   const character = brief?.name ?? payload.roleKey;
-  return `Your seat: ${character} · ${payload.caseTitle} (${payload.groupCode})`;
+  const group =
+    payload.groupDisplayName?.trim() || payload.groupCode;
+  return `Your seat: ${character} · ${payload.caseTitle} (${group})`;
 }
 
 export function buildInviteText(payload: InviteEmailPayload): string {
   const brief = GROUP_ROLES[payload.roleKey as SeatKey];
   const character = brief?.name ?? payload.roleKey;
+  const groupName =
+    payload.groupDisplayName?.trim() || payload.groupCode;
   const lines = [
     `Hi ${payload.studentName},`,
     "",
-    `You have been assigned a seat in The Grey Area — ${payload.caseTitle}.`,
+    `You have been assigned a seat in The Cost of Winning — ${payload.caseTitle}.`,
     "",
     roleOneLiner(payload.roleKey),
     "",
-    `Group code: ${payload.groupCode}`,
+    `Group: ${groupName}`,
+    `Join code (backup): ${payload.groupCode}`,
     `Character: ${character}`,
     "",
     `Open your seat (do not share this link):`,
@@ -40,7 +46,7 @@ export function buildInviteText(payload: InviteEmailPayload): string {
     "",
     "Use this link on your own device. It opens your confidential brief and locks you into this character.",
     "",
-    "— The Grey Area",
+    "— The Cost of Winning",
   ];
   return lines.join("\n");
 }
@@ -66,7 +72,7 @@ export function buildInviteHtml(payload: InviteEmailPayload): string {
         <table role="presentation" width="100%" style="max-width:560px;background:#161513;border:1px solid #2a2825;">
           <tr>
             <td style="padding:28px 28px 8px;border-left:3px solid #4a6c8c;">
-              <p style="margin:0;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9c9893;">The Grey Area</p>
+              <p style="margin:0;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#9c9893;">The Cost of Winning</p>
               <h1 style="margin:10px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:400;color:#f2f0ec;line-height:1.25;">${escapeHtml(payload.caseTitle)}</h1>
             </td>
           </tr>
@@ -78,8 +84,9 @@ export function buildInviteHtml(payload: InviteEmailPayload): string {
               <p style="margin:0 0 4px;font-size:18px;color:#f2f0ec;">${escapeHtml(character)}</p>
               <p style="margin:0 0 16px;font-size:13px;color:#9c9893;">${escapeHtml(title)}</p>
               <p style="margin:0 0 24px;font-size:14px;line-height:1.55;color:#f2f0ec;border-left:2px solid #4a6c8c;padding-left:12px;">${escapeHtml(blurb)}</p>
-              <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9c9893;">Group code</p>
-              <p style="margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;color:#f2f0ec;">${escapeHtml(payload.groupCode)}</p>
+              <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9c9893;">Group</p>
+              <p style="margin:0 0 4px;font-size:16px;color:#f2f0ec;">${escapeHtml(payload.groupDisplayName?.trim() || payload.groupCode)}</p>
+              <p style="margin:0 0 24px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:#9c9893;">Join code: ${escapeHtml(payload.groupCode)}</p>
               <a href="${escapeAttr(payload.joinUrl)}" style="display:inline-block;background:#4a6c8c;color:#f5f3ef;text-decoration:none;padding:12px 20px;font-size:14px;font-weight:600;">Open your seat</a>
               <p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#9c9893;">This link is unique to you — do not share it. It opens your confidential brief for this group.</p>
             </td>

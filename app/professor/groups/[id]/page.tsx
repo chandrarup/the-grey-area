@@ -75,12 +75,14 @@ export default async function ProfessorGroupDetailPage({
         {backLabel}
       </Link>
       <h1 className="mt-4 font-serif text-3xl text-foreground">
-        Session {session.code}
+        {session.displayName?.trim() || `Session ${session.code}`}
       </h1>
+      <p className="mt-1 font-mono text-xs text-muted-foreground">
+        Join code {session.code}
+      </p>
       <p className="mt-2 text-sm text-muted-foreground">
         Status: {session.status} · Decisions {session.decisionsMade}/
-        {session.decisionCount} · Roleplay {session.roleplayModel} · Grader{" "}
-        {session.graderModel}
+        {session.decisionCount}
         {expiryLabel ? ` · ${expiryLabel}` : ""}
       </p>
       {expired ? (
@@ -103,7 +105,11 @@ export default async function ProfessorGroupDetailPage({
           Paste these to participants. Format:{" "}
           <code className="text-xs">/?join=…</code>
         </p>
-        <ShareSeatLinks seats={humanSeats} sessionCode={session.code} />
+        <ShareSeatLinks
+          seats={humanSeats}
+          sessionCode={session.code}
+          groupDisplayName={session.displayName}
+        />
       </section>
 
       <ProfessorLiveLobby sessionId={session.id} status={session.status} />

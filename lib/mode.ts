@@ -16,11 +16,11 @@ const SEED_EMAIL: Record<AppMode, string> = {
 export function homeForMode(mode: AppMode): string {
   switch (mode) {
     case "admin":
-      return "/";
+      return "/admin";
     case "professor":
       return "/professor";
     case "student":
-      return "/simulation/leadership-team";
+      return "/student";
   }
 }
 

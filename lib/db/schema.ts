@@ -121,6 +121,9 @@ export const groupBatches = pgTable("group_batches", {
   decisionCount: integer("decision_count").notNull().default(5),
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
   graderModel: text("grader_model").notNull().default("gemini-flash"),
+  /** draft = plan saved, sessions not created yet; ready = sessions exist */
+  status: text("status").notNull().default("ready"),
+  draftPlan: jsonb("draft_plan"),
   cohortInsights: jsonb("cohort_insights"),
   cohortInsightsAt: timestamp("cohort_insights_at", { withTimezone: true }),
   cohortInsightsModel: text("cohort_insights_model"),
@@ -131,6 +134,8 @@ export const groupBatches = pgTable("group_batches", {
 export const groupSessions = pgTable("group_sessions", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   code: text("code").notNull().unique(),
+  /** Memorable label for professors/students; code remains secondary join id */
+  displayName: text("display_name"),
   caseSlug: text("case_slug").notNull(),
   decisionCount: integer("decision_count").notNull().default(5),
   currentSceneId: text("current_scene_id"),
@@ -161,6 +166,7 @@ export const groupParticipants = pgTable(
     assignedName: text("assigned_name"),
     assignedEmail: text("assigned_email"),
     inviteStatus: text("invite_status").notNull().default("pending"), // pending|sent|failed
+    inviteError: text("invite_error"),
     invitedAt: timestamp("invited_at", { withTimezone: true }),
     profileId: uuid("profile_id").references(() => profiles.id),
     joinedAt: timestamp("joined_at", { withTimezone: true }),

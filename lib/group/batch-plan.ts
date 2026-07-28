@@ -1,4 +1,5 @@
 import { SEAT_ORDER, type SeatKey } from "@/lib/case/group-roles";
+import { pickUniqueGroupNames } from "@/lib/group/group-names";
 
 export type RosterStudent = {
   id: string;
@@ -15,6 +16,8 @@ export type PlannedMember = {
 
 export type PlannedGroup = {
   id: string;
+  /** Friendly name shown to professors and students */
+  displayName: string;
   members: PlannedMember[];
   /** Seats filled by AI after humans are placed */
   aiSeats: SeatKey[];
@@ -80,10 +83,13 @@ export function splitRosterIntoGroups(
 
   const groups: PlannedGroup[] = [];
   let offset = 0;
-  for (const size of sizes) {
+  const names = pickUniqueGroupNames(sizes.length);
+  for (let i = 0; i < sizes.length; i++) {
+    const size = sizes[i]!;
     const chunk = pool.slice(offset, offset + size);
     offset += size;
-    groups.push(assignSeatsInOrder(chunk));
+    const g = assignSeatsInOrder(chunk);
+    groups.push({ ...g, displayName: names[i]! });
   }
   return groups;
 }
@@ -98,7 +104,12 @@ export function assignSeatsInOrder(students: RosterStudent[]): PlannedGroup {
   }));
   const filled = new Set(members.map((m) => m.roleKey));
   const aiSeats = SEAT_ORDER.filter((seat) => !filled.has(seat));
-  return { id: newId(), members, aiSeats };
+  return {
+    id: newId(),
+    displayName: "Untitled Group",
+    members,
+    aiSeats,
+  };
 }
 
 export function recomputeAiSeats(group: PlannedGroup): PlannedGroup {
@@ -129,11 +140,16 @@ export function validateGroup(group: PlannedGroup): string[] {
 
 export function validatePlan(plan: BatchPlan): string[] {
   const errors: string[] = [];
+  const names = new Set<string>();
   for (let i = 0; i < plan.groups.length; i++) {
     const g = recomputeAiSeats(plan.groups[i]!);
+    const label = g.displayName?.trim() || `Group ${i + 1}`;
     for (const e of validateGroup(g)) {
-      errors.push(`Group ${i + 1}: ${e}`);
+      errors.push(`${label}: ${e}`);
     }
+    const key = label.toLowerCase();
+    if (names.has(key)) errors.push(`Duplicate group name: ${label}`);
+    names.add(key);
   }
   const emails = plan.groups.flatMap((g) => g.members.map((m) => m.email));
   if (new Set(emails).size !== emails.length) {
