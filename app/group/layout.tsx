@@ -10,7 +10,7 @@ export default function GroupLayout({
   return (
     <>
       <header className="border-b border-border">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6 md:px-8">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6 md:px-8">
           <Link href="/" className="font-serif text-base text-foreground">
             The Cost of Winning
           </Link>

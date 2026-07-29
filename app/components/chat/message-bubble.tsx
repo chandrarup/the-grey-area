@@ -22,16 +22,16 @@ export function MessageBubble({
 
   return (
     <div
-      className={`flex max-w-[min(100%,28rem)] items-end gap-2.5 ${
+      className={`flex max-w-[min(100%,38rem)] items-end gap-2.5 ${
         isRight ? "ml-auto flex-row-reverse" : ""
       } ${animate ? "chat-bubble-in" : ""}`}
     >
       <CastAvatar castId={castId} name={name} size="sm" />
       <div
-        className={`min-w-0 rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
+        className={`min-w-0 px-3.5 py-2.5 text-[13.5px] leading-relaxed ${
           isRight
-            ? "rounded-br-md bg-accent text-accent-foreground"
-            : "rounded-bl-md bg-surface text-foreground"
+            ? "rounded-[14px] rounded-br-sm bg-accent text-accent-foreground"
+            : "rounded-[14px] rounded-bl-sm bg-surface-raised text-foreground"
         }`}
       >
         {!isRight ? (

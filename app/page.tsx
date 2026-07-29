@@ -1,9 +1,28 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { enterAsInstructor, enterAsStudent } from "@/app/actions/enter";
 import { ThemeToggle } from "@/app/components/theme-toggle";
-import { EnterPathButton } from "@/app/components/enter-path-button";
+import { BrandLockup } from "@/app/components/brand-mark";
+import { LandingStakesPanel } from "@/app/components/landing-stakes-panel";
+import { LandingCtas } from "@/app/components/landing-ctas";
 import { isDevIdentityEnabled } from "@/lib/auth/role-guard";
+
+const STEPS = [
+  {
+    n: "01",
+    title: "Read the situation",
+    body: "Step into a company under pressure. Brief yourself before the room opens.",
+  },
+  {
+    n: "02",
+    title: "Make the calls",
+    body: "Decide under time and conflicting advice — alone with AI, or with your peers.",
+  },
+  {
+    n: "03",
+    title: "See what they cost",
+    body: "Get clear feedback on patterns, blind spots, and what the path revealed.",
+  },
+] as const;
 
 /**
  * Product front door. Invite links (?join=) never see this page.
@@ -16,7 +35,6 @@ export default async function Home({
   const { join } = await searchParams;
   if (join?.trim()) {
     const token = join.trim();
-    // Auto-seat via open route so invite links re-enter without a blank join form.
     redirect(`/group/open?token=${encodeURIComponent(token)}`);
   }
 
@@ -24,113 +42,66 @@ export default async function Home({
 
   return (
     <div className="relative flex min-h-full flex-col">
-      {/* Full-bleed atmosphere — muted editorial plane, no stock photo */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-background" />
-        <div
-          className="absolute inset-0 opacity-[0.55] dark:opacity-40"
-          style={{
-            backgroundImage: `
-              radial-gradient(ellipse 90% 60% at 70% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%),
-              radial-gradient(ellipse 50% 40% at 10% 90%, color-mix(in srgb, var(--border) 80%, transparent), transparent 50%),
-              linear-gradient(165deg, var(--background) 0%, color-mix(in srgb, var(--surface) 70%, var(--background)) 45%, var(--background) 100%)
-            `,
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.35] dark:opacity-20"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E")`,
-            backgroundSize: "180px 180px",
-          }}
-        />
-      </div>
-
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6 md:px-8">
-        <p className="font-serif text-lg text-foreground md:text-xl">
-          The Cost of Winning
-        </p>
+      <header className="mx-auto flex w-full max-w-[85rem] items-center justify-between px-7 py-5 md:px-8">
+        <BrandLockup size="sm" />
         <ThemeToggle />
       </header>
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 pb-20 pt-8 md:px-8 md:pt-16">
-        {/* Hero — brand first, one headline, one support, one CTA group */}
-        <section className="max-w-2xl">
-          <h1 className="font-serif text-[clamp(2.5rem,6vw,4.25rem)] leading-[1.08] tracking-tight text-foreground">
-            The Cost of Winning
-          </h1>
-          <p className="mt-8 max-w-[36ch] font-serif text-xl leading-snug text-foreground md:text-2xl">
-            An immersive ethics simulation where you lead a company through
-            decisions that look reasonable one at a time — and add up to
-            something else.
-          </p>
-          <p className="mt-5 max-w-[42ch] text-sm leading-relaxed text-muted-foreground">
-            Play solo against AI executives, or join a live team meeting.
-            About 30–40 minutes. AI-driven feedback on how you decided.
-          </p>
+      <main className="mx-auto flex w-full max-w-[85rem] flex-1 flex-col px-7 md:px-8">
+        <section className="grid min-h-[calc(100vh-4.5rem)] grid-cols-1 items-center gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:gap-[4.5rem]">
+          <div className="flex flex-col gap-7 py-16 lg:py-20">
+            <p className="m-0 font-mono text-[11px] uppercase tracking-[0.22em] text-accent">
+              Stage 1 · Transformational Ethics Experience
+            </p>
+            <h1 className="m-0 font-serif text-[clamp(2.75rem,6vw,4.75rem)] font-medium leading-[1.02] tracking-tight text-foreground">
+              The Cost of Winning
+            </h1>
+            <p className="m-0 max-w-[46ch] font-serif text-xl leading-relaxed text-foreground">
+              You are three weeks into the top job when a contract worth more
+              than the company arrives with a condition nobody will put in
+              writing.
+            </p>
+            <p className="m-0 max-w-[52ch] text-[14.5px] leading-relaxed text-muted-foreground">
+              A live executive ethics simulation. Play solo against AI
+              executives, or take a seat in a five-person leadership meeting.
+              30–40 minutes. Your reasoning is assessed, not your answer.
+            </p>
+            <LandingCtas />
+          </div>
+
+          <div className="flex items-center justify-center border-border py-16 lg:border-l lg:py-20 lg:pl-[4.5rem]">
+            <LandingStakesPanel />
+          </div>
         </section>
 
-        {/* How it works */}
-        <section className="mt-20 border-t border-border pt-12 md:mt-28">
-          <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            How it works
-          </h2>
-          <ol className="mt-8 grid gap-10 sm:grid-cols-3">
-            {[
-              {
-                n: "01",
-                title: "Read the situation",
-                body: "Step into a company under pressure. Brief yourself before the room opens.",
-              },
-              {
-                n: "02",
-                title: "Make the calls",
-                body: "Decide under time and conflicting advice — alone with AI, or with your peers.",
-              },
-              {
-                n: "03",
-                title: "See what they cost",
-                body: "Get clear feedback on patterns, blind spots, and what the path revealed.",
-              },
-            ].map((step) => (
-              <li key={step.n}>
-                <p className="font-mono text-[11px] tracking-wide text-muted-foreground">
-                  {step.n}
-                </p>
-                <p className="mt-3 font-serif text-xl text-foreground">
-                  {step.title}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {step.body}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* Two paths only */}
-        <section className="mt-20 grid gap-4 sm:grid-cols-2 sm:gap-6 md:mt-24">
-          <EnterPathButton
-            action={enterAsStudent}
-            variant="accent"
-            eyebrow="Student"
-            title="I'm a student"
-            body="Start the solo simulation, or open the invite link you were sent."
-          />
-          <EnterPathButton
-            action={enterAsInstructor}
-            variant="outline"
-            eyebrow="Instructor"
-            title="I'm an instructor"
-            body="Create sessions, share seats, monitor groups, and release feedback."
-          />
+        <section className="border-t border-border">
+          <div className="flex flex-col gap-12 py-20 md:py-24">
+            <p className="m-0 font-mono text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+              How it works
+            </p>
+            <div className="grid border-t border-border sm:grid-cols-3">
+              {STEPS.map((step, i) => (
+                <article
+                  key={step.n}
+                  className={`flex flex-col items-center gap-3.5 px-6 py-10 text-center sm:px-10 ${
+                    i < STEPS.length - 1 ? "sm:border-r sm:border-border" : ""
+                  }`}
+                >
+                  <p className="m-0 font-mono text-xs text-accent">{step.n}</p>
+                  <h2 className="m-0 font-serif text-2xl font-medium leading-snug text-foreground">
+                    {step.title}
+                  </h2>
+                  <p className="m-0 max-w-[34ch] text-sm leading-relaxed text-muted-foreground">
+                    {step.body}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
         </section>
 
         {showDevHint ? (
-          <p className="mt-16 text-center text-[11px] text-muted-foreground">
+          <p className="pb-16 text-center font-mono text-[11px] text-muted-foreground">
             Dev identity is on.{" "}
             <Link href="/dev/identity" className="underline underline-offset-2">
               Profile picker

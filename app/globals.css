@@ -2,37 +2,55 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * The Cost of Winning — Logo B / boardroom system.
+ * One accent (amber): primary action, active speaker, decision marker, focus.
+ * Radii: 0 structural · 2px inputs/chips · ~14px chat bubbles only.
+ * Instructor-only --attention for stalled groups; never green/red in student UI.
+ */
 :root {
+  /* Paper */
   --background: #faf9f7;
-  --surface: #f1efec;
+  --surface: #ffffff;
+  --surface-raised: #f1efec;
   --foreground: #1c1b19;
   --muted-foreground: #6b6863;
   --border: #e1ded9;
-  --accent: #25384d;
+  --border-strong: #c8c4bc;
+  --accent: #8a4f12;
   --accent-foreground: #faf9f7;
+  --attention: #8fa4bf;
 }
 
 .dark {
-  --background: #0b0b0a;
-  --surface: #161513;
-  --foreground: #f2f0ec;
-  --muted-foreground: #9c9893;
-  --border: #2a2825;
-  --accent: #4a6c8c;
-  --accent-foreground: #f5f3ef;
+  /* Ink */
+  --background: #12171f;
+  --surface: #1a2130;
+  --surface-raised: #212a3b;
+  --foreground: #eae5da;
+  --muted-foreground: #8c95a7;
+  --border: #2c374a;
+  --border-strong: #3b4859;
+  --accent: #c9822f;
+  --accent-foreground: #12171f;
+  --attention: #8fa4bf;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-attention: var(--attention);
 
   --font-serif: var(--font-newsreader);
   --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
 }
 
 @layer base {
@@ -249,5 +267,93 @@
 
   .tga-progress-indeterminate {
     animation: tga-progress-slide 1.1s ease-in-out infinite;
+  }
+
+  /* Logo B hero 1a — compromise walks the quartered square (12s) */
+  @keyframes tcw-quad-1 {
+    0%,
+    22% {
+      opacity: 1;
+    }
+    25%,
+    97% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes tcw-quad-2 {
+    0%,
+    22% {
+      opacity: 0;
+    }
+    25%,
+    47% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes tcw-quad-3 {
+    0%,
+    47% {
+      opacity: 0;
+    }
+    50%,
+    72% {
+      opacity: 1;
+    }
+    75%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes tcw-quad-4 {
+    0%,
+    72% {
+      opacity: 0;
+    }
+    75%,
+    97% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .tcw-mark-animate .tcw-q1 {
+    animation: tcw-quad-1 12s ease-in-out infinite;
+  }
+  .tcw-mark-animate .tcw-q2 {
+    animation: tcw-quad-2 12s ease-in-out infinite;
+  }
+  .tcw-mark-animate .tcw-q3 {
+    animation: tcw-quad-3 12s ease-in-out infinite;
+  }
+  .tcw-mark-animate .tcw-q4 {
+    animation: tcw-quad-4 12s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tcw-mark-animate .tcw-q1,
+    .tcw-mark-animate .tcw-q2,
+    .tcw-mark-animate .tcw-q3,
+    .tcw-mark-animate .tcw-q4 {
+      animation: none;
+    }
+    .tcw-mark-animate .tcw-q1 {
+      opacity: 0;
+    }
+    .tcw-mark-animate .tcw-q2,
+    .tcw-mark-animate .tcw-q3 {
+      opacity: 0;
+    }
+    .tcw-mark-animate .tcw-q4 {
+      opacity: 1;
+    }
   }
 }

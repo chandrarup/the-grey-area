@@ -5,6 +5,24 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-07-28 — Wider meeting chat; inline @mentions
+
+**What:** Meeting page widened (`max-w-6xl`); chat column gets more space, taller thread, wider bubbles. Removed separate “Address” chips — type `@` in the composer for inline mention picker; mentions insert into the message text.
+**Why:** Chat felt cramped inside `max-w-3xl`; address toggles confused users and weren’t required to send.
+**Do not undo:** Inline @mention typeahead in speak composer; no separate address selector row.
+
+## 2026-07-28 — Landing stakes panel; meeting & cohort monitor alignment
+
+**What:** Home rebuilt to Paper prototype: scenario hook (no hero animation or old tagline), inline amber CTAs, right-column 8.4 bn stakes panel with countdown. Live meeting widened (`max-w-5xl`): participant tile row, decision dots, scene time label, chat + brief sidebar. Cohort monitor: KPI stats strip, 4-column clickable group cards, live pill + refresh spinner, stacked avatars.
+**Why:** Prior pass used wrong source (animated logo, old tagline); meeting and batch board didn’t match production design artefacts.
+**Do not undo:** No `BrandMark` animation on `/`; stakes panel is the hero right column; keep prototype-aligned meeting/monitor shells.
+
+## 2026-07-28 — Logo B + amber boardroom design system
+
+**What:** Remapped Paper/Ink tokens to warm amber accent (`#8A4F12` / `#C9822F`); Logo B quartered mark in favicon, headers, landing; hero 1a animated compromise walk; Plex Mono for eyebrows; chat ~14px radii; student @mentions use amber (not red); instructor stalled tiles use `--attention` slate.
+**Why:** Apply production design artefacts without rebuilding every screen.
+**Do not undo:** One amber accent only in student UI; no green/red status signalling; keep Logo B as identity mark.
+
 ## 2026-07-28 — Cohort generate stuck; group AI feedback path
 
 **What:** Cohort “Generate insights” disabled until ≥1 graded group; local busy+timeout so it can’t stick on Generating… Batch tiles show next-step CTAs and **Generate AI grade** on committed groups without assessment. Staff page banners unfinished grades. Final commit no longer awaits grader (fire-and-forget) so the meeting doesn’t hang.
@@ -19,7 +37,7 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ## 2026-07-27 — Board joined vs emailed; chat stability; @mention chips
 
-**What:** Batch board “joined” requires `profileId` (not roster `displayName`); tiles show `N/M joined · X emailed`. Group name is a link to the transcript (Rename is separate). Chat replaces optimistic messages in place and uses instant bottom-stick scroll (no bounce). Speak composer has red @mention tags that insert into the draft for existing mention detection.
+**What:** Batch board “joined” requires `profileId` (not roster `displayName`); tiles show `N/M joined · X emailed`. Group name is a link to the transcript (Rename is separate). Chat replaces optimistic messages in place and uses instant bottom-stick scroll (no bounce). Speak composer has @mention tags that insert into the draft for existing mention detection.
 **Why:** Roster names looked like 5/5 joined before invites; chat bubbles jumped on send; mentions were placeholder-only.
 **Do not undo:** Do not count assigned roster names as joined; keep name click → transcript.
 

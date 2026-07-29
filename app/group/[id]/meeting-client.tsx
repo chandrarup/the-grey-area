@@ -6,10 +6,11 @@ import {
   startMeetingAction,
   toggleReadyAction,
 } from "@/app/group/actions";
-import { CastAvatar } from "@/app/components/chat/cast-avatar";
 import { MessageBubble } from "@/app/components/chat/message-bubble";
 import { ThinkingIndicator } from "@/app/components/chat/thinking-indicator";
 import { AnswerComposer } from "@/app/components/group/answer-composer";
+import { DecisionDots } from "@/app/components/group/decision-dots";
+import { ParticipantTile } from "@/app/components/group/participant-tile";
 import {
   GROUP_ROLES,
   HUMAN_MSG_GATE,
@@ -609,176 +610,201 @@ export function GroupMeetingClient(props: {
   const myBrief = GROUP_ROLES[props.roleKey as SeatKey];
   const myLabel = myBrief?.name ?? characterName(props.roleKey);
 
+  const speakingRole =
+    thinkingRoleKeys[0] ?? (sending ? props.roleKey : null);
+
   return (
-    <div className="mt-6 max-w-2xl space-y-6">
-      <p className="rounded-lg border border-accent/40 bg-surface px-3 py-2 text-sm text-foreground">
+    <div className="mt-4 w-full space-y-6">
+      <p className="border border-accent/40 bg-surface px-3 py-2 text-sm text-foreground">
         You are <span className="font-medium">{myLabel}</span>
         {myBrief?.title ? (
           <span className="text-muted-foreground"> — {myBrief.title}</span>
         ) : null}
         {!seatToken ? (
-          <span className="mt-1 block text-xs text-red-700">
+          <span className="mt-1 block text-xs text-muted-foreground">
             Missing seat token — re-open your join link so messages send as this role.
           </span>
         ) : null}
       </p>
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              {props.scene.timeLabel ?? "Meeting"} · Decision{" "}
-              {decisionsMade + 1} of {props.decisionCount}
-            </p>
-            <h2 className="font-serif text-2xl text-foreground">
-              {props.scene.title}
-            </h2>
-          </div>
-          <span className="text-xs tabular-nums text-muted-foreground">
+
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            Live meeting · Decision {decisionsMade + 1} of {props.decisionCount}
+          </p>
+          <h2 className="font-serif text-3xl font-medium text-foreground">
+            {props.scene.title}
+          </h2>
+        </div>
+        <div className="flex items-center gap-3.5">
+          <DecisionDots made={decisionsMade} total={props.decisionCount} />
+          <p className="font-mono text-[13px] tabular-nums text-muted-foreground">
             {mm}:{ss}
             {msRemaining != null && msRemaining > 0
               ? ` · ${formatSessionRemaining(msRemaining)}`
               : ""}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {props.sceneCast.map((s) => {
-            const isYou = s.id === props.roleKey;
-            const seat = participants.find((p) => p.roleKey === s.id);
-            const isAi = seat?.isAi ?? s.id === "eleanor";
-            return (
-              <div key={s.id} className="flex items-center gap-2 text-xs">
-                <CastAvatar castId={s.id} name={s.name} size="sm" />
-                <div>
-                  <p className="font-medium text-foreground">
-                    {s.name}
-                    {isYou ? " (you)" : isAi ? " (AI)" : ""}
-                  </p>
-                  <p className="text-muted-foreground">{s.title}</p>
-                </div>
-              </div>
-            );
-          })}
+          </p>
         </div>
       </header>
 
-      {props.scene.brief ? (
-        <div className="border-l-2 border-accent bg-surface px-4 py-3 text-sm leading-relaxed text-foreground">
-          {props.scene.brief}
-        </div>
-      ) : null}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+        {props.sceneCast.map((s) => {
+          const seat = participants.find((p) => p.roleKey === s.id);
+          const isAi = seat?.isAi ?? s.id === "eleanor";
+          const isYou = s.id === props.roleKey;
+          const active = speakingRole === s.id;
+          let tag: string | undefined;
+          if (active) {
+            tag = thinkingRoleKeys.includes(s.id) ? "Thinking" : "Speaking";
+          } else if (isYou) {
+            tag = "You";
+          } else if (isAi) {
+            tag = "AI";
+          }
+          return (
+            <ParticipantTile
+              key={s.id}
+              roleKey={s.id}
+              name={s.name}
+              title={s.title}
+              tag={tag}
+              active={active}
+            />
+          );
+        })}
+      </div>
 
-      {props.roleBriefCollapsed ? (
-        <div>
-          <button
-            type="button"
-            className="text-xs uppercase tracking-wide text-muted-foreground underline"
-            onClick={() => setBriefOpen((o) => !o)}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_min(260px,24%)]">
+        <div className="min-w-0 overflow-hidden border border-border bg-background">
+          <div
+            ref={scrollRef}
+            onScroll={() => {
+              const el = scrollRef.current;
+              if (!el) return;
+              const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+              stickToBottomRef.current = dist < 80;
+            }}
+            className="chat-thread flex h-[min(62vh,34rem)] flex-col gap-3 overflow-y-auto px-5 py-5"
           >
-            {briefOpen ? "Hide my brief" : "My brief"}
-          </button>
-          {briefOpen ? (
-            <div className="mt-2 border border-border bg-surface px-4 py-3 text-sm">
-              <p className="font-medium">
-                {props.roleBriefCollapsed.name} —{" "}
-                {props.roleBriefCollapsed.title}
+            {props.scene.timeLabel ? (
+              <p className="mx-auto mb-1 text-center font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                {props.scene.timeLabel}
               </p>
-              <p className="mt-2 text-muted-foreground">
-                {props.roleBriefCollapsed.stance}
+            ) : null}
+            {sceneMessages.map((m) => {
+              const isMe = m.roleKey === props.roleKey;
+              const isNarrator =
+                m.senderKind === "narrator" || m.roleKey === "narrator";
+              const charName = characterName(m.roleKey);
+              const humanName = displayNameForRole(
+                m.roleKey,
+                props.cast,
+                participants,
+              );
+              const title =
+                GROUP_ROLES[m.roleKey as SeatKey]?.title ??
+                (m.roleKey === "ceo" ? "Chief Executive Officer" : undefined);
+              if (isNarrator) {
+                return (
+                  <p
+                    key={m.id}
+                    className="mx-auto max-w-[90%] whitespace-pre-wrap text-center text-xs italic text-muted-foreground"
+                  >
+                    {m.content}
+                  </p>
+                );
+              }
+              return (
+                <MessageBubble
+                  key={m.id}
+                  side={isMe ? "right" : "left"}
+                  castId={m.roleKey === "ceo" ? "ceo" : m.roleKey}
+                  name={isMe ? "You" : charName}
+                  role={
+                    isMe
+                      ? myLabel
+                      : humanName !== charName
+                        ? `${title ?? ""} · ${humanName}`.replace(/^ · /, "")
+                        : title
+                  }
+                  text={m.content}
+                  animate={m.id > 0 && animateIds.has(m.id)}
+                />
+              );
+            })}
+            {thinkingRoleKeys[0] ? (
+              <ThinkingIndicator
+                castId={thinkingRoleKeys[0]}
+                name={characterName(thinkingRoleKeys[0])}
+              />
+            ) : null}
+          </div>
+
+          <div className="border-t border-border bg-surface/50 px-4 py-4">
+            <AnswerComposer
+              key={`speak-${props.roleKey}`}
+              suggestions={suggestions}
+              sending={sending}
+              onSend={sendMessage}
+              mentionTargets={props.sceneCast
+                .filter((s) => s.id !== props.roleKey)
+                .map((s) => ({
+                  roleKey: s.id,
+                  name: s.name,
+                  title: s.title,
+                }))}
+              placeholder="Speak in character…"
+            />
+            {error ? (
+              <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+            ) : (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Live · Realtime · {humanCount}/{HUMAN_MSG_GATE} human msgs ·
+                anyone can speak at any time
               </p>
-              <p className="mt-2">{props.roleBriefCollapsed.objective}</p>
-              {props.roleBriefCollapsed.opening ? (
-                <p className="mt-2 italic text-muted-foreground">
-                  {props.roleBriefCollapsed.opening}
-                </p>
+            )}
+          </div>
+        </div>
+
+        <aside className="flex flex-col gap-4">
+          {props.scene.brief ? (
+            <div className="border border-border bg-surface p-4 text-sm leading-relaxed text-foreground">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                Scene brief
+              </p>
+              {props.scene.brief}
+            </div>
+          ) : null}
+
+          {props.roleBriefCollapsed ? (
+            <div className="border border-border bg-surface p-4 text-sm">
+              <button
+                type="button"
+                className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground underline"
+                onClick={() => setBriefOpen((o) => !o)}
+              >
+                {briefOpen ? "Hide my brief" : "My brief"}
+              </button>
+              {briefOpen ? (
+                <div className="mt-3">
+                  <p className="font-medium">
+                    {props.roleBriefCollapsed.name} —{" "}
+                    {props.roleBriefCollapsed.title}
+                  </p>
+                  <p className="mt-2 text-muted-foreground">
+                    {props.roleBriefCollapsed.stance}
+                  </p>
+                  <p className="mt-2">{props.roleBriefCollapsed.objective}</p>
+                  {props.roleBriefCollapsed.opening ? (
+                    <p className="mt-2 italic text-muted-foreground">
+                      {props.roleBriefCollapsed.opening}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-background">
-        <div
-          ref={scrollRef}
-          onScroll={() => {
-            const el = scrollRef.current;
-            if (!el) return;
-            const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-            stickToBottomRef.current = dist < 80;
-          }}
-          className="chat-thread flex h-[min(48vh,24rem)] flex-col gap-3 overflow-y-auto px-3 py-4 sm:px-4"
-        >
-          {sceneMessages.map((m) => {
-            const isMe = m.roleKey === props.roleKey;
-            const isNarrator =
-              m.senderKind === "narrator" || m.roleKey === "narrator";
-            const charName = characterName(m.roleKey);
-            const humanName = displayNameForRole(
-              m.roleKey,
-              props.cast,
-              participants,
-            );
-            const title =
-              GROUP_ROLES[m.roleKey as SeatKey]?.title ??
-              (m.roleKey === "ceo" ? "Chief Executive Officer" : undefined);
-            if (isNarrator) {
-              return (
-                <p
-                  key={m.id}
-                  className="mx-auto max-w-[90%] whitespace-pre-wrap text-center text-xs italic text-muted-foreground"
-                >
-                  {m.content}
-                </p>
-              );
-            }
-            return (
-              <MessageBubble
-                key={m.id}
-                side={isMe ? "right" : "left"}
-                castId={m.roleKey === "ceo" ? "ceo" : m.roleKey}
-                name={isMe ? "You" : charName}
-                role={
-                  isMe
-                    ? myLabel
-                    : humanName !== charName
-                      ? `${title ?? ""} · ${humanName}`.replace(/^ · /, "")
-                      : title
-                }
-                text={m.content}
-                animate={m.id > 0 && animateIds.has(m.id)}
-              />
-            );
-          })}
-          {thinkingRoleKeys[0] ? (
-            <ThinkingIndicator
-              castId={thinkingRoleKeys[0]}
-              name={characterName(thinkingRoleKeys[0])}
-            />
-          ) : null}
-        </div>
-
-        <div className="border-t border-border bg-surface/50 px-3 py-3 sm:px-4">
-          <AnswerComposer
-            key={`speak-${props.roleKey}`}
-            suggestions={suggestions}
-            sending={sending}
-            onSend={sendMessage}
-            mentionTargets={props.sceneCast
-              .filter((s) => s.id !== props.roleKey)
-              .map((s) => ({
-                roleKey: s.id,
-                name: s.name,
-                title: s.title,
-              }))}
-            placeholder="Speak in character… Tag a character below to address them"
-          />
-          {error ? (
-            <p className="mt-2 text-sm text-red-700">{error}</p>
-          ) : (
-            <p className="mt-2 text-[10px] text-muted-foreground">
-              Live · Realtime · {humanCount}/{HUMAN_MSG_GATE} human msgs
-            </p>
-          )}
-        </div>
+        </aside>
       </div>
 
       {props.isCeo ? (

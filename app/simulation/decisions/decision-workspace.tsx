@@ -459,7 +459,7 @@ export function DecisionWorkspace(props: Props) {
               }}
               rows={2}
               disabled={isLoading}
-              className="min-h-[2.75rem] flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none disabled:opacity-60"
+              className="min-h-[2.75rem] flex-1 resize-none rounded-[2px] border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-accent focus:outline-none disabled:opacity-60"
               placeholder="Message the room…"
             />
             <BusyButton
@@ -468,7 +468,7 @@ export function DecisionWorkspace(props: Props) {
               pendingLabel="Sending…"
               onClick={handleSend}
               disabled={!input.trim()}
-              className="mb-0.5 shrink-0 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground disabled:opacity-40"
+              className="mb-0.5 shrink-0 bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-40"
             >
               Send
             </BusyButton>

@@ -36,8 +36,8 @@ export function EnterPathButton({
       }
       className={
         variant === "accent"
-          ? "group flex h-full w-full flex-col items-start border border-transparent bg-accent px-6 py-7 text-left text-accent-foreground transition-all hover:brightness-110 disabled:cursor-wait disabled:opacity-90"
-          : "group flex h-full w-full flex-col items-start border border-border bg-background/80 px-6 py-7 text-left transition-all hover:border-accent hover:bg-surface disabled:cursor-wait disabled:opacity-90"
+          ? "group flex h-full w-full flex-col items-start border border-accent bg-accent px-6 py-7 text-left text-accent-foreground transition-all hover:brightness-110 disabled:cursor-wait disabled:opacity-90"
+          : "group flex h-full w-full flex-col items-start border border-border-strong bg-transparent px-6 py-7 text-left transition-all hover:border-muted-foreground hover:bg-surface-raised disabled:cursor-wait disabled:opacity-90"
       }
     >
       {pending ? (
@@ -55,8 +55,8 @@ export function EnterPathButton({
           <span
             className={
               variant === "accent"
-                ? "text-xs uppercase tracking-[0.12em] opacity-80"
-                : "text-xs uppercase tracking-[0.12em] text-muted-foreground"
+                ? "font-mono text-[11px] uppercase tracking-[0.18em] opacity-80"
+                : "font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
             }
           >
             {eyebrow}

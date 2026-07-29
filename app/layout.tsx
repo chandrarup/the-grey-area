@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Newsreader, IBM_Plex_Sans } from "next/font/google";
+import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { NavigationProgressHost } from "@/app/components/navigation-progress-host";
 import "./globals.css";
 
@@ -16,13 +16,19 @@ const plexSans = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
 });
 
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
+});
+
 export const metadata: Metadata = {
   title: {
     default: "The Cost of Winning",
     template: "%s · The Cost of Winning",
   },
   description:
-    "An immersive ethics simulation where you lead a company through decisions that look reasonable one at a time — and add up to something else.",
+    "A live executive ethics simulation. Lead a company through pressure, conflict, and consequence — solo or in a five-person meeting.",
 };
 
 /** Runs before paint to avoid a light/dark flash. Kept as a raw inline script in the
@@ -37,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${plexSans.variable} h-full antialiased`}
+      className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col font-sans">

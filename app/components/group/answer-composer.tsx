@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BusyButton } from "@/app/components/busy-button";
 
 type Mode = "speak" | "commit";
@@ -13,10 +13,14 @@ export type MentionTarget = {
   title?: string;
 };
 
+function firstName(name: string) {
+  return name.split(/\s+/)[0] ?? name;
+}
+
 /**
  * Reusable answer composer: suggestion chips insert editable text (no auto-send),
  * or commit-mode option cards + reasoning.
- * Speak mode supports red @mention tags that insert into the draft.
+ * Speak mode supports inline @mention typeahead in the textarea.
  */
 export function AnswerComposer(props: {
   mode?: Mode;
@@ -42,30 +46,55 @@ export function AnswerComposer(props: {
 }) {
   const mode = props.mode ?? "speak";
   const [text, setText] = useState("");
-  const [mentioned, setMentioned] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionStart, setMentionStart] = useState<number | null>(null);
+  const [mentionFilter, setMentionFilter] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
 
-  function mentionLabel(roleKey: string): string {
-    const t = props.mentionTargets?.find((x) => x.roleKey === roleKey);
-    const first = (t?.name ?? roleKey).split(/\s+/)[0] ?? roleKey;
-    return `@${first}`;
+  const filteredMentions = useMemo(() => {
+    if (!mentionOpen || !props.mentionTargets?.length) return [];
+    const q = mentionFilter.toLowerCase();
+    return props.mentionTargets.filter((t) => {
+      const first = firstName(t.name).toLowerCase();
+      const full = t.name.toLowerCase();
+      return !q || first.startsWith(q) || full.includes(q);
+    });
+  }, [mentionFilter, mentionOpen, props.mentionTargets]);
+
+  function syncMentionState(value: string, cursor: number) {
+    const before = value.slice(0, cursor);
+    const match = before.match(/@([\w]*)$/);
+    if (match && (props.mentionTargets?.length ?? 0) > 0) {
+      setMentionOpen(true);
+      setMentionStart(cursor - match[0].length);
+      setMentionFilter(match[1] ?? "");
+      setMentionIndex(0);
+      return;
+    }
+    setMentionOpen(false);
+    setMentionStart(null);
+    setMentionFilter("");
   }
 
-  function toggleMention(roleKey: string) {
-    setMentioned((prev) => {
-      const on = prev.includes(roleKey);
-      const next = on ? prev.filter((k) => k !== roleKey) : [...prev, roleKey];
-      const tag = mentionLabel(roleKey);
-      setText((current) => {
-        if (on) {
-          return current
-            .replace(new RegExp(`${tag}\\s*`, "gi"), "")
-            .replace(/^\s+/, "");
-        }
-        if (current.toLowerCase().includes(tag.toLowerCase())) return current;
-        const prefix = current.trim().length ? `${current.trim()} ` : "";
-        return `${prefix}${tag} `;
-      });
-      return next;
+  function insertMention(target: MentionTarget) {
+    if (mentionStart === null) return;
+    const el = textareaRef.current;
+    const cursor = el?.selectionStart ?? text.length;
+    const tag = `@${firstName(target.name)}`;
+    const before = text.slice(0, mentionStart);
+    const after = text.slice(cursor);
+    const spacer = after.startsWith(" ") || after.length === 0 ? "" : " ";
+    const next = `${before}${tag}${spacer}${after}`;
+    setText(next);
+    setMentionOpen(false);
+    setMentionStart(null);
+    setMentionFilter("");
+    requestAnimationFrame(() => {
+      if (!el) return;
+      const pos = before.length + tag.length + spacer.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
     });
   }
 
@@ -73,7 +102,8 @@ export function AnswerComposer(props: {
     if (!text.trim() || props.sending || props.disabled) return;
     const body = text.trim();
     setText("");
-    setMentioned([]);
+    setMentionOpen(false);
+    setMentionStart(null);
     void props.onSend?.(body);
   }
 
@@ -137,7 +167,7 @@ export function AnswerComposer(props: {
               pending={props.committing}
               pendingLabel="Committing…"
               disabled={props.commitDisabled}
-              className="cursor-pointer bg-accent px-4 py-2 text-sm text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer border border-accent bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               onClick={() => void props.onCommit?.()}
             >
               Commit
@@ -150,68 +180,13 @@ export function AnswerComposer(props: {
 
   return (
     <div className="space-y-2">
-      {(props.mentionTargets?.length ?? 0) > 0 ? (
-        <div className="space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Address
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {props.mentionTargets!.map((t) => {
-              const on = mentioned.includes(t.roleKey);
-              return (
-                <button
-                  key={t.roleKey}
-                  type="button"
-                  title={t.title ?? t.name}
-                  onClick={() => toggleMention(t.roleKey)}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-all active:scale-[0.98] ${
-                    on
-                      ? "border-red-600 bg-red-600/10 text-red-700 dark:text-red-400"
-                      : "border-border bg-surface text-muted-foreground hover:border-red-600/50 hover:text-foreground"
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      on ? "bg-red-600" : "bg-muted-foreground/40"
-                    }`}
-                    aria-hidden
-                  />
-                  @{t.name.split(/\s+/)[0]}
-                </button>
-              );
-            })}
-          </div>
-          {mentioned.length > 0 ? (
-            <div className="flex flex-wrap gap-1">
-              {mentioned.map((roleKey) => (
-                <span
-                  key={roleKey}
-                  className="inline-flex items-center gap-1 rounded border border-red-600/40 bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-400"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-                  {mentionLabel(roleKey)}
-                  <button
-                    type="button"
-                    className="ml-0.5 text-red-700/70 hover:text-red-700"
-                    aria-label={`Remove ${mentionLabel(roleKey)}`}
-                    onClick={() => toggleMention(roleKey)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {(props.suggestions?.length ?? 0) > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {props.suggestions!.map((line) => (
             <button
               key={line.slice(0, 48)}
               type="button"
-              className="max-w-full cursor-pointer truncate rounded-full border border-border bg-surface px-2.5 py-1 text-left text-[11px] text-muted-foreground transition-all hover:border-accent hover:bg-background hover:text-foreground hover:shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_30%,transparent)] active:scale-[0.98]"
+              className="max-w-full cursor-pointer truncate rounded-[2px] border border-dashed border-border-strong bg-transparent px-2.5 py-1 text-left text-[12.5px] text-muted-foreground transition-all hover:border-accent hover:bg-surface-raised hover:text-foreground active:scale-[0.98]"
               title={line}
               onClick={() => setText(line)}
             >
@@ -220,27 +195,110 @@ export function AnswerComposer(props: {
           ))}
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
+
+      <div className="relative flex items-end gap-2">
+        {mentionOpen && filteredMentions.length > 0 ? (
+          <ul
+            className="absolute bottom-full left-0 z-10 mb-1 max-h-48 w-full min-w-[14rem] overflow-y-auto border border-border bg-background shadow-sm"
+            role="listbox"
+          >
+            {filteredMentions.map((t, i) => (
+              <li key={t.roleKey}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={i === mentionIndex}
+                  className={`flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors ${
+                    i === mentionIndex
+                      ? "bg-accent/10 text-foreground"
+                      : "text-foreground hover:bg-surface"
+                  }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    insertMention(t);
+                  }}
+                >
+                  <span className="text-sm font-medium">
+                    @{firstName(t.name)}
+                  </span>
+                  {t.title ? (
+                    <span className="text-[11px] text-muted-foreground">
+                      {t.name} · {t.title}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">
+                      {t.name}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         <textarea
+          ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            const cursor = e.target.selectionStart ?? val.length;
+            setText(val);
+            syncMentionState(val, cursor);
+          }}
+          onClick={(e) => {
+            const el = e.currentTarget;
+            syncMentionState(el.value, el.selectionStart ?? el.value.length);
+          }}
           onKeyDown={(e) => {
+            if (mentionOpen && filteredMentions.length > 0) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setMentionIndex((i) =>
+                  Math.min(i + 1, filteredMentions.length - 1),
+                );
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setMentionIndex((i) => Math.max(i - 1, 0));
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                insertMention(filteredMentions[mentionIndex]!);
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setMentionOpen(false);
+                setMentionStart(null);
+                return;
+              }
+              if (e.key === "Tab") {
+                e.preventDefault();
+                insertMention(filteredMentions[mentionIndex]!);
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               send();
             }
           }}
-          rows={2}
+          rows={3}
           disabled={props.disabled}
-          className="min-h-[2.75rem] flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none disabled:opacity-50"
-          placeholder={props.placeholder ?? "Speak in character…"}
+          className="min-h-[3.25rem] flex-1 resize-y rounded-[2px] border border-border bg-background px-4 py-2.5 text-sm focus:border-accent focus:outline-none focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent)] disabled:opacity-50"
+          placeholder={
+            props.placeholder ??
+            "Speak in character… Type @ to address someone"
+          }
         />
         <BusyButton
           type="button"
           pending={props.sending}
           pendingLabel="Sending…"
           disabled={props.disabled || !text.trim()}
-          className="mb-0.5 shrink-0 cursor-pointer rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+          className="mb-0.5 shrink-0 cursor-pointer bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           onClick={send}
         >
           Send

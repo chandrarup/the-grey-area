@@ -32,7 +32,7 @@ export default async function ProfessorBatchMonitorPage({
   const insights = readCachedCohortInsights(batch);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-12 md:px-8">
+    <div className="mx-auto max-w-[85rem] px-6 py-12 md:px-8">
       <Link href="/professor" className="text-sm underline">
         ← Sessions
       </Link>
@@ -41,13 +41,16 @@ export default async function ProfessorBatchMonitorPage({
         current="monitor"
         batchStatus={batch.status}
       />
-      <p className="mt-6 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Batch monitor
+      <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        Cohort monitor
       </p>
-      <h1 className="mt-2 font-serif text-3xl text-foreground">{batch.name}</h1>
+      <h1 className="mt-2 font-serif text-[2.125rem] font-medium text-foreground">
+        {rows.length === 1
+          ? "One group in session"
+          : `${rows.length} groups in session`}
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {caseConfig.title} · {batch.decisionCount} decisions ·{" "}
-        {rows.length} groups
+        {caseConfig.title} · {batch.decisionCount} decisions · {batch.name}
       </p>
 
       <p className="mt-4">

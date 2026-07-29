@@ -379,7 +379,7 @@ export default async function GroupSessionPage({
     : [];
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
+    <div className="mx-auto max-w-6xl px-6 py-10 md:px-8">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">
         Meeting · {session.displayName?.trim() || session.code}
         {session.displayName?.trim() ? (
