@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Three-decision copy + DB defaults (ticket 12)
+
+**What:** Replaced stale “five decisions” solo UI strings (leadership team, values, decisions complete, debrief gate) with three. Set `group_sessions` / `group_batches.decision_count` Drizzle defaults to 3 and added migration `0009_decision_count_default_3`. Professor create/batch forms were already 1–3 / default 3.
+**Why:** Cost of Winning is `maxDepth: 3`; leftover five-decision copy and schema defaults contradicted the case.
+**Do not undo:** Do not reintroduce “five decisions” user copy for this case, or a DB default of 5, without an explicit product change. Keep “five-person meeting” (seat count) and story “five weeks later.”
+
 ## 2026-10-29 — Immersion+story upgrade: baseline branch + ticket graph
 
 **What:** Integration branch `integrate/group-immersion-upgrade` baselines the unpushed 3D/group stage work plus grill artefacts (`GLOSSARY.md`, ADRs 0001–0004, `.scratch/group-immersion-upgrade/` spec and tickets 01–12). Spec now requires **shared story** solo↔group (ADR 0004): same arc; solo = human CEO + bots; group = humans + bots. Tickets add story work (08 parity, 09 grey-area framing, 10 D3 consequence, 11 empathy debrief, 12 three-decision copy) alongside immersion 01–07.
