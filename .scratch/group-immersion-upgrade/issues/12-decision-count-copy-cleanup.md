@@ -4,8 +4,12 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** resolved
 
-- [ ] No student/professor UI string still promises five decisions for this case
-- [ ] Group session defaults / create forms align with three decisions for Cost of Winning
-- [ ] Smoke of landing/meeting/concluded copy shows consistent “three”
+- [x] No student/professor UI string still promises five decisions for this case
+- [x] Group session defaults / create forms align with three decisions for Cost of Winning
+- [x] Smoke of landing/meeting/concluded copy shows consistent “three”
+
+## Answer
+
+Solo stage copy (leadership team, values, decisions complete, debrief gate) now says **three** decisions. Schema + migration `0009` set `group_sessions` / `group_batches.decision_count` DB default to `3` (forms already defaulted to 3 / max 3). Left intact: “five-person meeting” seat count and story “five weeks later.”

@@ -24,7 +24,7 @@ export default async function DebriefPage() {
         <p className="mt-4 max-w-[60ch] text-sm text-muted-foreground">
           {run.status === "submitted" || assessmentRow
             ? "Your run is complete. Your professor will release the assessment when ready."
-            : "Finish all five decisions and reflections first."}
+            : "Finish all three decisions and reflections first."}
         </p>
         <Link
           href="/simulation/decisions"

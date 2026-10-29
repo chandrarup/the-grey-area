@@ -104,9 +104,9 @@ export const GROUP_ROLES: Record<SeatKey, GroupRoleBrief> = {
     openingStatement:
       "Thank you for making the time. I have not decided anything yet. Marcus — start with what Salim is actually offering, including the fee. Then I want each of you to tell me the one risk or opportunity the others are underweighting.",
     decisionOptions: [
-      "Refuse further discussions with Salim",
-      "Engage with hard conditions — diligence first, no commitment until review clears",
-      "Authorise Marcus to negotiate and move fast",
+      "Close the Salim channel and compete on the formal process alone",
+      "Avoid owning an engagement tonight — park with diligence and keep the conversation open",
+      "Green-light Marcus to negotiate now while the window is open",
     ],
     successCondition:
       "The team leaves understanding the standard you will hold and why. Your decision will not determine whether the company wins Ardania — not yet. It will determine how Global Infrastructure Solutions chooses to compete.",
