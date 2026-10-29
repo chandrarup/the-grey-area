@@ -6,6 +6,7 @@ Integration branch for immersion + shared-story tickets 01–12.
 
 ## Decisions-so-far
 
+- **07 case validation + arc smokes:** `validate:cases` + `story-arc.test.ts`; `smoke:solo` / `smoke:group` / `smoke:arcs` prove shared story without browser. See [issues/07-case-validation-and-group-e2e.md](issues/07-case-validation-and-group-e2e.md).
 - **06 stance-aware AI + film flavor:** Locked stances enter AI prompts; film title/eyebrow flavors aligned vs split via `evaluateRoomStanceClimate` (no branch graph). See [issues/06-stance-aware-ai-and-film-flavor.md](issues/06-stance-aware-ai-and-film-flavor.md).
 - **05 pressure stances + commit gate:** Authored chips per advisor/scene; persist lock/Abstain; bots auto-stance; CEO overlay + dual commit gate (msgs + readiness). See [issues/05-pressure-stances-and-commit-gate.md](issues/05-pressure-stances-and-commit-gate.md).
 - **10 Decision 3 film + label/quiz polish:** Terminal `s3_*` options carry consequence stories; solo + group play the film before reflections/concluded. Virtue-leaking labels and DecisionView quiz meta removed; Scene 1 `commitPrefill` cleared. See [issues/10-decision3-consequence-and-hook-polish.md](issues/10-decision3-consequence-and-hook-polish.md).

@@ -79,6 +79,7 @@ export async function createGroupSession(params: {
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
 
   let session: GroupSession | undefined;
+  let lastCreateError: unknown;
   for (let attempt = 0; attempt < 8; attempt++) {
     try {
       const [row] = await db
@@ -104,11 +105,24 @@ export async function createGroupSession(params: {
         .returning();
       session = row;
       break;
-    } catch {
-      // unique code collision — retry
+    } catch (err) {
+      lastCreateError = err;
+      // Only retry unique-code collisions; surface schema/other DB errors.
+      const cause = (err as { cause?: { code?: string } })?.cause;
+      const code = cause?.code ?? (err as { code?: string })?.code;
+      if (code === "23505") continue;
+      throw err;
     }
   }
-  if (!session) throw new Error("Could not allocate a unique group code");
+  if (!session) {
+    const detail =
+      lastCreateError instanceof Error
+        ? lastCreateError.message
+        : String(lastCreateError ?? "");
+    throw new Error(
+      `Could not allocate a unique group code${detail ? `: ${detail}` : ""}`,
+    );
+  }
 
   const participants: GroupParticipant[] = [];
   for (const roleKey of SEAT_ORDER) {

@@ -7,14 +7,17 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/group/meeting-runtime.test.ts lib/group/stance-prompt.test.ts",
+    "test": "tsx --test lib/group/meeting-runtime.test.ts lib/group/stance-prompt.test.ts lib/case/story-arc.test.ts",
     "validate:cases": "tsx lib/case/validate.ts",
     "test:unit": "tsx --test app/simulation/decisions/three/avatar-motion.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx --env-file=.env.local lib/db/seed.ts",
-    "db:smoke": "tsx --env-file=.env.local lib/db/smoke.ts"
+    "db:smoke": "tsx --env-file=.env.local lib/db/smoke.ts",
+    "smoke:solo": "tsx --env-file=.env.local lib/db/solo-arc.smoke.ts",
+    "smoke:group": "tsx --env-file=.env.local lib/db/group-arc.smoke.ts",
+    "smoke:arcs": "npm run validate:cases && npm test && npm run smoke:solo && npm run smoke:group"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.12",

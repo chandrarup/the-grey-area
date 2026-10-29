@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Case validation + solo/group arc smokes (ticket 07)
+
+**What:** Kept `validate:cases` as ship gate for stances / grey-area / consequences. Added `enumerateCompletePaths` + `story-arc.test.ts` (27 paths, D3 films, scripts, integrity). DB smokes `lib/db/solo-arc.smoke.ts` and `lib/db/group-arc.smoke.ts` walk hook→decisions→film payload→reflections→release (group: mixed human/bot, phases, stances, message gate). Scripts: `smoke:solo`, `smoke:group`, `smoke:arcs`.
+**Why:** Regressions in story authoring or group runtime need a clear re-run path without browser/LLM.
+**Do not undo:** Keep validate as CI gate; smokes stay LLM-free and assert release gate before student-visible assessment.
+
 ## 2026-10-29 — Stance-aware AI + film flavor (ticket 06)
 
 **What:** `evaluateRoomStanceClimate` / `filmClimatePlace` classify locked advisor chips as aligned (all brief-default or all alternative) vs split (mix or thin room). Group AI turns (`runAiTurn` + legacy queue) inject `formatPressureStancePrompt` with locks/notes/abstains. Consequence film title-card place + decided-card eyebrow flavor from the *decided* scene’s stances; same `option.consequence` / `option.next` / integrity. Unit coverage on climate + prompt helpers.
