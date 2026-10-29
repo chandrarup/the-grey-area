@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Seated Rocketbox intent layer (solo + group)
+
+**What:** Ticket 02. Shared boardroom motion now goes through an intent seam (`avatar-motion.ts`: idle / listen / speak + nod/shake/phone/write/lean/lookDown). Talk/listen/nod/phone clips stay arms- or head-only additives (`clipLayerFor`); settle remains the safety net. `Boardroom` passes `isSpeaker` / `listening` into `Avatar` for both HQ seats and remote tiles (solo `MeetingStage` and group `group-stage` already share this path). Anim build script exports only the professional clip set, prefers `sit_chair_*` talk/listen sources when present, and strips pelvis/spine from standing sources. `stage-lab` has idle/listen/speak controls for visual QA. Unit tests: `npm run test:unit`.
+**Why:** Spec required a seated Rocketbox pipeline with intent-driven professional acts—not standing full-body talk—and one motion path for solo and group.
+**Do not undo:** Keep Rocketbox (no Ready Player Me). Do not play standing clips with spine/pelvis on seated avatars or raise overlay weights above 1.
+
 ## 2026-10-29 — Immersion+story upgrade: baseline branch + ticket graph
 
 **What:** Integration branch `integrate/group-immersion-upgrade` baselines the unpushed 3D/group stage work plus grill artefacts (`GLOSSARY.md`, ADRs 0001–0004, `.scratch/group-immersion-upgrade/` spec and tickets 01–12). Spec now requires **shared story** solo↔group (ADR 0004): same arc; solo = human CEO + bots; group = humans + bots. Tickets add story work (08 parity, 09 grey-area framing, 10 D3 consequence, 11 empathy debrief, 12 three-decision copy) alongside immersion 01–07.

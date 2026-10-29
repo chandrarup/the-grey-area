@@ -7,8 +7,16 @@ import { useGLTF } from "@react-three/drei";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { applyPose, collectBones, normalizeClip, restore, rotateWorld, snapshot, type Bones } from "./rig";
 import { visemeWeightsNow } from "./speech";
+import {
+  boneFilterFor,
+  clipLayerFor,
+  clipsForIntent,
+  resolveAvatarIntent,
+  type AvatarAction,
+  type AvatarIntent,
+} from "./avatar-motion";
 
-export type AvatarAction = "write" | "lean" | "phone" | "nod" | "shake" | "lookDown" | null;
+export type { AvatarAction, AvatarIntent } from "./avatar-motion";
 export type AvatarMood = "neutral" | "tense" | "warm" | "guarded";
 
 const VISEME_KEYS = [
@@ -37,17 +45,10 @@ const IDLE_VARIANTS: Record<string, string[]> = {
 };
 
 /*
- * Talk and listen clips were captured standing. Played as full poses they pull
- * the torso out of the seated idle (the body tips back through the chair), so
- * they are reduced to small additive deltas on the bones listed here.
+ * Standing Rocketbox talk/listen/nod clips tip a seated body if played whole.
+ * clipLayerFor + settle() keep only arms/head additives; pelvis stays on the chair.
+ * Visual QA: /stage-lab seat + side shots while cycling idle / listen / speak.
  */
-const ARMS = /(Clavicle|UpperArm|Forearm|Hand|Finger)/;
-const LAYERED: { match: RegExp; bones: RegExp; weight: number; additive: boolean }[] = [
-  { match: /^talk/, bones: ARMS, weight: 0.4, additive: true },
-  { match: /^(nod|shake)$/, bones: /(Neck|Head)/, weight: 0.7, additive: true },
-  { match: /^phone$/, bones: ARMS, weight: 1, additive: false },
-];
-
 function layeredClip(clip: THREE.AnimationClip, bones: RegExp, additive: boolean) {
   const tracks = clip.tracks
     .filter((t) => bones.test(t.name.split(".")[0]) && t.name.endsWith(".quaternion"))
@@ -177,6 +178,8 @@ export function Avatar({
   action = null,
   mood = "neutral",
   chair = false,
+  listening = false,
+  isSpeaker = false,
 }: {
   id: string;
   position: [number, number, number];
@@ -188,6 +191,10 @@ export function Avatar({
   mood?: AvatarMood;
   /** Render a chair that stays under the hips. */
   chair?: boolean;
+  /** Another seat holds the floor — prefer listen over idle fidget. */
+  listening?: boolean;
+  /** This seat is the directed speaker (solo + group boardroom share this path). */
+  isSpeaker?: boolean;
 }) {
   const { scene } = useGLTF(`/avatars/${id}.glb`);
   const { animations } = useGLTF(`/avatars/anims_${GENDER[id] ?? "m"}.glb`);
@@ -198,8 +205,9 @@ export function Avatar({
     const root = Object.values(prepared.bones).find((b) => b.name === "Bip01");
     const clips = new Map(
       animations.map((a) => {
-        const layer = LAYERED.find((l) => l.match.test(a.name));
-        if (layer) return [a.name, layeredClip(a, layer.bones, layer.additive)] as const;
+        const layer = clipLayerFor(a.name);
+        const bones = boneFilterFor(layer);
+        if (bones) return [a.name, layeredClip(a, bones, layer.additive)] as const;
         return [a.name, root ? normalizeClip(a, root, prepared.root) : a] as const;
       }),
     );
@@ -222,13 +230,13 @@ export function Avatar({
     target: Object.fromEntries(VISEME_KEYS.map((k) => [k, 0])) as Record<string, number>,
     actionT: 0,
     lastAction: null as AvatarAction,
+    lastIntent: "idle" as AvatarIntent,
     speakT: 0,
     seed,
     base: null as THREE.AnimationAction | null,
     variantAt: 15 + (seed % 10),
-    talk: null as THREE.AnimationAction | null,
+    overlay: null as THREE.AnimationAction | null,
     talkIdx: 0,
-    reaction: null as THREE.AnimationAction | null,
     lift: 0,
     seat: null as THREE.Vector3 | null,
     leanFix: 0,
@@ -315,56 +323,70 @@ export function Avatar({
     const actionIn = Math.min(1, s.actionT / 0.6);
 
     if (animated) {
-      // Idle variations on the base layer.
-      s.variantAt -= dt;
-      if (s.variantAt <= 0 && s.speakT < 0.1 && s.base) {
-        const pool = IDLE_VARIANTS[id] ?? IDLE_VARIANTS.default;
-        const next = rig.act(pool[Math.floor((t * 13.1) % pool.length)]) ?? rig.act("idle");
-        const idle = rig.act("idle");
-        if (next && idle) {
-          const target = s.base === idle ? next : idle;
-          target.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(1.6).play();
-          s.base.fadeOut(1.6);
-          s.base = target;
-          s.variantAt = target === idle ? 20 + ((t * 7) % 14) : Math.min(8, target.getClip().duration - 1.6);
-        }
-      }
-      // Talking gestures: small additive arm movement over the seated pose.
+      const intent = resolveAvatarIntent({
+        isSpeaker,
+        speaking,
+        listening,
+        action,
+      });
+      const intentChanged = intent !== s.lastIntent;
+      s.lastIntent = intent;
+
+      // Keep the base layer on neutral seated idle while speaking/listening/acting.
       const idleBase = rig.act("idle");
-      if (speaking && s.base && idleBase && s.base !== idleBase) {
+      const busy = intent !== "idle";
+      if (busy && s.base && idleBase && s.base !== idleBase) {
         idleBase.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.8).play();
         s.base.fadeOut(0.8);
         s.base = idleBase;
         s.variantAt = 20 + ((t * 7) % 14);
       }
-      if (speaking && !s.talk) {
-        const names = TALK[id] ?? ["talk1"];
-        const talk = rig.act(names[s.talkIdx++ % names.length]);
-        if (talk) {
-          talk.reset();
-          talk.time = (t * 2.3) % Math.max(1, talk.getClip().duration - 4);
-          talk.setEffectiveWeight(LAYERED[0].weight).fadeIn(0.9).play();
-          s.talk = talk;
-        }
-      } else if (!speaking && s.talk && s.speakT < 0.4) {
-        s.talk.fadeOut(1.2);
-        s.talk = null;
-      }
-      // Reactions.
-      if (s.actionT === dt) {
-        s.reaction?.fadeOut(0.4);
-        s.reaction = null;
-        const clipName = action === "nod" ? "nod" : action === "shake" ? "shake" : action === "phone" ? "phone" : null;
-        const r = clipName ? rig.act(clipName) : null;
-        if (r) {
-          r.reset().setLoop(action === "phone" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-          r.clampWhenFinished = false;
-          r.setEffectiveWeight(LAYERED.find((l) => l.match.test(clipName ?? ""))?.weight ?? 1)
-            .fadeIn(0.5)
-            .play();
-          s.reaction = r;
+
+      // Rare seated idle variants only when truly idle (no listen/speak/act).
+      s.variantAt -= dt;
+      if (!busy && s.variantAt <= 0 && s.base) {
+        const pool = IDLE_VARIANTS[id] ?? IDLE_VARIANTS.default;
+        const next = rig.act(pool[Math.floor((t * 13.1) % pool.length)]) ?? rig.act("idle");
+        if (next && idleBase) {
+          const target = s.base === idleBase ? next : idleBase;
+          target.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(1.6).play();
+          s.base.fadeOut(1.6);
+          s.base = target;
+          s.variantAt = target === idleBase ? 20 + ((t * 7) % 14) : Math.min(8, target.getClip().duration - 1.6);
         }
       }
+
+      // Overlay: additive talk / listen / nod / shake / phone — never full-body standing.
+      const wantOverlay =
+        intent === "speak" ||
+        intent === "listen" ||
+        intent === "nod" ||
+        intent === "shake" ||
+        intent === "phone";
+      if (intentChanged) {
+        s.overlay?.fadeOut(0.45);
+        s.overlay = null;
+      }
+      if (wantOverlay && !s.overlay) {
+        const pool = clipsForIntent(intent, TALK[id] ?? ["talk1"]);
+        const clipName = pool[intent === "speak" ? s.talkIdx++ % pool.length : 0];
+        const overlay = clipName ? rig.act(clipName) : null;
+        if (overlay) {
+          const layer = clipLayerFor(clipName);
+          overlay.reset();
+          if (intent === "speak") {
+            overlay.time = (t * 2.3) % Math.max(1, overlay.getClip().duration - 4);
+          }
+          overlay.setLoop(intent === "phone" || intent === "listen" || intent === "speak" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+          overlay.clampWhenFinished = false;
+          overlay.setEffectiveWeight(layer.weight).fadeIn(intent === "speak" ? 0.9 : 0.5).play();
+          s.overlay = overlay;
+        }
+      } else if (!wantOverlay && s.overlay) {
+        s.overlay.fadeOut(1.0);
+        s.overlay = null;
+      }
+
       rig.mixer.update(dt);
       settle(dt);
     } else {

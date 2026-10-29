@@ -115,7 +115,16 @@ function PortraitSet({ castId, location, action }: { castId: string; location: s
         </mesh>
       ) : null}
       <Suspense fallback={null}>
-        <Avatar key={castId} id={castId} position={[0, 0, 0]} sitting lookAt={gaze} action={action} mood={CAST_MOOD[castId] ?? "neutral"} />
+        <Avatar
+          key={castId}
+          id={castId}
+          position={[0, 0, 0]}
+          sitting
+          lookAt={gaze}
+          action={action}
+          mood={CAST_MOOD[castId] ?? "neutral"}
+          isSpeaker
+        />
       </Suspense>
     </>
   );

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "validate:cases": "tsx lib/case/validate.ts",
+    "test:unit": "tsx --test app/simulation/decisions/three/avatar-motion.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

@@ -143,6 +143,7 @@ function RemoteTile({
   position,
   size,
   speaking,
+  listening,
   action,
   dim,
 }: {
@@ -151,6 +152,7 @@ function RemoteTile({
   position: [number, number, number];
   size: [number, number];
   speaking: boolean;
+  listening: boolean;
   action: AvatarAction;
   dim: boolean;
 }) {
@@ -188,7 +190,16 @@ function RemoteTile({
               <meshStandardMaterial color={b.wall} roughness={0.95} />
             </mesh>
             <Suspense fallback={null}>
-              <Avatar id={id} position={[0, 0, 0]} sitting lookAt={camPos} action={action} mood={CAST_MOOD[id] ?? "neutral"} />
+              <Avatar
+                id={id}
+                position={[0, 0, 0]}
+                sitting
+                lookAt={camPos}
+                action={action}
+                mood={CAST_MOOD[id] ?? "neutral"}
+                isSpeaker={speaking}
+                listening={listening}
+              />
             </Suspense>
           </RenderTexture>
         </meshBasicMaterial>
@@ -415,6 +426,7 @@ export function Boardroom({
             position={tiles[i].pos}
             size={tiles[i].size}
             speaking={speaker === r.id}
+            listening={Boolean(direction.speakerId) && direction.attention === "speaker" && speaker !== r.id}
             action={direction.actions[r.id] ?? null}
             dim={false}
           />
@@ -476,6 +488,8 @@ export function Boardroom({
             direction.attention === "you" || !speakerHead || speaker === p.id
               ? PLAYER
               : speakerHead;
+          const floorHeld =
+            Boolean(direction.speakerId) && direction.attention === "speaker";
           return (
             <Avatar
               key={p.id}
@@ -487,6 +501,8 @@ export function Boardroom({
               action={direction.actions[p.id] ?? null}
               mood={CAST_MOOD[p.id] ?? "neutral"}
               chair
+              isSpeaker={speaker === p.id}
+              listening={floorHeld && speaker !== p.id}
             />
           );
         })}
