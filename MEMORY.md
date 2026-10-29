@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Empathy debrief parity (ticket 11)
+
+**What:** Case `reflectionQuestions` now include an explicit pressure-appeal prompt (“what pressures made the shortcut path look appealing”). Shared `ReflectionForm` UI; solo still submits then awaits release. Group participants no longer jump straight from concluded decisions to await-release — each human seat must submit the same reflection set (stored on `group_participants.reflections`, migration `0010`) before the await-release screen. Release gate unchanged; AI feedback still hidden until professor release. Optional re-grade can include seat reflections in the transcript.
+**Why:** Spec/ticket 11 + Advisor QA — empathy bridge to reality in both modes; group had skipped reflections.
+**Do not undo:** Do not skip group reflections or show assessment content before release; keep pressure-appeal wording in the shared case question set.
+
 ## 2026-10-29 — Briefing pager crash on fast Next clicks
 
 **What:** `BriefingPager` now clamps page index and guards a missing page so rapid Next clicks cannot crash the read-case stage.
