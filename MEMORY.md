@@ -23,6 +23,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 **Why:** Spec/ticket 09 — learners should face plausible corporate pressures, not cartoon moral binaries.
 **Do not undo:** Do not restore restrictive/cautious/permissive postures or “Refuse / Full cooperation / Authorise” virtue-signal labels; keep keys and integrity latch behaviour.
 
+## 2026-10-29 — GroupMeetingRuntime seam (ticket 01)
+
+**What:** Pure domain module `lib/group/meeting-runtime.ts` evaluates hard-synced scene-phase transitions (decided → film → open → live), human-advisor pressure-stance readiness (lock / abstain; bots ignored), CEO commit gates (≥6 human messages + stance readiness), and monotonic integrity latch on compromise commit. Table-driven `node:test` coverage in `meeting-runtime.test.ts`; `npm test` script added. No UI/API wiring.
+**Why:** Ticket 01 — keep phase/stance/gate/integrity rules out of React so tickets 03–05 can hard-sync and persist against one seam (ADRs 0001–0003).
+**Do not undo:** Do not re-bury these rules in `group-stage.tsx`; call `GroupMeetingRuntime` from server/API when wiring hard-sync.
+
 ## 2026-10-29 — Three-decision copy + DB defaults (ticket 12)
 
 **What:** Replaced stale “five decisions” solo UI strings (leadership team, values, decisions complete, debrief gate) with three. Set `group_sessions` / `group_batches.decision_count` Drizzle defaults to 3 and added migration `0009_decision_count_default_3`. Professor create/batch forms were already 1–3 / default 3.
