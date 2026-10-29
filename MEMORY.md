@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Ticket 09: Compliant / Shortcut / Bystander option framing
+
+**What:** Remapped case `Posture` to `compliant | shortcut | bystander`. Every Cost of Winning checkpoint now exposes one of each; option keys/branching/`isCompromise` kept coherent (Compliant never compromises; Shortcut always; Bystander from Scene 2 onward). User-facing option labels and CEO group `decisionOptions` rewritten as corporate-pressure grey-area copy (no steal-vs-good). `validate:cases` requires the three-posture set per scene.
+**Why:** Spec/ticket 09 — learners should face plausible corporate pressures, not cartoon moral binaries.
+**Do not undo:** Do not restore restrictive/cautious/permissive postures or “Refuse / Full cooperation / Authorise” virtue-signal labels; keep keys and integrity latch behaviour.
+
 ## 2026-10-29 — Immersion+story upgrade: baseline branch + ticket graph
 
 **What:** Integration branch `integrate/group-immersion-upgrade` baselines the unpushed 3D/group stage work plus grill artefacts (`GLOSSARY.md`, ADRs 0001–0004, `.scratch/group-immersion-upgrade/` spec and tickets 01–12). Spec now requires **shared story** solo↔group (ADR 0004): same arc; solo = human CEO + bots; group = humans + bots. Tickets add story work (08 parity, 09 grey-area framing, 10 D3 consequence, 11 empathy debrief, 12 three-decision copy) alongside immersion 01–07.

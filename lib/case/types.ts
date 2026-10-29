@@ -1,4 +1,5 @@
-export type Posture = "restrictive" | "cautious" | "permissive";
+/** Grey-area path at a checkpoint — user-facing framing, not a scored “correct” answer. */
+export type Posture = "compliant" | "shortcut" | "bystander";
 
 export type CastMember = {
   id: string; // "marcus" | "david" | "priya" | "tom" | "eleanor"

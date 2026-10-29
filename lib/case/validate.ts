@@ -1,5 +1,11 @@
 import { listCases } from "./registry";
-import type { CaseConfig } from "./types";
+import type { CaseConfig, Posture } from "./types";
+
+const GREY_AREA_POSTURES: readonly Posture[] = [
+  "compliant",
+  "shortcut",
+  "bystander",
+];
 
 type ValidationResult = {
   slug: string;
@@ -118,7 +124,37 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
       );
     }
 
+    if (scene.options.length !== GREY_AREA_POSTURES.length) {
+      errors.push(
+        `Scene "${scene.id}" must expose ${GREY_AREA_POSTURES.length} grey-area options, got ${scene.options.length}`,
+      );
+    }
+
+    const posturesSeen = new Set<Posture>();
     for (const option of scene.options) {
+      if (!GREY_AREA_POSTURES.includes(option.posture)) {
+        errors.push(
+          `Option "${option.key}" on "${scene.id}" has unknown posture "${option.posture}"`,
+        );
+      } else if (posturesSeen.has(option.posture)) {
+        errors.push(
+          `Scene "${scene.id}" repeats grey-area posture "${option.posture}"`,
+        );
+      } else {
+        posturesSeen.add(option.posture);
+      }
+
+      if (option.posture === "compliant" && option.isCompromise) {
+        errors.push(
+          `Compliant option "${option.key}" on "${scene.id}" must not set isCompromise`,
+        );
+      }
+      if (option.posture === "shortcut" && !option.isCompromise) {
+        errors.push(
+          `Shortcut option "${option.key}" on "${scene.id}" must set isCompromise`,
+        );
+      }
+
       if (option.next === null) {
         continue;
       }
@@ -138,6 +174,14 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
             `Consequence story for "${scene.id}/${option.key}" does not match its narrative`,
           );
         }
+      }
+    }
+
+    for (const posture of GREY_AREA_POSTURES) {
+      if (!posturesSeen.has(posture)) {
+        errors.push(
+          `Scene "${scene.id}" is missing grey-area posture "${posture}"`,
+        );
       }
     }
   }
