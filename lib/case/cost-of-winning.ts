@@ -144,7 +144,7 @@ export const COST_OF_WINNING: CaseConfig = {
         },
       ],
       sceneDirective:
-        "STAGING — THE FEE REVEAL: Marcus has kept the commercial terms out of the written briefing. He MUST disclose them no later than his second reply, whether or not anyone asks: a modest initial retainer plus an $8.4 MILLION SUCCESS FEE (0.1% of the contract) payable only if GIS wins. He frames it as 'one-tenth of one percent, and we pay nothing if we lose.' Once the fee is on the table, David tests whether it is benchmarkable, Tom notes that contingent payment tied to winning a government contract is the largest warning sign, and Priya asks what the company would actually be buying. Do not let the CEO leave without the number being said out loud.",
+        "STAGING — THE FEE REVEAL: Marcus has kept the commercial terms out of the written briefing. He MUST disclose them no later than his second reply, whether or not anyone asks: a modest initial retainer plus an $8.4 MILLION SUCCESS FEE (0.1% of the contract) payable only if GIS wins. He frames it as 'one-tenth of one percent, and we pay nothing if we lose.' Pace the dollar reveal — short clauses with a clear pause before the figure (use … or a full stop), as if choosing words carefully in the room. Once the fee is on the table, David tests whether it is benchmarkable, Tom notes that contingent payment tied to winning a government contract is the largest warning sign, and Priya asks what the company would actually be buying. Do not let the CEO leave without the number being said out loud.",
       commitPrompt:
         "State your decision and the reasoning behind it — principles, risks, stakeholders.",
       options: [

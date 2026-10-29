@@ -5,7 +5,10 @@ import {
   getGroupSessionByCode,
 } from "@/lib/db/group-queries";
 import { requireSeatForCode } from "@/lib/group/seat-auth";
-import type { PhaseEvent } from "@/lib/group/meeting-runtime";
+import {
+  isScenePhase,
+  type PhaseEvent,
+} from "@/lib/group/meeting-runtime";
 
 type PhaseBody = {
   /** Event type from GroupMeetingRuntime (seat id filled server-side). */
@@ -50,7 +53,14 @@ export async function POST(
 
     const seat = await requireSeatForCode(code, request);
     assertSessionPlayable(seat.session);
-    if (seat.session.status !== "active") {
+    const phase = isScenePhase(seat.session.scenePhase)
+      ? seat.session.scenePhase
+      : "open";
+    const terminalFilmWindow =
+      (seat.session.status === "committed" ||
+        seat.session.status === "graded") &&
+      (phase === "decided" || phase === "film");
+    if (seat.session.status !== "active" && !terminalFilmWindow) {
       return NextResponse.json({ error: "Session not active" }, { status: 400 });
     }
 

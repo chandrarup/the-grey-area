@@ -924,12 +924,15 @@ export async function commitGroupDecision(params: {
 
   // Next scene opens on the decided card when a consequence film exists for
   // the option that just led here; otherwise start at open (title card).
+  // Terminal D3 film uses the same decided → film hard-sync; open = film done.
+  const caseConfig = getCase(session.caseSlug);
+  const option = caseConfig.scenes[params.sceneId]?.options.find(
+    (o) => o.key === params.optionKey,
+  );
   let nextPhase: ScenePhase = "open";
-  if (!terminal && params.nextSceneId) {
-    const caseConfig = getCase(session.caseSlug);
-    const option = caseConfig.scenes[params.sceneId]?.options.find(
-      (o) => o.key === params.optionKey,
-    );
+  if (terminal) {
+    nextPhase = option?.consequence ? "decided" : "open";
+  } else if (params.nextSceneId) {
     if (option?.consequence && option.next === params.nextSceneId) {
       nextPhase = "decided";
     }
@@ -943,7 +946,7 @@ export async function commitGroupDecision(params: {
       status: terminal ? "committed" : "active",
       integrity: nextIntegrity,
       endedAt: terminal ? new Date() : null,
-      scenePhase: terminal ? "live" : nextPhase,
+      scenePhase: nextPhase,
       phaseDeadlineAt: null,
       filmWatchedSeatIds: [],
       scriptDoneSeatIds: [],
@@ -1158,9 +1161,20 @@ function currentPhase(session: GroupSession): ScenePhase {
   return isScenePhase(session.scenePhase) ? session.scenePhase : "open";
 }
 
+/** Mid-arc active sessions, or post-commit sessions still in the terminal film window. */
+function allowsHardSyncPhaseEvents(session: GroupSession): boolean {
+  if (session.status === "active") return true;
+  if (session.status === "committed" || session.status === "graded") {
+    const phase = currentPhase(session);
+    return phase === "decided" || phase === "film";
+  }
+  return false;
+}
+
 /**
  * Apply a hard-synced scene-phase event via GroupMeetingRuntime.
  * Film windows also advance when `phaseDeadlineAt` has elapsed.
+ * Allowed on active meetings and on committed sessions still in terminal film.
  */
 export async function applyGroupPhaseEvent(params: {
   sessionId: string;
@@ -1177,7 +1191,9 @@ export async function applyGroupPhaseEvent(params: {
 
   const session = await getGroupSession(params.sessionId);
   if (!session) throw new Error("Session not found");
-  if (session.status !== "active") throw new Error("Session not active");
+  if (!allowsHardSyncPhaseEvents(session)) {
+    throw new Error("Session not active");
+  }
 
   const participants = await listParticipants(params.sessionId);
   const humans = humanSeatRoleKeys(participants);
@@ -1273,7 +1289,7 @@ export async function maybeAdvanceFilmTimeout(
   sessionId: string,
 ): Promise<GroupSession | null> {
   const session = await getGroupSession(sessionId);
-  if (!session || session.status !== "active") return session;
+  if (!session || !allowsHardSyncPhaseEvents(session)) return session;
   if (currentPhase(session) !== "film" || !session.phaseDeadlineAt) return session;
   if (session.phaseDeadlineAt.getTime() > Date.now()) return session;
 

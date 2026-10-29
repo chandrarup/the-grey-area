@@ -1,4 +1,47 @@
-import type { Invoice, ScriptBeat, StoryFrame } from "./types";
+import type {
+  DeskTablet,
+  Invoice,
+  LedgerStatement,
+  ScriptBeat,
+  StoryFrame,
+} from "./types";
+
+/** Desk tablet chrome for the Scene 1 opening (case-authored; UI renders only). */
+export const OPENING_DESK_TABLET: DeskTablet = {
+  clock: "7:41",
+  calendarLabel: "Calendar · Today",
+  event: "7:45 Leadership call — Ardania",
+  alert: "Salim: answer needed tonight",
+  stats: [
+    { label: "Bid due", value: "6 wks" },
+    { label: "Mail", value: "4 unread" },
+  ],
+};
+
+/** Bank-statement prop chrome for ledger consequence frames. */
+export const BID_OFFICE_LEDGER: LedgerStatement = {
+  title: "Account statement · Ardania bid office",
+  rows: [
+    { description: "Advisory retainer", amount: "−120,000.00" },
+    {
+      description: "Market intelligence services",
+      amount: "−95,000.00",
+      flagged: true,
+    },
+    {
+      description: "Coordination — current qtr",
+      amount: "−385,000.00",
+      flagged: true,
+    },
+    { description: "Travel — Ardania", amount: "−8,420.00" },
+  ],
+};
+
+function withLedgerChrome(frames: StoryFrame[]): StoryFrame[] {
+  return frames.map((f) =>
+    f.art === "ledger" ? { ...f, ledger: f.ledger ?? BID_OFFICE_LEDGER } : f,
+  );
+}
 
 /** Illustrative figures and vendor names — professor to confirm. */
 export const LOCAL_FIRM_INVOICE: Invoice = {
@@ -39,7 +82,7 @@ export const SALIM_INVOICE: Invoice = {
  * Consequence narratives as illustrated story frames, keyed "sceneId/optionKey".
  * Text is the narrative verbatim, only split; keep them in sync.
  */
-export const COST_OF_WINNING_STORIES: Record<string, StoryFrame[]> = {
+const COST_OF_WINNING_STORIES_RAW: Record<string, StoryFrame[]> = {
   "s1_introduction/refuse": [
     { art: "door", text: "You closed the door." },
     { art: "distant", text: "Marcus went quiet on the call and has been professional — and distant — ever since." },
@@ -169,6 +212,14 @@ export const COST_OF_WINNING_STORIES: Record<string, StoryFrame[]> = {
   ],
 };
 
+export const COST_OF_WINNING_STORIES: Record<string, StoryFrame[]> =
+  Object.fromEntries(
+    Object.entries(COST_OF_WINNING_STORIES_RAW).map(([key, frames]) => [
+      key,
+      withLedgerChrome(frames),
+    ]),
+  );
+
 /**
  * Authored scene scripts for The Cost of Winning solo player.
  * Each scene ends at the decision; the decision itself lives on the Scene.
@@ -194,6 +245,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
     {
       kind: "desk",
       text: "Your assistant left four pre-reads on the desk. The call connects at 7:45 whether you've read them or not.",
+      tablet: OPENING_DESK_TABLET,
     },
     {
       kind: "call",

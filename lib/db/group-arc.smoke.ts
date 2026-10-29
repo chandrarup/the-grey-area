@@ -238,7 +238,7 @@ async function main() {
       });
     }
 
-    const finished = await getGroupSession(sessionId);
+    let finished = await getGroupSession(sessionId);
     if (finished?.status !== "committed") {
       fail(`expected committed, got ${finished?.status}`);
     }
@@ -256,7 +256,32 @@ async function main() {
     if (!lastOption?.consequence || lastOption.next !== null) {
       fail("Decision 3 must be terminal with consequence film");
     }
-    console.log("OK  group phases → stances → 3 commits → D3 film");
+    if (finished.scenePhase !== "decided") {
+      fail(`expected D3 decided film phase, got ${finished.scenePhase}`);
+    }
+    finished = await applyGroupPhaseEvent({
+      sessionId,
+      event: { type: "begin_film" },
+      actorRoleKey: "ceo",
+      isCeo: true,
+    });
+    if (finished.scenePhase !== "film") {
+      fail(`expected D3 film phase, got ${finished.scenePhase}`);
+    }
+    const terminalHumans = (await listParticipants(sessionId)).filter(
+      (p) => !p.isAi && p.profileId,
+    );
+    for (const h of terminalHumans) {
+      finished = await applyGroupPhaseEvent({
+        sessionId,
+        event: { type: "film_watched", seatId: h.roleKey },
+        actorRoleKey: h.roleKey,
+      });
+    }
+    if (finished.scenePhase !== "open") {
+      fail(`expected D3 film complete (open), got ${finished.scenePhase}`);
+    }
+    console.log("OK  group phases → stances → 3 commits → D3 hard-sync film");
 
     await saveParticipantReflections({
       participantId: ceo.id,

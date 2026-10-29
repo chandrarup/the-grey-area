@@ -44,25 +44,31 @@ export function RegulatorLetter({ text }: { text: string }) {
   );
 }
 
-export function BankStatement({ text }: { text: string }) {
-  const rows = [
-    ["Advisory retainer", "−120,000.00", false],
-    ["Market intelligence services", "−95,000.00", true],
-    ["Coordination — current qtr", "−385,000.00", true],
-    ["Travel — Ardania", "−8,420.00", false],
-  ] as const;
+export function BankStatement({
+  text,
+  title = "Account statement",
+  rows = [],
+}: {
+  text: string;
+  /** Case-authored statement title (no story hard-coding in this presentational layer). */
+  title?: string;
+  rows?: { description: string; amount: string; flagged?: boolean }[];
+}) {
   return (
     <div className="film-prop w-[32rem] max-w-[86vw] rotate-[-1deg] bg-white px-8 py-7 text-[#1d1d1f] shadow-[0_40px_90px_rgba(0,0,0,0.6)]">
       <div className="flex items-center justify-between border-b border-[#ddd] pb-2">
-        <p className="text-sm font-semibold">Account statement · Ardania bid office</p>
+        <p className="text-sm font-semibold">{title}</p>
         <p className="text-[11px] text-[#777]">Page 3 of 7</p>
       </div>
       <table className="mt-3 w-full text-[13px]">
         <tbody>
-          {rows.map(([d, a, flag]) => (
-            <tr key={d} className={`border-b border-[#eee] ${flag ? "bg-[#fde8e6]" : ""}`}>
-              <td className="py-2">{d}</td>
-              <td className="py-2 text-right tabular-nums">{a}</td>
+          {rows.map((row) => (
+            <tr
+              key={row.description}
+              className={`border-b border-[#eee] ${row.flagged ? "bg-[#fde8e6]" : ""}`}
+            >
+              <td className="py-2">{row.description}</td>
+              <td className="py-2 text-right tabular-nums">{row.amount}</td>
             </tr>
           ))}
         </tbody>

@@ -74,7 +74,27 @@ export type Invoice = {
   sticky?: string;
 };
 
-export type StoryFrame = { art: StoryArt; text: string; invoice?: Invoice };
+/** Bank-statement chrome for ledger story/film frames (case-authored). */
+export type LedgerStatement = {
+  title: string;
+  rows: { description: string; amount: string; flagged?: boolean }[];
+};
+
+/** Optional tablet calendar chrome for desk beats (case-authored). */
+export type DeskTablet = {
+  clock?: string;
+  calendarLabel?: string;
+  event: string;
+  alert?: string;
+  stats?: { label: string; value: string }[];
+};
+
+export type StoryFrame = {
+  art: StoryArt;
+  text: string;
+  invoice?: Invoice;
+  ledger?: LedgerStatement;
+};
 
 export type ScriptBeat =
   | {
@@ -99,7 +119,13 @@ export type ScriptBeat =
         action: "write" | "lean" | "phone" | "nod" | "shake" | "lookDown";
       };
     }
-  | { kind: "story"; art: StoryArt; text: string; invoice?: Invoice }
+  | {
+      kind: "story";
+      art: StoryArt;
+      text: string;
+      invoice?: Invoice;
+      ledger?: LedgerStatement;
+    }
   | { kind: "line"; castId: string; text: string }
   | { kind: "chat"; castId: string; text: string }
   | {
@@ -113,7 +139,7 @@ export type ScriptBeat =
     }
   | { kind: "document"; title: string; subtitle?: string; body: string }
   | { kind: "invoice"; invoice: Invoice }
-  | { kind: "desk"; text: string }
+  | { kind: "desk"; text: string; tablet?: DeskTablet }
   | {
       kind: "moment";
       prompt: string;

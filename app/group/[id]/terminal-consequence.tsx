@@ -1,10 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { CastMember, Consequence } from "@/lib/case/types";
+import {
+  isScenePhase,
+  type ScenePhase,
+} from "@/lib/group/meeting-runtime";
 import { consequenceFilm } from "@/app/simulation/decisions/three/film-beats";
 import { unlockAudio } from "@/app/simulation/decisions/stage-sound";
+import { seatHeaders } from "@/lib/group/seat-token-client";
 import { AwaitRelease } from "./await-release";
 import { GroupReflectionForm } from "./reflection-form";
 
@@ -28,12 +33,20 @@ type DecisionRow = {
   reasoning: string | null;
 };
 
+type PhaseEventType =
+  | "begin_film"
+  | "film_watched"
+  | "film_timeout"
+  | "ceo_force_advance";
+
 /**
- * After Decision 3, play the lived consequence film once per seat, then
- * reflections (if needed) / concluded await-release — not a cold jump off the film.
+ * After Decision 3, play the lived consequence film through the same
+ * server-owned hard-sync path as mid-arc films (ADR 0001), then reflections
+ * / await-release. localStorage is not phase authority.
  */
 export function TerminalConsequence({
   sessionId,
+  sessionCode,
   sessionLabel,
   film,
   decisions,
@@ -43,8 +56,14 @@ export function TerminalConsequence({
   participantId,
   joinToken = "",
   reflectionQuestions = [],
+  roleKey,
+  isCeo = false,
+  initialScenePhase = "open",
+  initialPhaseDeadlineAt = null,
+  initialFilmWatchedSeatIds = [],
 }: {
   sessionId: string;
+  sessionCode: string;
   sessionLabel: string;
   film: TerminalFilm | null;
   decisions: DecisionRow[];
@@ -54,19 +73,24 @@ export function TerminalConsequence({
   participantId?: string;
   joinToken?: string;
   reflectionQuestions?: string[];
+  roleKey: string;
+  isCeo?: boolean;
+  initialScenePhase?: string;
+  initialPhaseDeadlineAt?: string | null;
+  initialFilmWatchedSeatIds?: string[];
 }) {
-  const filmKey = film
-    ? `group-film:${sessionId}:${film.decisionId}`
-    : null;
-  const [phase, setPhase] = useState<"decided" | "film" | "done">(() => {
-    if (!film || !filmKey) return "done";
-    try {
-      return localStorage.getItem(filmKey) ? "done" : "decided";
-    } catch {
-      return "decided";
-    }
-  });
+  const [scenePhase, setScenePhase] = useState<ScenePhase>(() =>
+    isScenePhase(initialScenePhase) ? initialScenePhase : film ? "decided" : "open",
+  );
+  const [phaseDeadlineAt, setPhaseDeadlineAt] = useState<string | null>(
+    initialPhaseDeadlineAt,
+  );
+  const [filmWatchedSeatIds, setFilmWatchedSeatIds] = useState<string[]>(
+    initialFilmWatchedSeatIds,
+  );
   const [filmPos, setFilmPos] = useState(0);
+  const phaseBusy = useRef(false);
+
   const castById = useMemo(
     () => new Map(cast.map((m) => [m.id, m])),
     [cast],
@@ -79,18 +103,114 @@ export function TerminalConsequence({
     [film, cast],
   );
 
-  function finishFilm() {
-    if (filmKey) {
-      try {
-        localStorage.setItem(filmKey, "1");
-      } catch {
-        /* private mode */
+  const applyPhasePayload = useCallback(
+    (data: {
+      scenePhase?: string;
+      phaseDeadlineAt?: string | null;
+      filmWatchedSeatIds?: string[];
+    }) => {
+      if (data.scenePhase && isScenePhase(data.scenePhase)) {
+        setScenePhase(data.scenePhase);
       }
-    }
-    setPhase("done");
-  }
+      if (data.phaseDeadlineAt !== undefined) {
+        setPhaseDeadlineAt(data.phaseDeadlineAt);
+      }
+      if (Array.isArray(data.filmWatchedSeatIds)) {
+        setFilmWatchedSeatIds(data.filmWatchedSeatIds);
+      }
+    },
+    [],
+  );
 
-  if (phase === "decided" && film) {
+  const emitPhase = useCallback(
+    async (type: PhaseEventType) => {
+      if (phaseBusy.current) return;
+      phaseBusy.current = true;
+      try {
+        if (!joinToken) return;
+        const res = await fetch(`/api/group/${sessionCode}/phase`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...seatHeaders(joinToken),
+          },
+          body: JSON.stringify({ type }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          scenePhase?: string;
+          phaseDeadlineAt?: string | null;
+          filmWatchedSeatIds?: string[];
+        };
+        applyPhasePayload(data);
+      } finally {
+        phaseBusy.current = false;
+      }
+    },
+    [sessionCode, joinToken, applyPhasePayload],
+  );
+
+  // Poll so seats converge on film watched / timeout / CEO force.
+  useEffect(() => {
+    if (!film) return;
+    if (scenePhase !== "decided" && scenePhase !== "film") return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/group/${sessionId}/state?after=999999999`);
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as {
+          scenePhase?: string;
+          phaseDeadlineAt?: string | null;
+          filmWatchedSeatIds?: string[];
+        };
+        if (!cancelled) applyPhasePayload(data);
+      } catch {
+        /* network blip */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [film, sessionId, scenePhase, applyPhasePayload]);
+
+  useEffect(() => {
+    if (scenePhase === "film") setFilmPos(0);
+  }, [scenePhase, film?.decisionId]);
+
+  // Empty film beats still need a hard-sync mark so the room can leave film.
+  useEffect(() => {
+    if (!film || scenePhase !== "film") return;
+    if (filmBeats.length > 0) return;
+    if (filmWatchedSeatIds.includes(roleKey)) return;
+    void emitPhase("film_watched");
+  }, [
+    film,
+    scenePhase,
+    filmBeats.length,
+    filmWatchedSeatIds,
+    roleKey,
+    emitPhase,
+  ]);
+
+  useEffect(() => {
+    if (scenePhase !== "film" || !phaseDeadlineAt) return;
+    const ms = new Date(phaseDeadlineAt).getTime() - Date.now();
+    if (ms <= 0) {
+      void emitPhase("film_timeout");
+      return;
+    }
+    const id = window.setTimeout(() => void emitPhase("film_timeout"), ms + 50);
+    return () => window.clearTimeout(id);
+  }, [scenePhase, phaseDeadlineAt, emitPhase]);
+
+  const filmDone =
+    !film || (scenePhase !== "decided" && scenePhase !== "film");
+
+  if (!filmDone && film && scenePhase === "decided") {
     return (
       <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#0c0c0c] px-6 text-white">
         <p className="text-[11px] uppercase tracking-[0.3em] text-white/45">
@@ -116,8 +236,7 @@ export function TerminalConsequence({
           type="button"
           onClick={() => {
             unlockAudio();
-            setFilmPos(0);
-            setPhase("film");
+            void emitPhase("begin_film");
           }}
           className="mt-10 rounded-full bg-white px-6 py-2 text-sm font-medium text-black"
         >
@@ -127,7 +246,26 @@ export function TerminalConsequence({
     );
   }
 
-  if (phase === "film" && film && filmBeats.length) {
+  if (!filmDone && film && scenePhase === "film") {
+    if (!filmBeats.length) {
+      return (
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#0c0c0c] px-6 text-white">
+          <p className="mt-6 text-center font-serif text-xl text-white/70">
+            Waiting for the room…
+          </p>
+          {isCeo ? (
+            <button
+              type="button"
+              onClick={() => void emitPhase("ceo_force_advance")}
+              className="mt-10 rounded-full border border-white/30 px-5 py-2 text-sm text-white/80"
+            >
+              Advance everyone
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+    const watched = filmWatchedSeatIds.includes(roleKey);
     return (
       <div onPointerDown={unlockAudio}>
         <Film
@@ -136,13 +274,26 @@ export function TerminalConsequence({
           castById={castById}
           mood="night"
           isLast={filmPos >= filmBeats.length - 1}
-          finalLabel="Continue"
-          onAdvance={() =>
-            filmPos >= filmBeats.length - 1
-              ? finishFilm()
-              : setFilmPos((p) => p + 1)
-          }
+          finalLabel={watched ? "Waiting for the room…" : "Continue"}
+          onAdvance={() => {
+            if (filmPos >= filmBeats.length - 1) {
+              if (!watched) void emitPhase("film_watched");
+              return;
+            }
+            setFilmPos((p) => p + 1);
+          }}
         />
+        {isCeo ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center">
+            <button
+              type="button"
+              className="pointer-events-auto rounded-full border border-white/30 bg-black/60 px-4 py-2 text-xs text-white/80 backdrop-blur hover:bg-black/80"
+              onClick={() => void emitPhase("ceo_force_advance")}
+            >
+              Advance everyone
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }

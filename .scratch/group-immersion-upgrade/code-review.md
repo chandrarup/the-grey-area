@@ -102,6 +102,18 @@ Not MUST-FIX; useful for a polish pass:
 
 ---
 
+## Follow-up fixes
+
+Addressed on `integrate/group-immersion-upgrade` after this review:
+
+1. **D3 terminal film hard-sync** — `TerminalConsequence` no longer uses `group-film:` localStorage. Terminal commit with a consequence opens `scene_phase = decided`; film advances via the same `film_watched` / timeout / CEO-force path; phase API allows the committed (and graded) film window. Group smoke walks decided → film → open.
+2. **Marcus fee out of API** — deleted `marcusFeeNote` from `ai-turn.ts`; Scene 1 `sceneDirective` owns fee reveal + pacing.
+3. **Story strings out of presentational UI** — desk tablet calendar and ledger bank-statement rows/title driven from case config (`OPENING_DESK_TABLET` / `BID_OFFICE_LEDGER`); `stage-desk` / `film-props` render props only.
+
+Non-blocking leftovers unchanged: commit-gate dedupe, slim `group-stage`, compromised group smoke, bystander validate, anim rebuild, film flavor depth, stale advisor walkthrough docs.
+
+---
+
 ## Summary
 
 **Standards:** 3 hard violations (worst: D3 localStorage film + hard-coded Marcus/desk/film story); 4 judgement-call smells.  

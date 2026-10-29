@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Follow-up fixes after immersion code review
+
+**What:** (1) Terminal D3 film now uses server `scene_phase` / `film_watched_seat_ids` / timeout / CEO-force (same hard-sync as mid-arc); `commitGroupDecision` leaves terminal sessions in `decided` when a consequence exists; phase API allows committed/graded film windows; `TerminalConsequence` polls + emits — no `group-film:` localStorage authority. (2) Removed `marcusFeeNote` role+scene branch from `ai-turn.ts`; fee/reveal pacing lives in Scene 1 `sceneDirective`. (3) Desk tablet + ledger bank-statement chrome moved into case config (`OPENING_DESK_TABLET` / `BID_OFFICE_LEDGER` + typed `DeskTablet` / `LedgerStatement`); stage-desk and film-props render only. Group smoke asserts D3 decided→film→open. Left non-blocking for later: commit-gate dedupe, slim `group-stage`, compromised group smoke, bystander validate, anim rebuild, film flavor variants, stale advisor docs.
+**Why:** Clear the three MUST-FIX Standards/Spec findings on `integrate/group-immersion-upgrade` before merge.
+**Do not undo:** Keep terminal film server-owned; do not reintroduce story hard-coding in UI/API or localStorage as phase authority.
+
 ## 2026-10-29 — Standards + Spec code review (immersion upgrade)
 
 **What:** Wrote `.scratch/group-immersion-upgrade/code-review.md` for `integrate/group-immersion-upgrade` vs merge-base `3d1a40a`. Two-axis review (Standards + Spec); ranked MUST-FIX punch list: D3 terminal film still per-seat localStorage, Marcus fee hard-coded in `ai-turn.ts`, Ardania/Salim strings in desk/film props. Partials noted (anim rebuild residual, thin film flavor, group integrity smoke, bystander validate).

@@ -422,6 +422,7 @@ export default async function GroupSessionPage({
     return (
       <TerminalConsequence
         sessionId={session.id}
+        sessionCode={session.code}
         sessionLabel={session.displayName?.trim() || session.code}
         film={terminalFilm}
         decisions={decisions.map((d) => ({
@@ -436,6 +437,21 @@ export default async function GroupSessionPage({
         participantId={me.id}
         joinToken={me.joinToken ?? seatToken ?? ""}
         reflectionQuestions={caseConfig.reflectionQuestions}
+        roleKey={roleKey}
+        isCeo={roleKey === "ceo"}
+        initialScenePhase={session.scenePhase ?? "open"}
+        initialPhaseDeadlineAt={
+          session.phaseDeadlineAt
+            ? session.phaseDeadlineAt.toISOString()
+            : null
+        }
+        initialFilmWatchedSeatIds={
+          Array.isArray(session.filmWatchedSeatIds)
+            ? session.filmWatchedSeatIds.filter(
+                (v): v is string => typeof v === "string",
+              )
+            : []
+        }
       />
     );
   }

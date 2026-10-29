@@ -31,6 +31,7 @@ export function consequenceFilm(
         art: f.art,
         text: f.text,
         invoice: f.invoice,
+        ledger: f.ledger,
       }),
     ),
     ...consequence.beats.map(

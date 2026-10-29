@@ -209,7 +209,14 @@ export function BeatView({
         </div>
       );
     case "desk":
-      return <DeskScene text={beat.text} props={props} mood={stage.mood} />;
+      return (
+        <DeskScene
+          text={beat.text}
+          props={props}
+          mood={stage.mood}
+          tablet={beat.tablet}
+        />
+      );
     case "chat":
       return (
         <LineView speaker={castById.get(beat.castId)} text={beat.text} isYou={false} />

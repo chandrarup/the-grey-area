@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { SceneProp, StageMood } from "@/lib/case/types";
+import type { DeskTablet, SceneProp, StageMood } from "@/lib/case/types";
 import { MarkdownBody } from "@/app/components/markdown-body";
 
 const LIGHT: Record<StageMood, string> = {
@@ -24,10 +24,13 @@ export function DeskScene({
   text,
   props,
   mood,
+  tablet,
 }: {
   text: string;
   props: SceneProp[];
   mood: StageMood;
+  /** Case-authored calendar chrome; omitted → blank tablet face. */
+  tablet?: DeskTablet | null;
 }) {
   const [open, setOpen] = useState<SceneProp | null>(null);
   const [read, setRead] = useState<Set<string>>(() => new Set());
@@ -56,32 +59,45 @@ export function DeskScene({
             <div className="aspect-[4/3] rounded-[1.1rem] bg-gradient-to-br from-[#2a2c30] to-[#121315] p-[6px] shadow-[0_14px_30px_rgba(0,0,0,0.45)] ring-1 ring-black/40">
               <div className="relative h-full w-full overflow-hidden rounded-[0.8rem] bg-gradient-to-br from-[#e9e4dc] to-[#cfc6b8]">
                 <div className="flex items-center justify-between px-2.5 pt-1.5 text-[7px] font-semibold text-[#1d1d1f]">
-                  <span>7:41</span>
+                  <span>{tablet?.clock ?? "—"}</span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-3 rounded-[2px] border border-[#1d1d1f]">
                       <span className="block h-full w-2/3 bg-[#1d1d1f]" />
                     </span>
                   </span>
                 </div>
-                <div className="mx-2 mt-1.5 rounded-md bg-white/90 px-2 py-1.5 shadow-sm">
-                  <p className="text-[6px] font-semibold uppercase tracking-wider text-[#8a8a90]">
-                    Calendar · Today
-                  </p>
-                  <p className="mt-0.5 text-[8px] font-semibold text-[#1d1d1f]">
-                    7:45 Leadership call — Ardania
-                  </p>
-                  <p className="text-[7px] text-[#c0392b]">Salim: answer needed tonight</p>
-                </div>
-                <div className="mx-2 mt-1.5 grid grid-cols-2 gap-1.5">
-                  <div className="rounded-md bg-white/90 px-2 py-1.5 shadow-sm">
-                    <p className="text-[6px] uppercase tracking-wider text-[#8a8a90]">Bid due</p>
-                    <p className="text-[11px] font-semibold text-[#1d1d1f]">6 wks</p>
-                  </div>
-                  <div className="rounded-md bg-white/90 px-2 py-1.5 shadow-sm">
-                    <p className="text-[6px] uppercase tracking-wider text-[#8a8a90]">Mail</p>
-                    <p className="text-[11px] font-semibold text-[#1d1d1f]">4 unread</p>
-                  </div>
-                </div>
+                {tablet ? (
+                  <>
+                    <div className="mx-2 mt-1.5 rounded-md bg-white/90 px-2 py-1.5 shadow-sm">
+                      <p className="text-[6px] font-semibold uppercase tracking-wider text-[#8a8a90]">
+                        {tablet.calendarLabel ?? "Calendar · Today"}
+                      </p>
+                      <p className="mt-0.5 text-[8px] font-semibold text-[#1d1d1f]">
+                        {tablet.event}
+                      </p>
+                      {tablet.alert ? (
+                        <p className="text-[7px] text-[#c0392b]">{tablet.alert}</p>
+                      ) : null}
+                    </div>
+                    {tablet.stats && tablet.stats.length > 0 ? (
+                      <div className="mx-2 mt-1.5 grid grid-cols-2 gap-1.5">
+                        {tablet.stats.map((stat) => (
+                          <div
+                            key={stat.label}
+                            className="rounded-md bg-white/90 px-2 py-1.5 shadow-sm"
+                          >
+                            <p className="text-[6px] uppercase tracking-wider text-[#8a8a90]">
+                              {stat.label}
+                            </p>
+                            <p className="text-[11px] font-semibold text-[#1d1d1f]">
+                              {stat.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
                 <div className="absolute bottom-1 left-1/2 h-[3px] w-10 -translate-x-1/2 rounded-full bg-[#1d1d1f]/60" />
               </div>
             </div>

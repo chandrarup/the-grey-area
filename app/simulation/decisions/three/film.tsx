@@ -61,7 +61,13 @@ function DocProp({ beat }: { beat: Extract<FilmBeat, { kind: "story" }> }) {
     case "regulator":
       return <RegulatorLetter text={beat.text} />;
     case "ledger":
-      return <BankStatement text={beat.text} />;
+      return (
+        <BankStatement
+          text={beat.text}
+          title={beat.ledger?.title}
+          rows={beat.ledger?.rows}
+        />
+      );
     case "phone":
       return <PhoneSilence text={beat.text} />;
     case "gap":
