@@ -662,6 +662,47 @@ export async function setParticipantReady(
   return updated;
 }
 
+/** Persist empathy debrief answers for one human seat after the meeting concludes. */
+export async function saveParticipantReflections(params: {
+  participantId: string;
+  sessionId: string;
+  reflections: string[];
+}): Promise<GroupParticipant> {
+  const session = await getGroupSession(params.sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.status !== "committed" && session.status !== "graded") {
+    throw new Error("Reflections open after the meeting concludes");
+  }
+
+  const [participant] = await db
+    .select()
+    .from(groupParticipants)
+    .where(eq(groupParticipants.id, params.participantId))
+    .limit(1);
+  if (!participant || participant.sessionId !== params.sessionId) {
+    throw new Error("Not your seat");
+  }
+  if (participant.isAi) {
+    throw new Error("AI seats do not submit reflections");
+  }
+  if (participant.reflections?.length) {
+    throw new Error("Reflections already submitted");
+  }
+  if (
+    params.reflections.length === 0 ||
+    params.reflections.some((a) => a.trim().length < 10)
+  ) {
+    throw new Error("Each reflection needs at least a short sentence");
+  }
+
+  const [updated] = await db
+    .update(groupParticipants)
+    .set({ reflections: params.reflections.map((a) => a.trim()) })
+    .where(eq(groupParticipants.id, params.participantId))
+    .returning();
+  return updated;
+}
+
 export async function startGroupSession(
   sessionId: string,
   opts: { force?: boolean; profile: Profile },

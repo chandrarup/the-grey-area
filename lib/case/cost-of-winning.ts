@@ -609,6 +609,7 @@ export const COST_OF_WINNING: CaseConfig = {
     "At what point did the ethical dilemma become apparent to you?",
     "Which stakeholders influenced your thinking the most — and which did you neglect?",
     "What organisational pressures affected your judgment?",
+    "What pressures made the shortcut path look appealing — even if you did not take it?",
     "How did loyalty and fear influence your decisions?",
     "If every decision you made became public tomorrow, would you make the same choices? What would you change?",
   ],

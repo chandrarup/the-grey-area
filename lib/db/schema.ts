@@ -173,6 +173,8 @@ export const groupParticipants = pgTable(
     profileId: uuid("profile_id").references(() => profiles.id),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     isReady: boolean("is_ready").notNull().default(false),
+    /** Empathy debrief answers after the final consequence; same prompts as solo. */
+    reflections: jsonb("reflections").$type<string[]>(),
   },
   (table) => [unique("group_participants_session_role").on(table.sessionId, table.roleKey)],
 );

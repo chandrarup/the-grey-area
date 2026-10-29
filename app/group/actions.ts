@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getProfessorActor, getStudentActor } from "@/lib/mode";
-import { setSeatCookie, resolveSeatFromCookie } from "@/lib/group/seat-auth";
+import {
+  setSeatCookie,
+  resolveSeatFromCookie,
+} from "@/lib/group/seat-auth";
 import { getModelPrefs } from "@/lib/model-prefs";
 import {
   DEFAULT_GRADER_MODEL,
@@ -32,6 +35,7 @@ import {
   deleteExpiredGroupSessions,
   deleteGroupSession,
   markSessionGraded,
+  saveParticipantReflections,
 } from "@/lib/db/group-queries";
 import { GROUP_ROLES, seatDisplayName, type SeatKey } from "@/lib/case/group-roles";
 import { getCase, getOption, getScene } from "@/lib/case/registry";
@@ -360,6 +364,32 @@ export async function commitGroupDecisionAction(input: {
   revalidatePath(`/professor/groups/${input.sessionId}`);
 }
 
+export async function saveGroupReflectionsAction(input: {
+  sessionId: string;
+  participantId: string;
+  joinToken: string;
+  reflections: string[];
+}) {
+  const byToken = input.joinToken.trim()
+    ? await getParticipantByToken(input.joinToken.trim())
+    : null;
+  const seat = byToken ?? (await resolveSeatFromCookie());
+  if (
+    !seat ||
+    seat.id !== input.participantId ||
+    seat.sessionId !== input.sessionId
+  ) {
+    throw new Error("Not your seat");
+  }
+
+  await saveParticipantReflections({
+    participantId: input.participantId,
+    sessionId: input.sessionId,
+    reflections: input.reflections,
+  });
+  revalidatePath(`/group/${input.sessionId}`);
+}
+
 export async function gradeGroupAction(sessionId: string) {
   await getProfessorActor();
   const session = await getGroupSession(sessionId);
@@ -367,6 +397,15 @@ export async function gradeGroupAction(sessionId: string) {
   const caseConfig = getCase(session.caseSlug);
   const decisions = await listGroupDecisions(sessionId);
   const messages = await getGroupMessages(sessionId);
+  const participants = await listParticipants(sessionId);
+  const reflectionBlocks = participants
+    .filter((p) => !p.isAi && p.reflections?.length)
+    .map((p) => {
+      const lines = caseConfig.reflectionQuestions.map((q, i) => {
+        return `Q: ${q}\nA: ${p.reflections?.[i] ?? ""}`;
+      });
+      return `Seat ${p.roleKey}:\n${lines.join("\n")}`;
+    });
   const model = session.graderModel || DEFAULT_GRADER_MODEL;
   const assessment = await gradeGroupSession({
     sessionId,
@@ -374,7 +413,12 @@ export async function gradeGroupAction(sessionId: string) {
     decisionsSummary: decisions
       .map((d) => `${d.sceneId}: ${d.decision} — ${d.reasoning}`)
       .join("\n"),
-    transcript: messages.map((m) => `${m.roleKey}: ${m.content}`).join("\n"),
+    transcript: [
+      messages.map((m) => `${m.roleKey}: ${m.content}`).join("\n"),
+      reflectionBlocks.length
+        ? `\nPARTICIPANT REFLECTIONS:\n${reflectionBlocks.join("\n\n")}`
+        : "",
+    ].join(""),
     model,
   });
   await upsertGroupAssessment(sessionId, {

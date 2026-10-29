@@ -78,6 +78,13 @@
       "when": 1785000000000,
       "tag": "0010_group_session_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785100000000,
+      "tag": "0011_group_participant_reflections",
+      "breakpoints": true
     }
   ]
 }

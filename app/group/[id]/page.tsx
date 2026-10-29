@@ -17,6 +17,7 @@ import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { GroupMeetingClient } from "./meeting-client";
 import { AwaitRelease } from "./await-release";
+import { GroupReflectionForm } from "./reflection-form";
 import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
 
 export default async function GroupSessionPage({
@@ -372,6 +373,27 @@ export default async function GroupSessionPage({
   }
 
   if (session.status === "committed" || session.status === "graded") {
+    const needsReflection =
+      !me.isAi && !(me.reflections && me.reflections.length > 0);
+
+    if (needsReflection) {
+      return (
+        <div className="mx-auto max-w-2xl px-6 py-16 md:px-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+            Meeting concluded · {session.displayName?.trim() || session.code}
+          </p>
+          <div className="mt-8">
+            <GroupReflectionForm
+              sessionId={session.id}
+              participantId={me.id}
+              joinToken={me.joinToken ?? seatToken ?? ""}
+              questions={caseConfig.reflectionQuestions}
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="mx-auto max-w-2xl px-6 py-16 md:px-8">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -396,8 +418,8 @@ export default async function GroupSessionPage({
           ))}
         </ol>
         <p className="mt-10 text-sm text-muted-foreground">
-          Your group debrief appears here when your professor releases it.
-          This page updates on its own.
+          Your reflections are submitted. Your group debrief appears here when
+          your professor releases it. This page updates on its own.
         </p>
         <AwaitRelease sessionId={session.id} />
       </div>
