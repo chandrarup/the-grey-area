@@ -7,11 +7,13 @@ import {
   assertSessionPlayable,
   commitGroupDecision,
   endSession,
+  evaluateSessionStanceCommitGate,
   getGroupMessages,
   getGroupSession,
   getGroupSessionByCode,
   listGroupDecisions,
   markSessionGraded,
+  maybeAbstainPressureStances,
   upsertGroupAssessment,
 } from "@/lib/db/group-queries";
 import { requireSeatForCode } from "@/lib/group/seat-auth";
@@ -67,9 +69,26 @@ export async function POST(
     const scene = getScene(caseConfig, session.currentSceneId);
     const sceneMsgs = await getGroupMessages(session.id, scene.id);
     const humanCount = sceneMsgs.filter((m) => m.senderKind === "human").length;
-    if (humanCount < HUMAN_MSG_GATE) {
+    await maybeAbstainPressureStances(session.id);
+    const gate = await evaluateSessionStanceCommitGate(
+      session.id,
+      scene.id,
+      humanCount,
+    );
+    if (!gate.canCommit) {
+      if (!gate.messagesReady) {
+        return NextResponse.json(
+          {
+            error: `Need at least ${HUMAN_MSG_GATE} human messages before committing`,
+          },
+          { status: 400 },
+        );
+      }
       return NextResponse.json(
-        { error: `Need at least ${HUMAN_MSG_GATE} human messages before committing` },
+        {
+          error:
+            "All human advisors must lock a pressure stance or abstain before committing",
+        },
         { status: 400 },
       );
     }

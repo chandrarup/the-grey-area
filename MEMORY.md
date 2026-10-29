@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Authored pressure stances + commit gate (ticket 05)
+
+**What:** Case scenes author 2–3 pressure-stance chips per advisor seat (`pressureStances` / `cost-of-winning-stances.ts`; `validate:cases` enforces). Entering hard-synced `live` starts a ~2 min `stance_deadline_at`, auto-locks bot seats (first chip), and persists one `group_pressure_stances` row per (session, scene, seat). Humans lock via `POST /api/group/[code]/stance` (+ optional note); timeout → Abstain on state poll. CEO commit overlay shows locks/abstains; “Make the call” / commit API require `HUMAN_MSG_GATE` **and** human-advisor stance readiness via `GroupMeetingRuntime`. CEO has no stance; branching unchanged; integrity latch untouched. Migration `0013_group_pressure_stances`.
+**Why:** ADR 0002 — advisors formally pressure the room before the CEO commit without casting votes.
+**Do not undo:** Do not treat stances as votes or let them flip integrity / choose `option.next`; keep dual commit gate (messages + stance readiness); do not author CEO stances.
+
 ## 2026-10-29 — Hard-synced scene phases (ticket 03)
 
 **What:** Group meeting beats are server-owned: `group_sessions.scene_phase` (+ `phase_deadline_at`, film/script seat lists). `GroupMeetingRuntime.ScenePhase` is decided → film → open → **script** → live. `POST /api/group/[code]/phase` applies events through the runtime; state poll exposes phase so seats converge after refresh. Film advances on all-watched, ~90s deadline, or CEO force; script advances on all-done or CEO force. `group-stage` no longer treats localStorage as phase authority (beat resume only). Migration `0012_hard_synced_scene_phases`.

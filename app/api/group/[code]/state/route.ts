@@ -59,8 +59,18 @@ export async function GET(
     phaseDeadlineAt: state.session.phaseDeadlineAt
       ? state.session.phaseDeadlineAt.toISOString()
       : null,
+    stanceDeadlineAt: state.session.stanceDeadlineAt
+      ? state.session.stanceDeadlineAt.toISOString()
+      : null,
     filmWatchedSeatIds: filmWatched,
     scriptDoneSeatIds: scriptDone,
+    stances: state.stances.map((s) => ({
+      roleKey: s.roleKey,
+      status: s.status === "abstain" ? "abstain" : "locked",
+      chipKey: s.chipKey,
+      chipLabel: s.chipLabel,
+      note: s.note,
+    })),
     roleplayModel: state.session.roleplayModel,
     graderModel: state.session.graderModel,
     cursor: state.cursor,

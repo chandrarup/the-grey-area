@@ -11,6 +11,9 @@ import {
   evaluateCeoCommitGate,
   applyIntegrityLatch,
   resolveIntegrityAfterCeoCommit,
+  buildAdvisorStanceSeats,
+  pickBotStanceChip,
+  STANCE_TIMEOUT_MS,
   FILM_TIMEOUT_MS,
   HUMAN_MESSAGE_GATE,
   type ScenePhase,
@@ -369,5 +372,64 @@ describe("resolveIntegrityAfterCeoCommit (commit path)", () => {
       false,
     );
     assert.equal(afterStanceWouldHaveBeen, "clean");
+  });
+});
+
+describe("STANCE_TIMEOUT_MS", () => {
+  test("~2 min window before human advisor Abstain", () => {
+    assert.equal(STANCE_TIMEOUT_MS, 120_000);
+  });
+});
+
+describe("pickBotStanceChip", () => {
+  const chips = [
+    { key: "meet", label: "Meet Salim tonight" },
+    { key: "diligence", label: "Diligence in parallel" },
+    { key: "walk", label: "Walk if unclear" },
+  ] as const;
+
+  test("bots lock the first authored chip (brief-aligned default)", () => {
+    assert.deepEqual(pickBotStanceChip(chips), {
+      key: "meet",
+      label: "Meet Salim tonight",
+    });
+  });
+
+  test("empty chip list yields null (caller must not auto-stance)", () => {
+    assert.equal(pickBotStanceChip([]), null);
+  });
+});
+
+describe("buildAdvisorStanceSeats", () => {
+  test("maps locked/abstain/pending; CEO never included; bots ignore missing rows as pending", () => {
+    const seats = buildAdvisorStanceSeats({
+      advisorSeats: [
+        { seatId: "marcus", kind: "human" },
+        { seatId: "david", kind: "bot" },
+        { seatId: "priya", kind: "human" },
+        { seatId: "tom", kind: "bot" },
+      ],
+      records: [
+        { seatId: "marcus", status: "locked" },
+        { seatId: "priya", status: "abstain" },
+        { seatId: "tom", status: "locked" },
+      ],
+    });
+    assert.deepEqual(seats, [
+      { seatId: "marcus", kind: "human", status: "locked" },
+      { seatId: "david", kind: "bot", status: "pending" },
+      { seatId: "priya", kind: "human", status: "abstain" },
+      { seatId: "tom", kind: "bot", status: "locked" },
+    ]);
+  });
+
+  test("missing human record stays pending so commit gate stays closed", () => {
+    const seats = buildAdvisorStanceSeats({
+      advisorSeats: [{ seatId: "marcus", kind: "human" }],
+      records: [],
+    });
+    const ready = evaluateStanceReadiness({ advisors: seats });
+    assert.equal(ready.allHumanAdvisorsReady, false);
+    assert.deepEqual(ready.pendingHumanSeatIds, ["marcus"]);
   });
 });

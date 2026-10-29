@@ -33,7 +33,12 @@ import {
   SceneScriptPlayer,
   scriptFingerprint,
 } from "@/app/simulation/decisions/scene-script-player";
+import type { PressureStanceChip } from "@/lib/case/types";
+import type { RealtimePressureStance } from "@/lib/realtime/types";
 import {
+  buildAdvisorStanceSeats,
+  evaluateCeoCommitGate,
+  evaluateStanceReadiness,
   isScenePhase,
   type ScenePhase,
 } from "@/lib/group/meeting-runtime";
@@ -111,11 +116,19 @@ export default function GroupStage(props: {
   /** Server-owned hard-synced phase (ADR 0001). */
   scenePhase: ScenePhase;
   phaseDeadlineAt: string | null;
+  stanceDeadlineAt: string | null;
   filmWatchedSeatIds: string[];
   scriptDoneSeatIds: string[];
+  /** Authored chips per advisor seat. */
+  pressureStances: Record<string, PressureStanceChip[]>;
+  /** Locked / abstain rows for the current scene. */
+  stances: RealtimePressureStance[];
+  onLockStance: (chipKey: string, note?: string) => void | Promise<void>;
   onPhaseEvent: (type: PhaseEventType) => void | Promise<void>;
 }) {
   const { messages, roleKey, isCeo, scene } = props;
+  const [stanceNote, setStanceNote] = useState("");
+  const [stanceBusy, setStanceBusy] = useState(false);
   const castById = useMemo(
     () => new Map(props.cast.map((m) => [m.id, m])),
     [props.cast],
@@ -544,9 +557,54 @@ export default function GroupStage(props: {
       : null;
 
   const humanCount = messages.filter((m) => m.senderKind === "human").length;
-  const commitUnlocked = humanCount >= HUMAN_MSG_GATE;
+  const advisorSeatIds = Object.keys(props.pressureStances);
+  const rosterReady = props.participants.length > 0;
+  const advisorSeats = advisorSeatIds.map((seatId) => {
+    const p = props.participants.find((x) => x.roleKey === seatId);
+    const kind: "human" | "bot" =
+      p && !p.isAi && p.joined ? "human" : "bot";
+    return { seatId, kind };
+  });
+  const readinessSeats = buildAdvisorStanceSeats({
+    advisorSeats,
+    records: props.stances.map((s) => ({
+      seatId: s.roleKey,
+      status: s.status === "abstain" ? "abstain" : "locked",
+    })),
+  });
+  const stanceReady = evaluateStanceReadiness({ advisors: readinessSeats });
+  const stancesReadyForUi =
+    rosterReady && stanceReady.allHumanAdvisorsReady;
+  const commitGate = evaluateCeoCommitGate({
+    humanMessageCount: humanCount,
+    allHumanAdvisorsReady: stancesReadyForUi,
+  });
+  const commitUnlocked = commitGate.canCommit;
+  const myStance = props.stances.find((s) => s.roleKey === roleKey);
+  const myChips = props.pressureStances[roleKey] ?? [];
+  const showStancePicker =
+    !isCeo &&
+    props.scenePhase === "live" &&
+    myChips.length > 0 &&
+    !myStance;
+  const stanceSecondsLeft = props.stanceDeadlineAt
+    ? Math.max(
+        0,
+        Math.ceil((new Date(props.stanceDeadlineAt).getTime() - now) / 1000),
+      )
+    : null;
   const seconds = liveAt ? Math.max(0, Math.floor((now - liveAt) / 1000)) : 0;
   const typing = props.thinkingRoleKeys.filter((k) => k !== roleKey);
+
+  async function lockChip(chipKey: string) {
+    if (stanceBusy) return;
+    setStanceBusy(true);
+    try {
+      await props.onLockStance(chipKey, stanceNote.trim() || undefined);
+    } finally {
+      setStanceBusy(false);
+    }
+  }
 
   const controls = (
     <>
@@ -591,6 +649,22 @@ export default function GroupStage(props: {
 
   let overlay: React.ReactNode = null;
   if (deciding && isCeo) {
+    const unlockParts: string[] = [];
+    if (!commitGate.messagesReady) {
+      unlockParts.push(
+        `${humanCount}/${HUMAN_MSG_GATE} contributions from people at the table`,
+      );
+    }
+    if (!commitGate.stancesReady) {
+      const pending = stanceReady.pendingHumanSeatIds
+        .map((id) => firstName(characterName(id)))
+        .join(", ");
+      unlockParts.push(
+        pending
+          ? `waiting on stance from ${pending}`
+          : "waiting on advisor stances",
+      );
+    }
     overlay = (
       <div className="dark max-h-full w-full max-w-2xl overflow-y-auto rounded-xl bg-background/95 px-6 py-6 text-foreground shadow-2xl">
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -610,6 +684,47 @@ export default function GroupStage(props: {
             Back to the room
           </button>
         </div>
+        {advisorSeatIds.length > 0 ? (
+          <div className="mb-5 border-b border-border pb-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Pressure stances
+            </p>
+            <ul className="mt-3 space-y-2 text-sm">
+              {advisorSeatIds.map((seatId) => {
+                const row = props.stances.find((s) => s.roleKey === seatId);
+                const name = characterName(seatId);
+                if (!row) {
+                  return (
+                    <li key={seatId} className="text-muted-foreground">
+                      <span className="font-medium text-foreground">{name}</span>
+                      {" · pending"}
+                    </li>
+                  );
+                }
+                if (row.status === "abstain") {
+                  return (
+                    <li key={seatId}>
+                      <span className="font-medium">{name}</span>
+                      {" · Abstain"}
+                    </li>
+                  );
+                }
+                return (
+                  <li key={seatId}>
+                    <span className="font-medium">{name}</span>
+                    {" · "}
+                    {row.chipLabel ?? row.chipKey ?? "Locked"}
+                    {row.note ? (
+                      <span className="block pl-0 text-muted-foreground">
+                        {row.note}
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
         <AnswerComposer
           mode="commit"
           options={props.options}
@@ -620,7 +735,11 @@ export default function GroupStage(props: {
           customText={props.customText}
           onCustomTextChange={props.onCustomTextChange}
           commitUnlocked={commitUnlocked}
-          unlockHint={`You can decide once the room has spoken: ${humanCount}/${HUMAN_MSG_GATE} contributions from people at the table.`}
+          unlockHint={
+            unlockParts.length
+              ? `You can decide once: ${unlockParts.join("; ")}.`
+              : undefined
+          }
           commitDisabled={
             props.committing ||
             !props.optionKey ||
@@ -630,6 +749,54 @@ export default function GroupStage(props: {
           committing={props.committing}
           onCommit={props.onCommit}
         />
+        {props.error ? (
+          <p className="mt-3 text-sm text-muted-foreground">{props.error}</p>
+        ) : null}
+      </div>
+    );
+  } else if (showStancePicker) {
+    overlay = (
+      <div className="dark max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-background/95 px-6 py-6 text-foreground shadow-2xl">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          Pressure stance
+        </p>
+        <p className="mt-2 font-serif text-xl">Lock your position for this decision</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This pressures the room — it is not a vote. The CEO alone makes the call.
+          {stanceSecondsLeft != null ? (
+            <>
+              {" "}
+              <span className="tabular-nums">
+                {Math.floor(stanceSecondsLeft / 60)}:
+                {String(stanceSecondsLeft % 60).padStart(2, "0")}
+              </span>{" "}
+              until Abstain.
+            </>
+          ) : null}
+        </p>
+        <div className="mt-4 flex flex-col gap-2">
+          {myChips.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              disabled={stanceBusy}
+              onClick={() => void lockChip(chip.key)}
+              className="rounded-lg border border-border px-4 py-3 text-left text-sm hover:bg-muted disabled:opacity-50"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        <label className="mt-4 block text-xs text-muted-foreground">
+          Optional note
+          <textarea
+            value={stanceNote}
+            onChange={(e) => setStanceNote(e.target.value)}
+            rows={2}
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+            placeholder="Add a short note for the CEO (optional)"
+          />
+        </label>
         {props.error ? (
           <p className="mt-3 text-sm text-muted-foreground">{props.error}</p>
         ) : null}
@@ -663,25 +830,39 @@ export default function GroupStage(props: {
     );
   }
 
-  const footer = deciding ? null : isCeo ? (
-    <button
-      type="button"
-      onClick={() => {
-        setBriefOpen(false);
-        setDeciding(true);
-      }}
-      className="rounded-full bg-white px-6 py-2 text-sm font-medium text-black shadow-xl"
-    >
-      Make the call
-      <span className="ml-2 text-xs text-black/50">
-        {humanCount}/{HUMAN_MSG_GATE}
+  const footer =
+    deciding || showStancePicker ? null : isCeo ? (
+      <button
+        type="button"
+        onClick={() => {
+          setBriefOpen(false);
+          setDeciding(true);
+        }}
+        className="rounded-full bg-white px-6 py-2 text-sm font-medium text-black shadow-xl"
+      >
+        Make the call
+        <span className="ml-2 text-xs text-black/50">
+          {humanCount}/{HUMAN_MSG_GATE}
+          {commitGate.stancesReady ? "" : " · stances"}
+        </span>
+      </button>
+    ) : myStance ? (
+      <span className="rounded-full bg-black/55 px-4 py-2 text-xs text-white/70 backdrop-blur-md">
+        Stance locked
+        {myStance.status === "abstain"
+          ? " · Abstain"
+          : myStance.chipLabel
+            ? ` · ${myStance.chipLabel}`
+            : ""}
+        {" · "}
+        {firstName(ceoName)} makes the call
       </span>
-    </button>
-  ) : (
-    <span className="rounded-full bg-black/55 px-4 py-2 text-xs text-white/70 backdrop-blur-md">
-      {firstName(ceoName)} makes the call · {humanCount}/{HUMAN_MSG_GATE} contributions so far
-    </span>
-  );
+    ) : (
+      <span className="rounded-full bg-black/55 px-4 py-2 text-xs text-white/70 backdrop-blur-md">
+        {firstName(ceoName)} makes the call · {humanCount}/{HUMAN_MSG_GATE}{" "}
+        contributions so far
+      </span>
+    );
 
   return (
     <div onPointerDown={unlockAudio}>

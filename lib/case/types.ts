@@ -122,6 +122,12 @@ export type ScriptBeat =
       silence?: ScriptBeat[];
     };
 
+/** Authored pressure-stance chip for a non-CEO seat (ADR 0002). */
+export type PressureStanceChip = {
+  key: string;
+  label: string;
+};
+
 export type Scene = {
   id: string;
   depth: number; // 1..maxDepth (this case: 3)
@@ -134,6 +140,11 @@ export type Scene = {
   props?: SceneProp[];
   sceneDirective?: string; // extra staging instructions for the scene director
   script?: ScriptBeat[];
+  /**
+   * Authored pressure-stance chips per advisor seat (2–3 each).
+   * Keys are cast member ids; CEO never appears here.
+   */
+  pressureStances?: Record<string, PressureStanceChip[]>;
   commitPrompt: string;
   commitPrefill?: string;
   options: DecisionOption[];

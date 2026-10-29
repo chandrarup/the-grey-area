@@ -12,6 +12,7 @@ import type {
   GroupSessionState,
   RealtimeMessage,
   RealtimeParticipant,
+  RealtimePressureStance,
 } from "@/lib/realtime/types";
 import { useGroupRealtime } from "@/lib/realtime/use-group-realtime";
 import { formatSessionRemaining } from "@/lib/group-session-lifetime";
@@ -23,7 +24,13 @@ import {
 import { LoadingSpinner } from "@/app/components/loading-spinner";
 import { withBusyBar } from "@/app/components/navigation-progress";
 import { prepareVoices } from "@/app/simulation/decisions/three/speech";
-import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
+import type {
+  CastMember,
+  PressureStanceChip,
+  SceneProp,
+  ScriptBeat,
+  StageMood,
+} from "@/lib/case/types";
 import type { GroupFilm, PhaseEventType } from "./group-stage";
 import { isScenePhase } from "@/lib/group/meeting-runtime";
 
@@ -49,6 +56,7 @@ export function GroupMeetingClient(props: {
   /** Server-owned hard-synced phase (ADR 0001). */
   scenePhase?: string;
   phaseDeadlineAt?: string | null;
+  stanceDeadlineAt?: string | null;
   filmWatchedSeatIds?: string[];
   scriptDoneSeatIds?: string[];
   scene: {
@@ -64,6 +72,8 @@ export function GroupMeetingClient(props: {
   sceneCast: { id: string; name: string; title: string }[];
   messages: Msg[];
   options: { key: string; label: string }[];
+  /** Authored chips per advisor seat for this scene. */
+  pressureStances?: Record<string, PressureStanceChip[]>;
   roleBriefCollapsed?: {
     name: string;
     title: string;
@@ -91,6 +101,10 @@ export function GroupMeetingClient(props: {
   const [phaseDeadlineAt, setPhaseDeadlineAt] = useState<string | null>(
     props.phaseDeadlineAt ?? null,
   );
+  const [stanceDeadlineAt, setStanceDeadlineAt] = useState<string | null>(
+    props.stanceDeadlineAt ?? null,
+  );
+  const [stances, setStances] = useState<RealtimePressureStance[]>([]);
   const [filmWatchedSeatIds, setFilmWatchedSeatIds] = useState<string[]>(
     props.filmWatchedSeatIds ?? [],
   );
@@ -120,6 +134,9 @@ export function GroupMeetingClient(props: {
     if (props.phaseDeadlineAt !== undefined) {
       setPhaseDeadlineAt(props.phaseDeadlineAt);
     }
+    if (props.stanceDeadlineAt !== undefined) {
+      setStanceDeadlineAt(props.stanceDeadlineAt);
+    }
     if (props.scene?.id) {
       setSceneId(props.scene.id);
       sceneIdRef.current = props.scene.id;
@@ -130,6 +147,7 @@ export function GroupMeetingClient(props: {
     props.scene?.id,
     props.scenePhase,
     props.phaseDeadlineAt,
+    props.stanceDeadlineAt,
   ]);
 
   // Active but no scene payload — force a refresh so chat can mount.
@@ -218,11 +236,15 @@ export function GroupMeetingClient(props: {
       setDecisionsMade(state.decisionsMade);
       if (state.scenePhase) setScenePhase(state.scenePhase);
       setPhaseDeadlineAt(state.phaseDeadlineAt ?? null);
+      setStanceDeadlineAt(state.stanceDeadlineAt ?? null);
       if (Array.isArray(state.filmWatchedSeatIds)) {
         setFilmWatchedSeatIds(state.filmWatchedSeatIds);
       }
       if (Array.isArray(state.scriptDoneSeatIds)) {
         setScriptDoneSeatIds(state.scriptDoneSeatIds);
+      }
+      if (Array.isArray(state.stances)) {
+        setStances(state.stances);
       }
       setParticipants(state.participants);
       setThinkingRoleKeys(state.thinkingRoleKeys);
@@ -379,6 +401,36 @@ export function GroupMeetingClient(props: {
       pendingOptimisticRef.current = null;
     } finally {
       setSending(false);
+    }
+  }
+
+  async function lockStance(chipKey: string, note?: string) {
+    setError(null);
+    try {
+      await withBusyBar(async () => {
+        const res = await fetch(`/api/group/${props.sessionCode}/stance`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...seatHeaders(seatToken),
+          },
+          body: JSON.stringify({ action: "lock", chipKey, note }),
+        });
+        const data = (await res.json()) as {
+          error?: string;
+          stance?: RealtimePressureStance;
+        };
+        if (!res.ok) throw new Error(data.error ?? "Stance lock failed");
+        if (data.stance) {
+          setStances((prev) => {
+            const rest = prev.filter((s) => s.roleKey !== data.stance!.roleKey);
+            return [...rest, data.stance!];
+          });
+        }
+        if (tickRef.current) await tickRef.current();
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Stance lock failed");
     }
   }
 
@@ -677,8 +729,12 @@ export function GroupMeetingClient(props: {
       sceneProps={props.sceneProps}
       scenePhase={isScenePhase(scenePhase) ? scenePhase : "open"}
       phaseDeadlineAt={phaseDeadlineAt}
+      stanceDeadlineAt={stanceDeadlineAt}
       filmWatchedSeatIds={filmWatchedSeatIds}
       scriptDoneSeatIds={scriptDoneSeatIds}
+      pressureStances={props.pressureStances ?? {}}
+      stances={stances}
+      onLockStance={lockStance}
       onPhaseEvent={emitPhaseEvent}
     />
   );

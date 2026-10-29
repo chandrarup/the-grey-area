@@ -21,6 +21,15 @@ export type RealtimeParticipant = {
   joined: boolean;
 };
 
+/** Persisted pressure stance for one advisor seat (ADR 0002). */
+export type RealtimePressureStance = {
+  roleKey: string;
+  status: "locked" | "abstain";
+  chipKey: string | null;
+  chipLabel: string | null;
+  note: string | null;
+};
+
 export type GroupSessionState = {
   sessionId: string;
   code: string;
@@ -34,8 +43,12 @@ export type GroupSessionState = {
   scenePhase: string;
   /** ISO deadline for film window; null outside a timed phase. */
   phaseDeadlineAt: string | null;
+  /** ISO deadline for human advisor stance window; null when not timing. */
+  stanceDeadlineAt: string | null;
   filmWatchedSeatIds: string[];
   scriptDoneSeatIds: string[];
+  /** Locked / abstain pressure stances for the current scene. */
+  stances: RealtimePressureStance[];
   roleplayModel: string;
   graderModel: string;
   cursor: number;

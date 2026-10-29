@@ -482,6 +482,7 @@ export default async function GroupSessionPage({
           sceneId: m.sceneId,
         }))}
         options={scene?.options.map((o) => ({ key: o.key, label: o.label })) ?? []}
+        pressureStances={scene?.pressureStances ?? {}}
         roleBriefCollapsed={{
           name: brief.name,
           title: brief.title,
@@ -496,6 +497,11 @@ export default async function GroupSessionPage({
         phaseDeadlineAt={
           session.phaseDeadlineAt
             ? session.phaseDeadlineAt.toISOString()
+            : null
+        }
+        stanceDeadlineAt={
+          session.stanceDeadlineAt
+            ? session.stanceDeadlineAt.toISOString()
             : null
         }
         filmWatchedSeatIds={

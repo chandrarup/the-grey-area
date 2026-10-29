@@ -151,6 +151,8 @@ export const groupSessions = pgTable("group_sessions", {
   filmWatchedSeatIds: jsonb("film_watched_seat_ids").$type<string[]>().notNull().default([]),
   /** Human role keys that finished the shared script this scene. */
   scriptDoneSeatIds: jsonb("script_done_seat_ids").$type<string[]>().notNull().default([]),
+  /** Live-phase pressure-stance window end; null when not timing stances. */
+  stanceDeadlineAt: timestamp("stance_deadline_at", { withTimezone: true }),
   clockSeconds: integer("clock_seconds").notNull().default(1800),
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
   graderModel: text("grader_model").notNull().default("gemini-flash"),
@@ -219,6 +221,34 @@ export const groupDecisions = pgTable(
   (table) => [unique("group_decisions_session_scene").on(table.sessionId, table.sceneId)],
 );
 
+/**
+ * One pressure stance per (session, scene, advisor seat).
+ * status: locked | abstain. CEO never has a row (ADR 0002).
+ */
+export const groupPressureStances = pgTable(
+  "group_pressure_stances",
+  {
+    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => groupSessions.id, { onDelete: "cascade" }),
+    sceneId: text("scene_id").notNull(),
+    roleKey: text("role_key").notNull(),
+    status: text("status").notNull(), // locked | abstain
+    chipKey: text("chip_key"),
+    chipLabel: text("chip_label"),
+    note: text("note"),
+    lockedAt: timestamp("locked_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    unique("group_pressure_stances_session_scene_role").on(
+      table.sessionId,
+      table.sceneId,
+      table.roleKey,
+    ),
+  ],
+);
+
 export const groupAssessments = pgTable("group_assessments", {
   sessionId: uuid("session_id")
     .primaryKey()
@@ -266,6 +296,7 @@ export type GroupParticipant = typeof groupParticipants.$inferSelect;
 export type GroupBatch = typeof groupBatches.$inferSelect;
 export type GroupMessage = typeof groupMessages.$inferSelect;
 export type GroupDecision = typeof groupDecisions.$inferSelect;
+export type GroupPressureStance = typeof groupPressureStances.$inferSelect;
 export type GroupAssessment = typeof groupAssessments.$inferSelect;
 
 export type ProfileRole = "student" | "professor" | "admin";

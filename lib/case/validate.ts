@@ -7,6 +7,11 @@ const GREY_AREA_POSTURES: readonly Posture[] = [
   "bystander",
 ];
 
+/** Group advisor seats that lock pressure stances (CEO never). */
+const ADVISOR_SEATS = new Set(["marcus", "david", "priya", "tom"]);
+const STANCE_CHIP_MIN = 2;
+const STANCE_CHIP_MAX = 3;
+
 type ValidationResult = {
   slug: string;
   sceneCount: number;
@@ -183,6 +188,52 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
         errors.push(
           `Scene "${scene.id}" is missing grey-area posture "${posture}"`,
         );
+      }
+    }
+
+    const advisorSeats = scene.cast.filter((id) => ADVISOR_SEATS.has(id));
+    if (advisorSeats.length > 0) {
+      if (!scene.pressureStances) {
+        errors.push(
+          `Scene "${scene.id}" is missing pressureStances for advisor seats`,
+        );
+      } else {
+        for (const seatId of advisorSeats) {
+          const chips = scene.pressureStances[seatId];
+          if (!chips) {
+            errors.push(
+              `Scene "${scene.id}" missing pressureStances for seat "${seatId}"`,
+            );
+            continue;
+          }
+          if (
+            chips.length < STANCE_CHIP_MIN ||
+            chips.length > STANCE_CHIP_MAX
+          ) {
+            errors.push(
+              `Scene "${scene.id}" seat "${seatId}" must have ${STANCE_CHIP_MIN}–${STANCE_CHIP_MAX} stance chips, got ${chips.length}`,
+            );
+          }
+          const keys = new Set<string>();
+          for (const chip of chips) {
+            if (!chip.key?.trim() || !chip.label?.trim()) {
+              errors.push(
+                `Scene "${scene.id}" seat "${seatId}" has a stance chip with empty key or label`,
+              );
+            } else if (keys.has(chip.key)) {
+              errors.push(
+                `Scene "${scene.id}" seat "${seatId}" repeats stance chip key "${chip.key}"`,
+              );
+            } else {
+              keys.add(chip.key);
+            }
+          }
+        }
+        if (scene.pressureStances.ceo) {
+          errors.push(
+            `Scene "${scene.id}" must not author pressureStances for CEO`,
+          );
+        }
       }
     }
   }

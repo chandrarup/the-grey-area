@@ -3,6 +3,7 @@ import {
   COST_OF_WINNING_SCRIPTS as SCRIPTS,
   COST_OF_WINNING_STORIES as STORIES,
 } from "./cost-of-winning-scripts";
+import { COST_OF_WINNING_STANCES as STANCES } from "./cost-of-winning-stances";
 
 /**
  * The Cost of Winning — three escalating decisions.
@@ -106,6 +107,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "Four faces on the screen. Marcus from a hotel in Ardania's capital; David and Tom at headquarters; Priya from a regional site. Your bid is the strongest technically, not the cheapest. Marcus has brought a local adviser who 'understands how decisions really get made.' The fee — disclosed only here, out loud — is one-tenth of one percent of the contract, payable if you win. Nothing illegal has happened. Salim wants an answer tonight. A competitor is circling him.",
       cast: ["marcus", "david", "priya", "tom"],
+      pressureStances: STANCES.s1_introduction,
       opening: {
         castId: "marcus",
         text: "Thank you for moving this. We have the best technical proposal in the field — but this award will not be decided on engineering alone. Victor Salim can read the people and the obstacles behind the formal process. A competitor is already courting him. He needs a signal today. I'm not asking us to ignore compliance. I'm asking us not to close the door before we understand what we're looking at.",
@@ -231,6 +233,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "You refused Salim. Meridian signed him. The ministry has gone quiet on your clarifications. Marcus has a draft outreach that would reopen a channel through a different local partner — still no written scope. David needs a story for the board's pipeline review. Tom says silence from a ministry after a competitor locks an adviser is information, not weather. You can still stop — but stopping now means owning the first call in public.",
       cast: ["marcus", "david", "priya", "tom"],
+      pressureStances: STANCES.s2_door_closed,
       opening: {
         castId: "david",
         text: "The board packet goes out Thursday. If I show an empty corridor after eighteen months, they will ask what we did this week. Marcus has a path back in through a different partner. I am not recommending it. I am telling you the calendar.",
@@ -312,6 +315,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "You insisted on conditions. Tom's review is unfinished. An invoice has landed from a local firm you did not choose — 'coordination services,' no line items. Marcus says the partner arrived through Salim's introductions during the controlled meeting. David cannot match hours to deliverables. Someone you trust says this is how sequencing works here. Someone else says paying it would invent a history you never authorised.",
       cast: ["marcus", "david", "priya", "tom"],
+      pressureStances: STANCES.s2_invoice_diligence,
       opening: {
         castId: "tom",
         text: "We authorised a conversation with guardrails. This invoice is not in those guardrails. If we pay it, we are writing a relationship into the ledger that diligence has not cleared. If we refuse it, Marcus says the corridor goes cold.",
@@ -393,6 +397,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "You authorised speed. The retainer is paid. An invoice has arrived for services no one can itemise. Marcus says this is how access is maintained. Tom says we still cannot describe the work. David can book it under local discretion — barely. Priya asks whether 'normal here' is a fact or a wish. You can still stop. Stopping now means admitting what the first decision bought.",
       cast: ["marcus", "david", "priya", "tom"],
+      pressureStances: STANCES.s2_invoice_authorised,
       opening: {
         castId: "marcus",
         text: "This is the cost of staying in the room. If we bounce this invoice, Salim walks and Meridian inherits the relationships we just paid to open. I am not asking you to like the paperwork. I am asking you not to throw away five weeks.",
@@ -475,6 +480,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "Journalists have the story. Regulators want documents. Your file is largely complete: decisions dated, reviews attached, stops recorded. The headline still hurts — GIS hesitated, Meridian advanced, jobs and pipeline questions follow. An executive offers to soften the narrative without touching the papers. The question is no longer what you did. It is what you will now admit.",
       cast: ["marcus", "david", "priya", "tom", "eleanor"],
+      pressureStances: STANCES.s3_clean_file,
       opening: {
         castId: "eleanor",
         text: "We have a clean file and an unflattering press cycle. The committee will ask whether we were careful or merely late. I need your instruction before we answer anyone outside this room.",
@@ -556,6 +562,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "Journalists have partial documents. Regulators want the rest. Somewhere between the first decision and the invoices, the file stops being continuous — a review unfinished, a description narrowed, a board summary that does not match the ledger. An executive offers to help the papers 'line up.' The question is not only what happened. It is what you will admit is missing.",
       cast: ["marcus", "david", "priya", "tom", "eleanor"],
+      pressureStances: STANCES.s3_gap_record,
       opening: {
         castId: "tom",
         text: "I can produce what exists. I cannot produce what we never finished. Someone is offering to bridge that gap for us. That is a different kind of decision.",
@@ -637,6 +644,7 @@ export const COST_OF_WINNING: CaseConfig = {
       brief:
         "The corridor moved because you kept moving. Now journalists have the story and regulators want documents on a deadline. An executive — someone who has been loyal through every turn — offers to help the file make sense before anyone else reads it. The question is not what you authorised months ago. It is whether you will let the record be finished for you.",
       cast: ["marcus", "david", "priya", "tom", "eleanor"],
+      pressureStances: STANCES.s3_managed,
       opening: {
         castId: "marcus",
         text: "We are hours from a production demand. I can still put a coherent narrative on paper — what we intended, what local practice required, what the invoices actually bought. Or we hand them fragments and let them write the ending.",

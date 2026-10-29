@@ -7,9 +7,11 @@ import {
   groupDecisions,
   groupMessages,
   groupParticipants,
+  groupPressureStances,
   groupSessions,
   type GroupBatch,
   type GroupParticipant,
+  type GroupPressureStance,
   type GroupSession,
   type Profile,
 } from "@/lib/db/schema";
@@ -22,13 +24,20 @@ import {
   shouldAutoExpire,
 } from "@/lib/group-session-lifetime";
 import {
+  buildAdvisorStanceSeats,
+  evaluateCeoCommitGate,
   evaluatePhaseTransition,
+  evaluateStanceReadiness,
   FILM_TIMEOUT_MS,
   isScenePhase,
+  pickBotStanceChip,
   resolveIntegrityAfterCeoCommit,
+  STANCE_TIMEOUT_MS,
   type PhaseEvent,
   type ScenePhase,
 } from "@/lib/group/meeting-runtime";
+
+const ADVISOR_SEAT_KEYS = new Set(["marcus", "david", "priya", "tom"]);
 
 function randomCode(length = 6): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -753,6 +762,7 @@ export async function startGroupSession(
       phaseDeadlineAt: null,
       filmWatchedSeatIds: [],
       scriptDoneSeatIds: [],
+      stanceDeadlineAt: null,
     })
     .where(and(eq(groupSessions.id, sessionId), eq(groupSessions.status, "lobby")))
     .returning();
@@ -863,8 +873,17 @@ export async function commitGroupDecision(params: {
   const humanCount = msgs.filter(
     (m) => m.sceneId === params.sceneId && m.senderKind === "human",
   ).length;
-  if (humanCount < 6) {
-    throw new Error("Need at least 6 human messages before committing");
+  await maybeAbstainPressureStances(params.sessionId);
+  const stanceGate = await evaluateSessionStanceCommitGate(
+    params.sessionId,
+    params.sceneId,
+    humanCount,
+  );
+  if (!stanceGate.canCommit) {
+    if (!stanceGate.messagesReady) {
+      throw new Error("Need at least 6 human messages before committing");
+    }
+    throw new Error("All human advisors must lock a pressure stance or abstain before committing");
   }
   if (params.reasoning.trim().length < 20) {
     throw new Error("Reasoning must be at least 20 characters");
@@ -914,6 +933,7 @@ export async function commitGroupDecision(params: {
       phaseDeadlineAt: null,
       filmWatchedSeatIds: [],
       scriptDoneSeatIds: [],
+      stanceDeadlineAt: null,
     })
     .where(eq(groupSessions.id, params.sessionId));
 
@@ -1195,19 +1215,24 @@ export async function applyGroupPhaseEvent(params: {
     nextScriptDone = [];
   }
 
+  let nextStanceDeadline: Date | null = session.stanceDeadlineAt ?? null;
+
   if (transition.nextPhase === "open") {
     nextDeadline = null;
     nextWatched = [];
+    nextStanceDeadline = null;
   }
 
   if (transition.nextPhase === "script") {
     nextDeadline = null;
     nextScriptDone = [];
+    nextStanceDeadline = null;
   }
 
   if (transition.nextPhase === "live") {
     nextDeadline = null;
     nextScriptDone = [];
+    nextStanceDeadline = new Date(Date.now() + STANCE_TIMEOUT_MS);
   }
 
   const [updated] = await db
@@ -1217,9 +1242,14 @@ export async function applyGroupPhaseEvent(params: {
       phaseDeadlineAt: nextDeadline,
       filmWatchedSeatIds: nextWatched,
       scriptDoneSeatIds: nextScriptDone,
+      stanceDeadlineAt: nextStanceDeadline,
     })
     .where(eq(groupSessions.id, params.sessionId))
     .returning();
+
+  if (transition.nextPhase === "live" && session.currentSceneId) {
+    await ensureBotPressureStances(params.sessionId, session.currentSceneId);
+  }
 
   return updated ?? session;
 }
@@ -1267,15 +1297,21 @@ export async function getGroupSessionState(
   messages: Awaited<ReturnType<typeof getGroupMessages>>;
   participants: GroupParticipant[];
   thinkingRoleKeys: string[];
+  stances: GroupPressureStance[];
   cursor: number;
 } | null> {
   // Converge film timeout before returning state so all seats see open.
   await maybeAdvanceFilmTimeout(sessionId);
+  // Record Abstain for human advisors whose stance window elapsed.
+  await maybeAbstainPressureStances(sessionId);
   const session = await getGroupSession(sessionId);
   if (!session) return null;
   const messages = await getGroupMessages(sessionId, afterId);
   const participants = await listParticipants(sessionId);
   const thinkingRoleKeys = await listThinkingRoleKeys(sessionId);
+  const stances = session.currentSceneId
+    ? await listPressureStances(sessionId, session.currentSceneId)
+    : [];
   let cursor = afterId;
   if (messages.length > 0) {
     cursor = messages[messages.length - 1]!.id;
@@ -1288,8 +1324,237 @@ export async function getGroupSessionState(
     messages,
     participants,
     thinkingRoleKeys,
+    stances,
     cursor,
   };
+}
+
+export async function listPressureStances(
+  sessionId: string,
+  sceneId: string,
+): Promise<GroupPressureStance[]> {
+  return db
+    .select()
+    .from(groupPressureStances)
+    .where(
+      and(
+        eq(groupPressureStances.sessionId, sessionId),
+        eq(groupPressureStances.sceneId, sceneId),
+      ),
+    );
+}
+
+function isAdvisorBot(p: GroupParticipant): boolean {
+  return p.isAi || !p.profileId;
+}
+
+function advisorParticipants(
+  participants: GroupParticipant[],
+  sceneCast: readonly string[],
+): GroupParticipant[] {
+  const cast = new Set(sceneCast);
+  return participants.filter(
+    (p) =>
+      ADVISOR_SEAT_KEYS.has(p.roleKey) &&
+      (cast.size === 0 || cast.has(p.roleKey)),
+  );
+}
+
+/** Insert bot advisor stances from authored chips (first chip = brief default). Idempotent. */
+export async function ensureBotPressureStances(
+  sessionId: string,
+  sceneId: string,
+): Promise<void> {
+  const session = await getGroupSession(sessionId);
+  if (!session) return;
+  const caseConfig = getCase(session.caseSlug);
+  const scene = caseConfig.scenes[sceneId];
+  if (!scene?.pressureStances) return;
+
+  const participants = await listParticipants(sessionId);
+  const advisors = advisorParticipants(participants, scene.cast);
+  const existing = await listPressureStances(sessionId, sceneId);
+  const have = new Set(existing.map((r) => r.roleKey));
+
+  for (const p of advisors) {
+    if (!isAdvisorBot(p) || have.has(p.roleKey)) continue;
+    const chips = scene.pressureStances[p.roleKey] ?? [];
+    const chip = pickBotStanceChip(chips);
+    if (!chip) continue;
+    await db
+      .insert(groupPressureStances)
+      .values({
+        sessionId,
+        sceneId,
+        roleKey: p.roleKey,
+        status: "locked",
+        chipKey: chip.key,
+        chipLabel: chip.label,
+        note: null,
+      })
+      .onConflictDoNothing();
+  }
+}
+
+/**
+ * Human advisor locks an authored chip (+ optional note). One row per seat/scene.
+ * Rejects CEO, bots, unknown chips, and re-locks.
+ */
+export async function lockPressureStance(params: {
+  sessionId: string;
+  sceneId: string;
+  roleKey: string;
+  chipKey: string;
+  note?: string | null;
+}): Promise<GroupPressureStance> {
+  if (params.roleKey === "ceo" || !ADVISOR_SEAT_KEYS.has(params.roleKey)) {
+    throw new Error("Only advisor seats lock pressure stances");
+  }
+  const session = await getGroupSession(params.sessionId);
+  if (!session || session.status !== "active") {
+    throw new Error("Session not active");
+  }
+  if (session.currentSceneId !== params.sceneId) {
+    throw new Error("Scene mismatch");
+  }
+  if (currentPhase(session) !== "live") {
+    throw new Error("Stances lock during the live phase");
+  }
+
+  const participants = await listParticipants(params.sessionId);
+  const seat = participants.find((p) => p.roleKey === params.roleKey);
+  if (!seat || seat.isAi || !seat.profileId) {
+    throw new Error("Only human advisors can lock a stance");
+  }
+
+  const caseConfig = getCase(session.caseSlug);
+  const scene = caseConfig.scenes[params.sceneId];
+  const chips = scene?.pressureStances?.[params.roleKey] ?? [];
+  const chip = chips.find((c) => c.key === params.chipKey);
+  if (!chip) {
+    throw new Error("Unknown stance chip");
+  }
+
+  const existing = await listPressureStances(params.sessionId, params.sceneId);
+  if (existing.some((r) => r.roleKey === params.roleKey)) {
+    throw new Error("Stance already locked for this seat");
+  }
+
+  const note = params.note?.trim() || null;
+  const [row] = await db
+    .insert(groupPressureStances)
+    .values({
+      sessionId: params.sessionId,
+      sceneId: params.sceneId,
+      roleKey: params.roleKey,
+      status: "locked",
+      chipKey: chip.key,
+      chipLabel: chip.label,
+      note,
+    })
+    .returning();
+  if (!row) throw new Error("Failed to lock stance");
+  return row;
+}
+
+/** Record Abstain for a human advisor (timeout or explicit). Idempotent if already set. */
+export async function abstainPressureStance(params: {
+  sessionId: string;
+  sceneId: string;
+  roleKey: string;
+}): Promise<GroupPressureStance | null> {
+  if (params.roleKey === "ceo" || !ADVISOR_SEAT_KEYS.has(params.roleKey)) {
+    throw new Error("Only advisor seats can abstain");
+  }
+  const existing = await listPressureStances(params.sessionId, params.sceneId);
+  const prior = existing.find((r) => r.roleKey === params.roleKey);
+  if (prior) return prior;
+
+  const [row] = await db
+    .insert(groupPressureStances)
+    .values({
+      sessionId: params.sessionId,
+      sceneId: params.sceneId,
+      roleKey: params.roleKey,
+      status: "abstain",
+      chipKey: null,
+      chipLabel: null,
+      note: null,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (row) return row;
+  const again = await listPressureStances(params.sessionId, params.sceneId);
+  return again.find((r) => r.roleKey === params.roleKey) ?? null;
+}
+
+/** When stanceDeadlineAt elapsed in live, Abstain every pending human advisor. */
+export async function maybeAbstainPressureStances(
+  sessionId: string,
+): Promise<void> {
+  const session = await getGroupSession(sessionId);
+  if (!session || session.status !== "active") return;
+  if (currentPhase(session) !== "live") return;
+  if (!session.stanceDeadlineAt) return;
+  if (session.stanceDeadlineAt.getTime() > Date.now()) return;
+  if (!session.currentSceneId) return;
+
+  await ensureBotPressureStances(sessionId, session.currentSceneId);
+
+  const caseConfig = getCase(session.caseSlug);
+  const scene = caseConfig.scenes[session.currentSceneId];
+  const participants = await listParticipants(sessionId);
+  const advisors = advisorParticipants(participants, scene?.cast ?? []);
+  const existing = await listPressureStances(sessionId, session.currentSceneId);
+  const have = new Set(existing.map((r) => r.roleKey));
+
+  for (const p of advisors) {
+    if (isAdvisorBot(p) || have.has(p.roleKey)) continue;
+    await abstainPressureStance({
+      sessionId,
+      sceneId: session.currentSceneId,
+      roleKey: p.roleKey,
+    });
+  }
+
+  await db
+    .update(groupSessions)
+    .set({ stanceDeadlineAt: null })
+    .where(eq(groupSessions.id, sessionId));
+}
+
+export async function evaluateSessionStanceCommitGate(
+  sessionId: string,
+  sceneId: string,
+  humanMessageCount: number,
+) {
+  const session = await getGroupSession(sessionId);
+  if (!session) {
+    return evaluateCeoCommitGate({
+      humanMessageCount,
+      allHumanAdvisorsReady: false,
+    });
+  }
+  const caseConfig = getCase(session.caseSlug);
+  const scene = caseConfig.scenes[sceneId];
+  const participants = await listParticipants(sessionId);
+  const advisors = advisorParticipants(participants, scene?.cast ?? []);
+  const records = await listPressureStances(sessionId, sceneId);
+  const seats = buildAdvisorStanceSeats({
+    advisorSeats: advisors.map((p) => ({
+      seatId: p.roleKey,
+      kind: isAdvisorBot(p) ? "bot" : "human",
+    })),
+    records: records.map((r) => ({
+      seatId: r.roleKey,
+      status: r.status === "abstain" ? "abstain" : "locked",
+    })),
+  });
+  const readiness = evaluateStanceReadiness({ advisors: seats });
+  return evaluateCeoCommitGate({
+    humanMessageCount,
+    allHumanAdvisorsReady: readiness.allHumanAdvisorsReady,
+  });
 }
 
 /** Minutes with no new message while status=active → stalled on the batch board. */

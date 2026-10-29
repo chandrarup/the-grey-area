@@ -35,8 +35,52 @@ export type AdvisorStanceSeat = {
 /** Hard-sync film window (~90s) before auto-advance to open. */
 export const FILM_TIMEOUT_MS = 90_000;
 
+/** Human advisor pressure-stance window (~2 min) before Abstain. */
+export const STANCE_TIMEOUT_MS = 120_000;
+
 /** Minimum human messages before CEO may commit (same gate as meeting UI). */
 export const HUMAN_MESSAGE_GATE = HUMAN_MSG_GATE;
+
+export type PressureStanceChip = {
+  key: string;
+  label: string;
+};
+
+/**
+ * Bot advisors auto-lock the first authored chip (author the brief-aligned
+ * default first). Empty list → null (do not invent a stance).
+ */
+export function pickBotStanceChip(
+  chips: readonly PressureStanceChip[],
+): PressureStanceChip | null {
+  return chips[0] ?? null;
+}
+
+export type AdvisorSeatKind = {
+  seatId: string;
+  kind: "human" | "bot";
+};
+
+export type StanceRecordRef = {
+  seatId: string;
+  status: "locked" | "abstain";
+};
+
+/**
+ * Map advisor seats + persisted stance rows to readiness input.
+ * Missing records stay pending. CEO is never passed in.
+ */
+export function buildAdvisorStanceSeats(input: {
+  advisorSeats: readonly AdvisorSeatKind[];
+  records: readonly StanceRecordRef[];
+}): AdvisorStanceSeat[] {
+  const bySeat = new Map(input.records.map((r) => [r.seatId, r.status]));
+  return input.advisorSeats.map((seat) => ({
+    seatId: seat.seatId,
+    kind: seat.kind,
+    status: bySeat.get(seat.seatId) ?? "pending",
+  }));
+}
 
 export const SCENE_PHASES: readonly ScenePhase[] = [
   "decided",
@@ -227,8 +271,11 @@ export const GroupMeetingRuntime = {
   evaluateCeoCommitGate,
   applyIntegrityLatch,
   resolveIntegrityAfterCeoCommit,
+  buildAdvisorStanceSeats,
+  pickBotStanceChip,
   isScenePhase,
   FILM_TIMEOUT_MS,
+  STANCE_TIMEOUT_MS,
   HUMAN_MESSAGE_GATE,
   SCENE_PHASES,
 } as const;
