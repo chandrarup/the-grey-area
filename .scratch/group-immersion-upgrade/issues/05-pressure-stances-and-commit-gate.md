@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (GroupMeetingRuntime seam + tests), 03 (Hard-synced scene phases)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Case config can author 2–3 stance chips per advisor seat per scene
 - [ ] Human advisors can lock a stance (+ optional note) during the live phase window; ~2 min timeout records Abstain
