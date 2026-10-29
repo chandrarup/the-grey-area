@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — GroupMeetingRuntime seam (ticket 01)
+
+**What:** Pure domain module `lib/group/meeting-runtime.ts` evaluates hard-synced scene-phase transitions (decided → film → open → live), human-advisor pressure-stance readiness (lock / abstain; bots ignored), CEO commit gates (≥6 human messages + stance readiness), and monotonic integrity latch on compromise commit. Table-driven `node:test` coverage in `meeting-runtime.test.ts`; `npm test` script added. No UI/API wiring.
+**Why:** Ticket 01 — keep phase/stance/gate/integrity rules out of React so tickets 03–05 can hard-sync and persist against one seam (ADRs 0001–0003).
+**Do not undo:** Do not re-bury these rules in `group-stage.tsx`; call `GroupMeetingRuntime` from server/API when wiring hard-sync.
+
 ## 2026-10-29 — Immersion+story upgrade: baseline branch + ticket graph
 
 **What:** Integration branch `integrate/group-immersion-upgrade` baselines the unpushed 3D/group stage work plus grill artefacts (`GLOSSARY.md`, ADRs 0001–0004, `.scratch/group-immersion-upgrade/` spec and tickets 01–12). Spec now requires **shared story** solo↔group (ADR 0004): same arc; solo = human CEO + bots; group = humans + bots. Tickets add story work (08 parity, 09 grey-area framing, 10 D3 consequence, 11 empathy debrief, 12 three-decision copy) alongside immersion 01–07.

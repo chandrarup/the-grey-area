@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test lib/group/meeting-runtime.test.ts",
     "validate:cases": "tsx lib/case/validate.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

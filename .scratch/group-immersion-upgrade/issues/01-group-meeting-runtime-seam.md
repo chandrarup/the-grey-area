@@ -4,10 +4,14 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** claimed
+**Status:** resolved
 
-- [ ] GroupMeetingRuntime can evaluate phase transitions (including film watched / timeout / CEO force → open → live) from session + events without UI
-- [ ] Runtime can evaluate stance lock, abstain, and “all human advisors ready”
-- [ ] Runtime can evaluate CEO commit gates (human-message count and stance readiness) and integrity latch on compromise commit
-- [ ] Table-driven tests cover the main transition and gate cases at this seam only (not R3F)
-- [ ] Vocabulary matches GLOSSARY.md; behaviour respects ADRs 0001–0003
+- [x] GroupMeetingRuntime can evaluate phase transitions (including film watched / timeout / CEO force → open → live) from session + events without UI
+- [x] Runtime can evaluate stance lock, abstain, and “all human advisors ready”
+- [x] Runtime can evaluate CEO commit gates (human-message count and stance readiness) and integrity latch on compromise commit
+- [x] Table-driven tests cover the main transition and gate cases at this seam only (not R3F)
+- [x] Vocabulary matches GLOSSARY.md; behaviour respects ADRs 0001–0003
+
+## Answer
+
+Pure seam at `lib/group/meeting-runtime.ts` (`GroupMeetingRuntime`): phase transitions (decided→film→open→live via all-watched / 90s timeout / CEO force), stance readiness (locked|abstain; bots never block), CEO commit gate (≥6 human msgs + readiness), monotonic integrity latch. Table-driven `node:test` suite via `npm test`. No UI/API wiring — later tickets call this seam.
