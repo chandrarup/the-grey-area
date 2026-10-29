@@ -24,7 +24,8 @@ import { LoadingSpinner } from "@/app/components/loading-spinner";
 import { withBusyBar } from "@/app/components/navigation-progress";
 import { prepareVoices } from "@/app/simulation/decisions/three/speech";
 import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
-import type { GroupFilm } from "./group-stage";
+import type { GroupFilm, PhaseEventType } from "./group-stage";
+import { isScenePhase } from "@/lib/group/meeting-runtime";
 
 const GroupStage = dynamic(() => import("./group-stage"), { ssr: false });
 
@@ -45,6 +46,11 @@ export function GroupMeetingClient(props: {
   status: string;
   decisionsMade: number;
   decisionCount: number;
+  /** Server-owned hard-synced phase (ADR 0001). */
+  scenePhase?: string;
+  phaseDeadlineAt?: string | null;
+  filmWatchedSeatIds?: string[];
+  scriptDoneSeatIds?: string[];
   scene: {
     id: string;
     title: string;
@@ -81,6 +87,16 @@ export function GroupMeetingClient(props: {
   const [thinkingRoleKeys, setThinkingRoleKeys] = useState<string[]>([]);
   const [sceneId, setSceneId] = useState(props.scene?.id ?? null);
   const [decisionsMade, setDecisionsMade] = useState(props.decisionsMade);
+  const [scenePhase, setScenePhase] = useState(props.scenePhase ?? "open");
+  const [phaseDeadlineAt, setPhaseDeadlineAt] = useState<string | null>(
+    props.phaseDeadlineAt ?? null,
+  );
+  const [filmWatchedSeatIds, setFilmWatchedSeatIds] = useState<string[]>(
+    props.filmWatchedSeatIds ?? [],
+  );
+  const [scriptDoneSeatIds, setScriptDoneSeatIds] = useState<string[]>(
+    props.scriptDoneSeatIds ?? [],
+  );
   const [msRemaining, setMsRemaining] = useState<number | null>(null);
   const [reasoning, setReasoning] = useState("");
   const [optionKey, setOptionKey] = useState<string | null>(null);
@@ -100,11 +116,21 @@ export function GroupMeetingClient(props: {
   useEffect(() => {
     setStatus(props.status);
     setIsReady(props.isReady);
+    if (props.scenePhase) setScenePhase(props.scenePhase);
+    if (props.phaseDeadlineAt !== undefined) {
+      setPhaseDeadlineAt(props.phaseDeadlineAt);
+    }
     if (props.scene?.id) {
       setSceneId(props.scene.id);
       sceneIdRef.current = props.scene.id;
     }
-  }, [props.status, props.isReady, props.scene?.id]);
+  }, [
+    props.status,
+    props.isReady,
+    props.scene?.id,
+    props.scenePhase,
+    props.phaseDeadlineAt,
+  ]);
 
   // Active but no scene payload — force a refresh so chat can mount.
   useEffect(() => {
@@ -190,6 +216,14 @@ export function GroupMeetingClient(props: {
       setStatus(state.status);
       setSceneId(state.currentSceneId);
       setDecisionsMade(state.decisionsMade);
+      if (state.scenePhase) setScenePhase(state.scenePhase);
+      setPhaseDeadlineAt(state.phaseDeadlineAt ?? null);
+      if (Array.isArray(state.filmWatchedSeatIds)) {
+        setFilmWatchedSeatIds(state.filmWatchedSeatIds);
+      }
+      if (Array.isArray(state.scriptDoneSeatIds)) {
+        setScriptDoneSeatIds(state.scriptDoneSeatIds);
+      }
       setParticipants(state.participants);
       setThinkingRoleKeys(state.thinkingRoleKeys);
       setMsRemaining(state.msRemaining);
@@ -379,6 +413,47 @@ export function GroupMeetingClient(props: {
       setCommitting(false);
     }
   }
+
+  /** Emit a hard-sync phase event; server/runtime owns the next phase. */
+  const emitPhaseEvent = useCallback(
+    async (type: PhaseEventType) => {
+      if (!seatToken) return;
+      try {
+        const res = await fetch(`/api/group/${props.sessionCode}/phase`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...seatHeaders(seatToken),
+          },
+          body: JSON.stringify({ type }),
+        });
+        const data = (await res.json()) as {
+          error?: string;
+          scenePhase?: string;
+          phaseDeadlineAt?: string | null;
+          filmWatchedSeatIds?: string[];
+          scriptDoneSeatIds?: string[];
+        };
+        if (!res.ok) throw new Error(data.error || "Phase update failed");
+        if (data.scenePhase && isScenePhase(data.scenePhase)) {
+          setScenePhase(data.scenePhase);
+        }
+        if (data.phaseDeadlineAt !== undefined) {
+          setPhaseDeadlineAt(data.phaseDeadlineAt);
+        }
+        if (Array.isArray(data.filmWatchedSeatIds)) {
+          setFilmWatchedSeatIds(data.filmWatchedSeatIds);
+        }
+        if (Array.isArray(data.scriptDoneSeatIds)) {
+          setScriptDoneSeatIds(data.scriptDoneSeatIds);
+        }
+        void tickRef.current?.();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Phase update failed");
+      }
+    },
+    [props.sessionCode, seatToken],
+  );
 
   const humans = participants.filter((p) => !p.isAi);
   const readyCount = humans.filter((p) => p.joined && p.isReady).length;
@@ -600,6 +675,11 @@ export function GroupMeetingClient(props: {
       film={props.film ?? null}
       script={props.script ?? []}
       sceneProps={props.sceneProps}
+      scenePhase={isScenePhase(scenePhase) ? scenePhase : "open"}
+      phaseDeadlineAt={phaseDeadlineAt}
+      filmWatchedSeatIds={filmWatchedSeatIds}
+      scriptDoneSeatIds={scriptDoneSeatIds}
+      onPhaseEvent={emitPhaseEvent}
     />
   );
 }

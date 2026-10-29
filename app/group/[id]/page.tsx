@@ -483,6 +483,22 @@ export default async function GroupSessionPage({
         film={film}
         script={(scene?.script ?? []) as ScriptBeat[]}
         sceneProps={(scene?.props ?? []) as SceneProp[]}
+        scenePhase={session.scenePhase ?? "open"}
+        phaseDeadlineAt={
+          session.phaseDeadlineAt
+            ? session.phaseDeadlineAt.toISOString()
+            : null
+        }
+        filmWatchedSeatIds={
+          Array.isArray(session.filmWatchedSeatIds)
+            ? session.filmWatchedSeatIds
+            : []
+        }
+        scriptDoneSeatIds={
+          Array.isArray(session.scriptDoneSeatIds)
+            ? session.scriptDoneSeatIds
+            : []
+        }
       />
 
       {decisions.length > 0 ? (

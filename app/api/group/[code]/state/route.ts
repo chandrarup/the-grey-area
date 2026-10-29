@@ -34,6 +34,17 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const filmWatched = Array.isArray(state.session.filmWatchedSeatIds)
+    ? state.session.filmWatchedSeatIds.filter(
+        (v): v is string => typeof v === "string",
+      )
+    : [];
+  const scriptDone = Array.isArray(state.session.scriptDoneSeatIds)
+    ? state.session.scriptDoneSeatIds.filter(
+        (v): v is string => typeof v === "string",
+      )
+    : [];
+
   const payload: GroupSessionState = {
     sessionId: state.session.id,
     code: state.session.code,
@@ -41,6 +52,12 @@ export async function GET(
     currentSceneId: state.session.currentSceneId,
     decisionsMade: state.session.decisionsMade,
     decisionCount: state.session.decisionCount,
+    scenePhase: state.session.scenePhase ?? "open",
+    phaseDeadlineAt: state.session.phaseDeadlineAt
+      ? state.session.phaseDeadlineAt.toISOString()
+      : null,
+    filmWatchedSeatIds: filmWatched,
+    scriptDoneSeatIds: scriptDone,
     roleplayModel: state.session.roleplayModel,
     graderModel: state.session.graderModel,
     cursor: state.cursor,

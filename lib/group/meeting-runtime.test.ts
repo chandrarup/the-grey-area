@@ -25,6 +25,7 @@ describe("evaluatePhaseTransition", () => {
     name: string;
     phase: ScenePhase;
     watchedSeatIds?: readonly string[];
+    scriptDoneSeatIds?: readonly string[];
     event: PhaseEvent;
     expected: ScenePhase | null;
   }[] = [
@@ -63,14 +64,46 @@ describe("evaluatePhaseTransition", () => {
       expected: "open",
     },
     {
-      name: "open + enter_live → live",
+      name: "open + enter_script → script",
+      phase: "open",
+      event: { type: "enter_script" },
+      expected: "script",
+    },
+    {
+      name: "open + enter_live → live (no-script bypass)",
       phase: "open",
       event: { type: "enter_live" },
       expected: "live",
     },
     {
-      name: "open + ceo_force_advance → live",
+      name: "open + ceo_force_advance → script",
       phase: "open",
+      event: { type: "ceo_force_advance" },
+      expected: "script",
+    },
+    {
+      name: "script + all humans done → live",
+      phase: "script",
+      scriptDoneSeatIds: ["ceo", "marcus"],
+      event: { type: "script_done", seatId: "priya" },
+      expected: "live",
+    },
+    {
+      name: "script + partial done stays script",
+      phase: "script",
+      scriptDoneSeatIds: ["ceo"],
+      event: { type: "script_done", seatId: "marcus" },
+      expected: null,
+    },
+    {
+      name: "script + enter_live → live",
+      phase: "script",
+      event: { type: "enter_live" },
+      expected: "live",
+    },
+    {
+      name: "script + ceo_force_advance → live",
+      phase: "script",
       event: { type: "ceo_force_advance" },
       expected: "live",
     },
@@ -87,6 +120,13 @@ describe("evaluatePhaseTransition", () => {
       event: { type: "film_watched", seatId: "stranger" },
       expected: null,
     },
+    {
+      name: "script_done for unknown seat does not advance",
+      phase: "script",
+      scriptDoneSeatIds: ["ceo", "marcus"],
+      event: { type: "script_done", seatId: "stranger" },
+      expected: null,
+    },
   ];
 
   for (const c of cases) {
@@ -95,6 +135,7 @@ describe("evaluatePhaseTransition", () => {
         phase: c.phase,
         humanSeatIds: [...humans],
         watchedSeatIds: c.watchedSeatIds ?? [],
+        scriptDoneSeatIds: c.scriptDoneSeatIds ?? [],
         event: c.event,
       });
       assert.equal(result.nextPhase, c.expected);

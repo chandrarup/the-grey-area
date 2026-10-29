@@ -28,6 +28,12 @@ export type GroupSessionState = {
   currentSceneId: string | null;
   decisionsMade: number;
   decisionCount: number;
+  /** Hard-synced scene phase (ADR 0001). */
+  scenePhase: string;
+  /** ISO deadline for film window; null outside a timed phase. */
+  phaseDeadlineAt: string | null;
+  filmWatchedSeatIds: string[];
+  scriptDoneSeatIds: string[];
   roleplayModel: string;
   graderModel: string;
   cursor: number;

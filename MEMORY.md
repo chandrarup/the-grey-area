@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Hard-synced scene phases (ticket 03)
+
+**What:** Group meeting beats are server-owned: `group_sessions.scene_phase` (+ `phase_deadline_at`, film/script seat lists). `GroupMeetingRuntime.ScenePhase` is decided → film → open → **script** → live. `POST /api/group/[code]/phase` applies events through the runtime; state poll exposes phase so seats converge after refresh. Film advances on all-watched, ~90s deadline, or CEO force; script advances on all-done or CEO force. `group-stage` no longer treats localStorage as phase authority (beat resume only). Migration `0010_hard_synced_scene_phases`.
+**Why:** ADR 0001 / advisor P0 — per-seat film/script localStorage desynced the room.
+**Do not undo:** Do not reintroduce localStorage as the source of truth for phase; keep transitions in `GroupMeetingRuntime` and persist via session columns.
+
 ## 2026-10-29 — Briefing pager crash on fast Next clicks
 
 **What:** `BriefingPager` now clamps page index and guards a missing page so rapid Next clicks cannot crash the read-case stage.

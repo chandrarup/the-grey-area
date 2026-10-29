@@ -33,6 +33,10 @@ import {
   SceneScriptPlayer,
   scriptFingerprint,
 } from "@/app/simulation/decisions/scene-script-player";
+import {
+  isScenePhase,
+  type ScenePhase,
+} from "@/lib/group/meeting-runtime";
 
 export type GroupFilm = {
   decisionId: number;
@@ -41,8 +45,14 @@ export type GroupFilm = {
   consequence: Consequence;
 };
 
-/** decided → film → open → script → live (ADR 0001 / 0004 shared story). */
-type Phase = "decided" | "film" | "open" | "script" | "live";
+export type PhaseEventType =
+  | "begin_film"
+  | "film_watched"
+  | "film_timeout"
+  | "ceo_force_advance"
+  | "enter_script"
+  | "script_done"
+  | "enter_live";
 
 const MAX_BACKLOG = 3;
 
@@ -98,26 +108,25 @@ export default function GroupStage(props: {
   /** Same authored script as solo (ADR 0004). */
   script: ScriptBeat[];
   sceneProps?: SceneProp[];
+  /** Server-owned hard-synced phase (ADR 0001). */
+  scenePhase: ScenePhase;
+  phaseDeadlineAt: string | null;
+  filmWatchedSeatIds: string[];
+  scriptDoneSeatIds: string[];
+  onPhaseEvent: (type: PhaseEventType) => void | Promise<void>;
 }) {
   const { messages, roleKey, isCeo, scene } = props;
   const castById = useMemo(
     () => new Map(props.cast.map((m) => [m.id, m])),
     [props.cast],
   );
-  const filmKey = props.film
-    ? `group-film:${props.sessionId}:${props.film.decisionId}`
-    : null;
+  /** Beat resume only — not phase authority. */
   const scriptKey = `group-script:${props.sessionId}:${scene.id}:${scriptFingerprint(props.script)}`;
-  const scriptDoneKey = `${scriptKey}:done`;
-  const [phase, setPhase] = useState<Phase>(() => {
-    try {
-      if (filmKey && !localStorage.getItem(filmKey)) return "decided";
-      if (localStorage.getItem(scriptDoneKey)) return "live";
-      return "open";
-    } catch {
-      return props.film ? "decided" : "open";
-    }
-  });
+  const phase: ScenePhase = isScenePhase(props.scenePhase)
+    ? props.scenePhase
+    : props.film
+      ? "decided"
+      : "open";
   const filmBeats = useMemo(
     () => (props.film ? consequenceFilm(props.film.consequence, props.cast) : []),
     [props.film, props.cast],
@@ -126,6 +135,8 @@ export default function GroupStage(props: {
   const [spokenUpTo, setSpokenUpTo] = useState<number | null>(null);
   const [liveAt, setLiveAt] = useState<number | null>(null);
   const [now, setNow] = useState(0);
+  const [scriptWaiting, setScriptWaiting] = useState(false);
+  const phaseEventBusy = useRef(false);
   const [chatOpen, setChatOpen] = useState(true);
   const [briefOpen, setBriefOpen] = useState(false);
   const [deciding, setDeciding] = useState(false);
@@ -245,52 +256,80 @@ export default function GroupStage(props: {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, chatOpen, props.thinkingRoleKeys.length]);
 
-  const enterLive = useCallback(() => {
+  const emitPhase = useCallback(
+    async (type: PhaseEventType) => {
+      if (phaseEventBusy.current) return;
+      phaseEventBusy.current = true;
+      try {
+        await props.onPhaseEvent(type);
+      } finally {
+        phaseEventBusy.current = false;
+      }
+    },
+    [props],
+  );
+
+  const armLive = useCallback(() => {
     unlockAudio();
     const real = messages.filter((m) => m.id > 0);
-    setSpokenUpTo(real.length ? real[real.length - 1].id - 1 : 0);
+    setSpokenUpTo(real.length ? real[real.length - 1]!.id - 1 : 0);
     setLiveAt(Date.now());
     setNow(Date.now());
-    setPhase("live");
+    setScriptWaiting(false);
   }, [messages]);
+
+  // Converge local live chrome when the server enters live.
+  useEffect(() => {
+    if (phase === "live" && liveAt === null) armLive();
+  }, [phase, liveAt, armLive]);
+
+  // Reset film position when the room enters film together.
+  useEffect(() => {
+    if (phase === "film") setFilmPos(0);
+  }, [phase, props.film?.decisionId]);
+
+  useEffect(() => {
+    if (phase !== "script") setScriptWaiting(false);
+  }, [phase]);
+
+  // Empty film beats still need a hard-sync mark so the room can leave film.
+  useEffect(() => {
+    if (phase !== "film") return;
+    if (filmBeats.length > 0) return;
+    if (props.filmWatchedSeatIds.includes(roleKey)) return;
+    void emitPhase("film_watched");
+  }, [phase, filmBeats.length, props.filmWatchedSeatIds, roleKey, emitPhase]);
+
+  // Client-side film deadline: ask server to advance when the window ends.
+  useEffect(() => {
+    if (phase !== "film" || !props.phaseDeadlineAt) return;
+    const ms = new Date(props.phaseDeadlineAt).getTime() - Date.now();
+    if (ms <= 0) {
+      void emitPhase("film_timeout");
+      return;
+    }
+    const id = window.setTimeout(() => void emitPhase("film_timeout"), ms + 50);
+    return () => window.clearTimeout(id);
+  }, [phase, props.phaseDeadlineAt, emitPhase]);
 
   function joinMeeting() {
     unlockAudio();
-    try {
-      if (localStorage.getItem(scriptDoneKey)) {
-        enterLive();
-        return;
-      }
-    } catch {
-      /* private mode */
-    }
     if (props.script.length === 0) {
-      enterLive();
+      void emitPhase("enter_live");
       return;
     }
-    setPhase("script");
+    void emitPhase("enter_script");
   }
 
   const finishScript = useCallback(() => {
     stopSpeech();
-    try {
-      localStorage.setItem(scriptDoneKey, "1");
-    } catch {
-      /* private mode */
-    }
-    enterLive();
-  }, [scriptDoneKey, enterLive]);
+    setScriptWaiting(true);
+    void emitPhase("script_done");
+  }, [emitPhase]);
 
   function finishFilm() {
     stopSpeech();
-    if (filmKey) {
-      try {
-        localStorage.setItem(filmKey, "1");
-      } catch {
-        /* private mode */
-      }
-    }
-    setPhase("open");
+    void emitPhase("film_watched");
   }
 
   const myBrief = GROUP_ROLES[roleKey as SeatKey];
@@ -317,8 +356,7 @@ export default function GroupStage(props: {
           type="button"
           onClick={() => {
             unlockAudio();
-            setFilmPos(0);
-            setPhase("film");
+            void emitPhase("begin_film");
           }}
           className="mt-10 rounded-full bg-white px-6 py-2 text-sm font-medium text-black"
         >
@@ -328,7 +366,26 @@ export default function GroupStage(props: {
     );
   }
 
-  if (phase === "film" && filmBeats.length) {
+  if (phase === "film") {
+    if (!filmBeats.length) {
+      return (
+        <Card>
+          <p className="mt-6 text-center font-serif text-xl text-white/70">
+            Waiting for the room…
+          </p>
+          {isCeo ? (
+            <button
+              type="button"
+              onClick={() => void emitPhase("ceo_force_advance")}
+              className="mt-10 rounded-full border border-white/30 px-5 py-2 text-sm text-white/80"
+            >
+              Advance everyone
+            </button>
+          ) : null}
+        </Card>
+      );
+    }
+    const watched = props.filmWatchedSeatIds.includes(roleKey);
     return (
       <div onPointerDown={unlockAudio}>
         <Film
@@ -337,16 +394,52 @@ export default function GroupStage(props: {
           castById={castById}
           mood={scene.mood}
           isLast={filmPos >= filmBeats.length - 1}
-          finalLabel="Back to the meeting"
-          onAdvance={() =>
-            filmPos >= filmBeats.length - 1 ? finishFilm() : setFilmPos((p) => p + 1)
-          }
+          finalLabel={watched ? "Waiting for the room…" : "Back to the meeting"}
+          onAdvance={() => {
+            if (filmPos >= filmBeats.length - 1) {
+              if (!watched) finishFilm();
+              return;
+            }
+            setFilmPos((p) => p + 1);
+          }}
         />
+        {isCeo ? (
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-20 flex justify-center">
+            <button
+              type="button"
+              className="pointer-events-auto rounded-full border border-white/30 bg-black/60 px-4 py-2 text-xs text-white/80 backdrop-blur hover:bg-black/80"
+              onClick={() => void emitPhase("ceo_force_advance")}
+            >
+              Advance everyone
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   if (phase === "script") {
+    if (scriptWaiting || props.scriptDoneSeatIds.includes(roleKey)) {
+      return (
+        <Card>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-white/45">
+            Decision {decisionNo} of {props.decisionCount}
+          </p>
+          <p className="mt-6 max-w-md text-center font-serif text-2xl text-white/80">
+            Waiting for the rest of the room…
+          </p>
+          {isCeo ? (
+            <button
+              type="button"
+              onClick={() => void emitPhase("ceo_force_advance")}
+              className="mt-10 rounded-full border border-white/30 px-5 py-2 text-sm text-white/80"
+            >
+              Advance everyone
+            </button>
+          ) : null}
+        </Card>
+      );
+    }
     return (
       <SceneScriptPlayer
         script={props.script}
@@ -401,6 +494,19 @@ export default function GroupStage(props: {
         >
           {props.script.length ? "Begin the scene" : "Join the meeting"}
         </button>
+        {isCeo ? (
+          <button
+            type="button"
+            onClick={() =>
+              void emitPhase(
+                props.script.length ? "ceo_force_advance" : "enter_live",
+              )
+            }
+            className="mt-4 text-xs text-white/50 underline-offset-2 hover:text-white/80 hover:underline"
+          >
+            Advance everyone
+          </button>
+        ) : null}
         {voiceStatus ? (
           <p className="mt-4 text-[11px] text-white/40">{voiceStatus}</p>
         ) : null}

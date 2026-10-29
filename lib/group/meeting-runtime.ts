@@ -10,8 +10,8 @@
 
 import { HUMAN_MSG_GATE } from "../case/group-roles";
 
-/** Scene phase sequence: decided → film → open → live (commit inside live). */
-export type ScenePhase = "decided" | "film" | "open" | "live";
+/** Scene phase sequence: decided → film → open → script → live (commit inside live). */
+export type ScenePhase = "decided" | "film" | "open" | "script" | "live";
 
 export type Integrity = "clean" | "compromised";
 
@@ -22,6 +22,8 @@ export type PhaseEvent =
   | { type: "film_watched"; seatId: string }
   | { type: "film_timeout" }
   | { type: "ceo_force_advance" }
+  | { type: "enter_script" }
+  | { type: "script_done"; seatId: string }
   | { type: "enter_live" };
 
 export type AdvisorStanceSeat = {
@@ -36,12 +38,26 @@ export const FILM_TIMEOUT_MS = 90_000;
 /** Minimum human messages before CEO may commit (same gate as meeting UI). */
 export const HUMAN_MESSAGE_GATE = HUMAN_MSG_GATE;
 
+export const SCENE_PHASES: readonly ScenePhase[] = [
+  "decided",
+  "film",
+  "open",
+  "script",
+  "live",
+] as const;
+
+export function isScenePhase(value: string): value is ScenePhase {
+  return (SCENE_PHASES as readonly string[]).includes(value);
+}
+
 export type PhaseTransitionInput = {
   phase: ScenePhase;
-  /** Human seats that must watch the film for all-watched advance. */
+  /** Human seats that must watch the film / finish the script for all-ready advance. */
   humanSeatIds: readonly string[];
   /** Seats that have already marked the film watched (before this event). */
   watchedSeatIds: readonly string[];
+  /** Seats that have already finished the shared script (before this event). */
+  scriptDoneSeatIds?: readonly string[];
   event: PhaseEvent;
 };
 
@@ -54,24 +70,26 @@ function uniqueIds(ids: readonly string[]): string[] {
   return [...new Set(ids)];
 }
 
-function allHumansWatched(
+function allHumansReady(
   humanSeatIds: readonly string[],
-  watchedSeatIds: readonly string[],
+  readySeatIds: readonly string[],
 ): boolean {
   if (humanSeatIds.length === 0) return true;
-  const watched = new Set(watchedSeatIds);
-  return humanSeatIds.every((id) => watched.has(id));
+  const ready = new Set(readySeatIds);
+  return humanSeatIds.every((id) => ready.has(id));
 }
 
 /**
  * Evaluate a hard-synced scene-phase transition from session snapshot + event.
  * Film → open advances on all-watched, timeout, or CEO force.
+ * Script → live advances on all-done, enter_live, or CEO force.
  */
 export function evaluatePhaseTransition(
   input: PhaseTransitionInput,
 ): PhaseTransitionResult {
   const { phase, event } = input;
   const humans = uniqueIds(input.humanSeatIds);
+  const scriptDone = input.scriptDoneSeatIds ?? [];
 
   if (phase === "decided" && event.type === "begin_film") {
     return { nextPhase: "film" };
@@ -86,7 +104,7 @@ export function evaluatePhaseTransition(
         return { nextPhase: null };
       }
       const watched = uniqueIds([...input.watchedSeatIds, event.seatId]);
-      if (allHumansWatched(humans, watched)) {
+      if (allHumansReady(humans, watched)) {
         return { nextPhase: "open" };
       }
       return { nextPhase: null };
@@ -94,8 +112,27 @@ export function evaluatePhaseTransition(
   }
 
   if (phase === "open") {
+    if (event.type === "enter_script" || event.type === "ceo_force_advance") {
+      return { nextPhase: "script" };
+    }
+    if (event.type === "enter_live") {
+      return { nextPhase: "live" };
+    }
+  }
+
+  if (phase === "script") {
     if (event.type === "enter_live" || event.type === "ceo_force_advance") {
       return { nextPhase: "live" };
+    }
+    if (event.type === "script_done") {
+      if (!humans.includes(event.seatId)) {
+        return { nextPhase: null };
+      }
+      const done = uniqueIds([...scriptDone, event.seatId]);
+      if (allHumansReady(humans, done)) {
+        return { nextPhase: "live" };
+      }
+      return { nextPhase: null };
     }
   }
 
@@ -176,6 +213,8 @@ export const GroupMeetingRuntime = {
   evaluateStanceReadiness,
   evaluateCeoCommitGate,
   applyIntegrityLatch,
+  isScenePhase,
   FILM_TIMEOUT_MS,
   HUMAN_MESSAGE_GATE,
+  SCENE_PHASES,
 } as const;

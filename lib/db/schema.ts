@@ -141,6 +141,14 @@ export const groupSessions = pgTable("group_sessions", {
   currentSceneId: text("current_scene_id"),
   decisionsMade: integer("decisions_made").notNull().default(0),
   status: text("status").notNull().default("lobby"), // lobby|active|committed|graded|released|expired
+  /** Hard-synced beat: decided|film|open|script|live (ADR 0001). */
+  scenePhase: text("scene_phase").notNull().default("open"),
+  /** Film window end; null outside film. */
+  phaseDeadlineAt: timestamp("phase_deadline_at", { withTimezone: true }),
+  /** Human role keys that finished the consequence film this scene. */
+  filmWatchedSeatIds: jsonb("film_watched_seat_ids").$type<string[]>().notNull().default([]),
+  /** Human role keys that finished the shared script this scene. */
+  scriptDoneSeatIds: jsonb("script_done_seat_ids").$type<string[]>().notNull().default([]),
   clockSeconds: integer("clock_seconds").notNull().default(1800),
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
   graderModel: text("grader_model").notNull().default("gemini-flash"),

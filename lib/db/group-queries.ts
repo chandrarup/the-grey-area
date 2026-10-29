@@ -21,6 +21,13 @@ import {
   SESSION_TTL_SECONDS,
   shouldAutoExpire,
 } from "@/lib/group-session-lifetime";
+import {
+  evaluatePhaseTransition,
+  FILM_TIMEOUT_MS,
+  isScenePhase,
+  type PhaseEvent,
+  type ScenePhase,
+} from "@/lib/group/meeting-runtime";
 
 function randomCode(length = 6): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -699,6 +706,10 @@ export async function startGroupSession(
       currentSceneId: sceneOk,
       clockSeconds: MEETING_TTL_SECONDS,
       expiresAt: new Date(startedAt.getTime() + MEETING_TTL_SECONDS * 1000),
+      scenePhase: "open",
+      phaseDeadlineAt: null,
+      filmWatchedSeatIds: [],
+      scriptDoneSeatIds: [],
     })
     .where(and(eq(groupSessions.id, sessionId), eq(groupSessions.status, "lobby")))
     .returning();
@@ -829,6 +840,19 @@ export async function commitGroupDecision(params: {
   const terminal =
     params.nextSceneId === null || decisionsMade >= session.decisionCount;
 
+  // Next scene opens on the decided card when a consequence film exists for
+  // the option that just led here; otherwise start at open (title card).
+  let nextPhase: ScenePhase = "open";
+  if (!terminal && params.nextSceneId) {
+    const caseConfig = getCase(session.caseSlug);
+    const option = caseConfig.scenes[params.sceneId]?.options.find(
+      (o) => o.key === params.optionKey,
+    );
+    if (option?.consequence && option.next === params.nextSceneId) {
+      nextPhase = "decided";
+    }
+  }
+
   await db
     .update(groupSessions)
     .set({
@@ -836,6 +860,10 @@ export async function commitGroupDecision(params: {
       currentSceneId: terminal ? null : params.nextSceneId,
       status: terminal ? "committed" : "active",
       endedAt: terminal ? new Date() : null,
+      scenePhase: terminal ? "live" : nextPhase,
+      phaseDeadlineAt: null,
+      filmWatchedSeatIds: [],
+      scriptDoneSeatIds: [],
     })
     .where(eq(groupSessions.id, params.sessionId));
 
@@ -1030,6 +1058,157 @@ export async function markSessionGraded(sessionId: string) {
     .where(eq(groupSessions.id, sessionId));
 }
 
+/** Human seats that have claimed a seat (joined) — required for film/script all-ready. */
+function humanSeatRoleKeys(participants: GroupParticipant[]): string[] {
+  return participants
+    .filter((p) => !p.isAi && Boolean(p.profileId))
+    .map((p) => p.roleKey);
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
+}
+
+function currentPhase(session: GroupSession): ScenePhase {
+  return isScenePhase(session.scenePhase) ? session.scenePhase : "open";
+}
+
+/**
+ * Apply a hard-synced scene-phase event via GroupMeetingRuntime.
+ * Film windows also advance when `phaseDeadlineAt` has elapsed.
+ */
+export async function applyGroupPhaseEvent(params: {
+  sessionId: string;
+  event: PhaseEvent;
+  /** Seat emitting the event (role key). Required for watched/done events. */
+  actorRoleKey?: string;
+  /** Only the CEO may force-advance. */
+  isCeo?: boolean;
+}): Promise<GroupSession> {
+  // Converge elapsed film deadline before evaluating the caller event.
+  if (params.event.type !== "film_timeout") {
+    await maybeAdvanceFilmTimeout(params.sessionId);
+  }
+
+  const session = await getGroupSession(params.sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.status !== "active") throw new Error("Session not active");
+
+  const participants = await listParticipants(params.sessionId);
+  const humans = humanSeatRoleKeys(participants);
+  const phase = currentPhase(session);
+  const priorWatched = asStringArray(session.filmWatchedSeatIds);
+  const priorScriptDone = asStringArray(session.scriptDoneSeatIds);
+  let deadline = session.phaseDeadlineAt;
+
+  let event = params.event;
+  if (event.type === "ceo_force_advance" && !params.isCeo) {
+    throw new Error("Only the CEO can force-advance");
+  }
+  if (event.type === "film_watched") {
+    event = {
+      type: "film_watched",
+      seatId: params.actorRoleKey ?? event.seatId,
+    };
+  }
+  if (event.type === "script_done") {
+    event = {
+      type: "script_done",
+      seatId: params.actorRoleKey ?? event.seatId,
+    };
+  }
+
+  const transition = evaluatePhaseTransition({
+    phase,
+    humanSeatIds: humans,
+    watchedSeatIds: priorWatched,
+    scriptDoneSeatIds: priorScriptDone,
+    event,
+  });
+
+  let nextPhase = transition.nextPhase ?? phase;
+  let nextDeadline = deadline;
+  let nextWatched = priorWatched;
+  let nextScriptDone = priorScriptDone;
+
+  if (event.type === "film_watched") {
+    nextWatched = [...new Set([...priorWatched, event.seatId])];
+  }
+  if (event.type === "script_done") {
+    nextScriptDone = [...new Set([...priorScriptDone, event.seatId])];
+  }
+
+  if (event.type === "begin_film" && transition.nextPhase === "film") {
+    nextDeadline = new Date(Date.now() + FILM_TIMEOUT_MS);
+    nextWatched = [];
+    nextScriptDone = [];
+  }
+
+  if (transition.nextPhase === "open") {
+    nextDeadline = null;
+    nextWatched = [];
+  }
+
+  if (transition.nextPhase === "script") {
+    nextDeadline = null;
+    nextScriptDone = [];
+  }
+
+  if (transition.nextPhase === "live") {
+    nextDeadline = null;
+    nextScriptDone = [];
+  }
+
+  const [updated] = await db
+    .update(groupSessions)
+    .set({
+      scenePhase: nextPhase,
+      phaseDeadlineAt: nextDeadline,
+      filmWatchedSeatIds: nextWatched,
+      scriptDoneSeatIds: nextScriptDone,
+    })
+    .where(eq(groupSessions.id, params.sessionId))
+    .returning();
+
+  return updated ?? session;
+}
+
+/** Advance film → open when the hard-sync deadline has elapsed (idempotent). */
+export async function maybeAdvanceFilmTimeout(
+  sessionId: string,
+): Promise<GroupSession | null> {
+  const session = await getGroupSession(sessionId);
+  if (!session || session.status !== "active") return session;
+  if (currentPhase(session) !== "film" || !session.phaseDeadlineAt) return session;
+  if (session.phaseDeadlineAt.getTime() > Date.now()) return session;
+
+  const participants = await listParticipants(sessionId);
+  const humans = humanSeatRoleKeys(participants);
+  const phase = currentPhase(session);
+  const watched = asStringArray(session.filmWatchedSeatIds);
+  const scriptDone = asStringArray(session.scriptDoneSeatIds);
+  const result = evaluatePhaseTransition({
+    phase,
+    humanSeatIds: humans,
+    watchedSeatIds: watched,
+    scriptDoneSeatIds: scriptDone,
+    event: { type: "film_timeout" },
+  });
+  if (!result.nextPhase) return session;
+
+  const [updated] = await db
+    .update(groupSessions)
+    .set({
+      scenePhase: result.nextPhase,
+      phaseDeadlineAt: null,
+      filmWatchedSeatIds: [],
+    })
+    .where(eq(groupSessions.id, sessionId))
+    .returning();
+  return updated ?? session;
+}
+
 export async function getGroupSessionState(
   sessionId: string,
   afterId = 0,
@@ -1040,6 +1219,8 @@ export async function getGroupSessionState(
   thinkingRoleKeys: string[];
   cursor: number;
 } | null> {
+  // Converge film timeout before returning state so all seats see open.
+  await maybeAdvanceFilmTimeout(sessionId);
   const session = await getGroupSession(sessionId);
   if (!session) return null;
   const messages = await getGroupMessages(sessionId, afterId);
