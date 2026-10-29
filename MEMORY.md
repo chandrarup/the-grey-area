@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Briefing pager crash on fast Next clicks
+
+**What:** `BriefingPager` now clamps page index and guards a missing page so rapid Next clicks cannot crash the read-case stage.
+**Why:** Live QA hit a Next.js error overlay when advancing the 6-page packet quickly.
+**Do not undo:** Keep index clamping; do not assume `pages[index]` always exists.
+
 ## 2026-10-29 — Shared story parity: group plays solo script pipeline (ticket 08)
 
 **What:** Extracted `SceneScriptPlayer` + shared beat helpers (`scene-script-player.tsx`) from the solo stage. Group meeting phases are now decided → film → open → **script** → live: after the title card, group plays the same authored `scene.script` beats (settings, desk, call, lines, moments, etc.) before free discussion. Solo `decision-workspace` imports the shared `BeatView`/helpers so story content is not forked. CEO responds to moment beats; other seats continue via the silence path. Live human chat + AI bot seats for empty seats are unchanged after the script. Glossary/ADR 0001 phases include `script`. Ticket 08 resolved.
