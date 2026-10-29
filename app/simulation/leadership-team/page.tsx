@@ -19,7 +19,7 @@ export default async function LeadershipTeamPage() {
         Meet Your Leadership Team
       </h1>
       <p className="mt-4 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
-        These executives will press you across five decisions. Learn who they
+        These executives will press you across three decisions. Learn who they
         are before you open the case packet.
       </p>
 

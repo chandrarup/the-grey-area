@@ -35,7 +35,7 @@ export default async function DecisionsPage() {
     return (
       <div className="border-l-2 border-accent bg-surface px-6 py-5">
         <p className="text-sm font-medium text-foreground">
-          All five decisions are complete.
+          All three decisions are complete.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           Your reflections are submitted. Continue to debrief when your
