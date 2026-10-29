@@ -118,7 +118,7 @@ export const groupBatches = pgTable("group_batches", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   caseSlug: text("case_slug").notNull(),
-  decisionCount: integer("decision_count").notNull().default(5),
+  decisionCount: integer("decision_count").notNull().default(3),
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),
   graderModel: text("grader_model").notNull().default("gemini-flash"),
   /** draft = plan saved, sessions not created yet; ready = sessions exist */
@@ -137,7 +137,7 @@ export const groupSessions = pgTable("group_sessions", {
   /** Memorable label for professors/students; code remains secondary join id */
   displayName: text("display_name"),
   caseSlug: text("case_slug").notNull(),
-  decisionCount: integer("decision_count").notNull().default(5),
+  decisionCount: integer("decision_count").notNull().default(3),
   currentSceneId: text("current_scene_id"),
   decisionsMade: integer("decisions_made").notNull().default(0),
   status: text("status").notNull().default("lobby"), // lobby|active|committed|graded|released|expired

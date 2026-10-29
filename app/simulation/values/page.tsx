@@ -18,7 +18,7 @@ export default async function ValuesPage() {
       </h1>
       <p className="mt-4 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
         Before the emergency meeting, name the principles you intend to hold.
-        You will revisit them after the five decisions.
+        You will revisit them after the three decisions.
       </p>
 
       <ValuesForm
