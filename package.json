@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/group/meeting-runtime.test.ts",
+    "test": "tsx --test lib/group/meeting-runtime.test.ts lib/group/stance-prompt.test.ts",
     "validate:cases": "tsx lib/case/validate.ts",
     "test:unit": "tsx --test app/simulation/decisions/three/avatar-motion.test.ts",
     "db:generate": "drizzle-kit generate",

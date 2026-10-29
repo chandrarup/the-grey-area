@@ -29,6 +29,7 @@ import {
   upsertGroupAssessment,
   listParticipants,
   getParticipantByToken,
+  listPressureStances,
   claimAiTurn,
   claimPendingAi,
   finishAiJob,
@@ -37,6 +38,7 @@ import {
   markSessionGraded,
   saveParticipantReflections,
 } from "@/lib/db/group-queries";
+import { formatPressureStancePrompt } from "@/lib/group/stance-prompt";
 import { GROUP_ROLES, seatDisplayName, type SeatKey } from "@/lib/case/group-roles";
 import { getCase, getOption, getScene } from "@/lib/case/registry";
 import { gradeGroupSession } from "@/lib/engine/grader";
@@ -290,12 +292,29 @@ async function generateAiSeatReply(
     .slice(-12)
     .map((m) => `${m.roleKey}: ${m.content}`)
     .join("\n");
+  const stanceRows = await listPressureStances(sessionId, sceneId);
+  const stancePrompt = formatPressureStancePrompt(
+    stanceRows.map((r) => ({
+      roleKey: r.roleKey,
+      displayName:
+        caseConfig.cast.find((c) => c.id === r.roleKey)?.name ?? r.roleKey,
+      status: r.status === "abstain" ? "abstain" : "locked",
+      chipLabel: r.chipLabel,
+      note: r.note,
+    })),
+  );
 
   const schema = z.object({ text: z.string() });
   const result = await complete({
     model,
     schemaName: "group_ai_reply",
-    system: `${member.persona}\n\nYou are in a live executive meeting. Reply in 1-3 short sentences as yourself. Never break character.`,
+    system: [
+      member.persona,
+      "",
+      stancePrompt,
+      "",
+      "You are in a live executive meeting. Reply in 1-3 short sentences as yourself. Never break character.",
+    ].join("\n"),
     messages: [
       {
         role: "user",

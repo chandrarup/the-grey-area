@@ -4,9 +4,13 @@
 
 **Blocked by:** 05 (Authored pressure stances + commit gate)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] AI turn prompts include the locked stances (and abstains) for the current scene
-- [ ] Consequence film presentation differs in flavor when the room was aligned vs split (still same CEO branch)
-- [ ] No combinatorial stance×stance scene graph is introduced
-- [ ] Integrity and `option.next` remain unaffected by film flavor alone
+- [x] AI turn prompts include the locked stances (and abstains) for the current scene
+- [x] Consequence film presentation differs in flavor when the room was aligned vs split (still same CEO branch)
+- [x] No combinatorial stance×stance scene graph is introduced
+- [x] Integrity and `option.next` remain unaffected by film flavor alone
+
+## Answer
+
+`evaluateRoomStanceClimate` / `filmClimatePlace` on `GroupMeetingRuntime` classify locked chips as aligned (all brief-default or all alternative) vs split (mix / thin room). `runAiTurn` + legacy queue inject `formatPressureStancePrompt` (locks, notes, abstains; not a vote). Consequence film title-card `place` and decided-card eyebrow use climate only; same `option.consequence` / `option.next`. No stance×stance scene graph.

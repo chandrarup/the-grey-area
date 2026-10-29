@@ -9,11 +9,13 @@ import {
   getGroupSession,
   listGroupDecisions,
   listParticipants,
+  listPressureStances,
 } from "@/lib/db/group-queries";
 import { db } from "@/lib/db";
 import { aiTurns } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { DEFAULT_ROLEPLAY_MODEL } from "@/lib/llm/models";
+import { formatPressureStancePrompt } from "@/lib/group/stance-prompt";
 
 /**
  * Claim + generate one AI seat reply. Idempotent via claimAiTurn.
@@ -64,6 +66,20 @@ export async function runAiTurn(params: {
       params.sessionId,
       session.currentSceneId,
     );
+    const stanceRows = await listPressureStances(
+      params.sessionId,
+      session.currentSceneId,
+    );
+    const stancePrompt = formatPressureStancePrompt(
+      stanceRows.map((r) => ({
+        roleKey: r.roleKey,
+        displayName:
+          caseConfig.cast.find((c) => c.id === r.roleKey)?.name ?? r.roleKey,
+        status: r.status === "abstain" ? "abstain" : "locked",
+        chipLabel: r.chipLabel,
+        note: r.note,
+      })),
+    );
 
     const aiRepliesAsRole = transcript.filter(
       (m) => m.roleKey === params.roleKey && m.senderKind === "ai",
@@ -103,6 +119,8 @@ export async function runAiTurn(params: {
         `CURRENT SCENE: ${scene?.title ?? session.currentSceneId}`,
         scene?.brief ?? "",
         scene?.sceneDirective ? `STAGING: ${scene.sceneDirective}` : "",
+        "",
+        stancePrompt,
         "",
         member.persona,
         marcusFeeNote,

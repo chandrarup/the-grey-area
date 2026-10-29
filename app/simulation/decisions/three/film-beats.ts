@@ -1,4 +1,8 @@
 import type { CastMember, Consequence, ScriptBeat } from "@/lib/case/types";
+import {
+  filmClimatePlace,
+  type RoomStanceClimate,
+} from "@/lib/group/meeting-runtime";
 import { storyFrames } from "../stage-story";
 
 export type FilmBeat = Extract<
@@ -10,13 +14,15 @@ export type FilmBeat = Extract<
 export function consequenceFilm(
   consequence: Consequence,
   cast: Pick<CastMember, "id" | "name">[],
+  /** Presentation-only; never changes which CEO option / scene plays. */
+  climate?: RoomStanceClimate | null,
 ): FilmBeat[] {
   const byName = new Map(cast.map((m) => [m.name, m]));
   return [
     {
       kind: "setting",
       time: consequence.headline,
-      place: "What happened next",
+      place: climate ? filmClimatePlace(climate) : "What happened next",
       text: "",
     },
     ...(consequence.story ?? storyFrames(consequence.narrative)).map(

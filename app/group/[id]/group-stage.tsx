@@ -48,6 +48,8 @@ export type GroupFilm = {
   label: string;
   reasoning: string;
   consequence: Consequence;
+  /** Presentation-only stance climate from the decided scene (ADR 0002). */
+  stanceClimate?: "aligned" | "split" | null;
 };
 
 export type PhaseEventType =
@@ -141,7 +143,14 @@ export default function GroupStage(props: {
       ? "decided"
       : "open";
   const filmBeats = useMemo(
-    () => (props.film ? consequenceFilm(props.film.consequence, props.cast) : []),
+    () =>
+      props.film
+        ? consequenceFilm(
+            props.film.consequence,
+            props.cast,
+            props.film.stanceClimate ?? null,
+          )
+        : [],
     [props.film, props.cast],
   );
   const [filmPos, setFilmPos] = useState(0);
@@ -363,6 +372,13 @@ export default function GroupStage(props: {
         {props.film.reasoning ? (
           <p className="mt-6 max-w-xl text-center font-serif text-base italic leading-relaxed text-white/60">
             “{props.film.reasoning}”
+          </p>
+        ) : null}
+        {props.film.stanceClimate ? (
+          <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-white/40">
+            {props.film.stanceClimate === "aligned"
+              ? "Advisors held one line"
+              : "Advisors were already divided"}
           </p>
         ) : null}
         <button

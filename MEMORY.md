@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Stance-aware AI + film flavor (ticket 06)
+
+**What:** `evaluateRoomStanceClimate` / `filmClimatePlace` classify locked advisor chips as aligned (all brief-default or all alternative) vs split (mix or thin room). Group AI turns (`runAiTurn` + legacy queue) inject `formatPressureStancePrompt` with locks/notes/abstains. Consequence film title-card place + decided-card eyebrow flavor from the *decided* scene’s stances; same `option.consequence` / `option.next` / integrity. Unit coverage on climate + prompt helpers.
+**Why:** ADR 0002 — stances must leave a trace in the room without becoming votes or a combinatorial branch graph.
+**Do not undo:** Do not let climate select `option.next` or flip integrity; keep prompts non-tally; do not author stance×stance scenes.
+
 ## 2026-10-29 — Authored pressure stances + commit gate (ticket 05)
 
 **What:** Case scenes author 2–3 pressure-stance chips per advisor seat (`pressureStances` / `cost-of-winning-stances.ts`; `validate:cases` enforces). Entering hard-synced `live` starts a ~2 min `stance_deadline_at`, auto-locks bot seats (first chip), and persists one `group_pressure_stances` row per (session, scene, seat). Humans lock via `POST /api/group/[code]/stance` (+ optional note); timeout → Abstain on state poll. CEO commit overlay shows locks/abstains; “Make the call” / commit API require `HUMAN_MSG_GATE` **and** human-advisor stance readiness via `GroupMeetingRuntime`. CEO has no stance; branching unchanged; integrity latch untouched. Migration `0013_group_pressure_stances`.

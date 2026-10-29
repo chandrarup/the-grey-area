@@ -6,6 +6,7 @@ import {
   getParticipantByToken,
   listGroupDecisions,
   listParticipants,
+  listPressureStances,
 } from "@/lib/db/group-queries";
 import { getCase } from "@/lib/case/registry";
 import {
@@ -15,9 +16,26 @@ import {
 import { isSessionExpired } from "@/lib/group-session-lifetime";
 import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
+import { evaluateRoomStanceClimate } from "@/lib/group/meeting-runtime";
 import { GroupMeetingClient } from "./meeting-client";
 import { TerminalConsequence } from "./terminal-consequence";
 import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
+
+async function climateForDecidedScene(
+  sessionId: string,
+  sceneId: string,
+  authored: Record<string, { key: string; label: string }[]> | undefined,
+) {
+  const rows = await listPressureStances(sessionId, sceneId);
+  return evaluateRoomStanceClimate({
+    authored: authored ?? {},
+    records: rows.map((r) => ({
+      seatId: r.roleKey,
+      status: r.status === "abstain" ? "abstain" : "locked",
+      chipKey: r.chipKey,
+    })),
+  });
+}
 
 export default async function GroupSessionPage({
   params,
@@ -378,6 +396,14 @@ export default async function GroupSessionPage({
           (o) => o.key === lastDecision.optionKey,
         )
       : undefined;
+    const terminalClimate =
+      lastDecision && lastOption?.consequence && lastOption.next === null
+        ? await climateForDecidedScene(
+            session.id,
+            lastDecision.sceneId,
+            caseConfig.scenes[lastDecision.sceneId]?.pressureStances,
+          )
+        : null;
     const terminalFilm =
       lastDecision && lastOption?.consequence && lastOption.next === null
         ? {
@@ -385,6 +411,7 @@ export default async function GroupSessionPage({
             label: lastDecision.decision,
             reasoning: lastDecision.reasoning,
             consequence: lastOption.consequence,
+            stanceClimate: terminalClimate,
           }
         : null;
     const sceneTitles = Object.fromEntries(
@@ -428,6 +455,14 @@ export default async function GroupSessionPage({
         (o) => o.key === lastDecision.optionKey,
       )
     : undefined;
+  const filmClimate =
+    lastDecision && lastOption?.consequence && lastOption.next === scene?.id
+      ? await climateForDecidedScene(
+          session.id,
+          lastDecision.sceneId,
+          caseConfig.scenes[lastDecision.sceneId]?.pressureStances,
+        )
+      : null;
   const film =
     lastDecision && lastOption?.consequence && lastOption.next === scene?.id
       ? {
@@ -435,6 +470,7 @@ export default async function GroupSessionPage({
           label: lastDecision.decision,
           reasoning: lastDecision.reasoning,
           consequence: lastOption.consequence,
+          stanceClimate: filmClimate,
         }
       : null;
 

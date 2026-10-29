@@ -17,6 +17,8 @@ export type TerminalFilm = {
   label: string;
   reasoning: string | null;
   consequence: Consequence;
+  /** Presentation-only; same CEO branch either way (ADR 0002). */
+  stanceClimate?: "aligned" | "split" | null;
 };
 
 type DecisionRow = {
@@ -70,7 +72,10 @@ export function TerminalConsequence({
     [cast],
   );
   const filmBeats = useMemo(
-    () => (film ? consequenceFilm(film.consequence, cast) : []),
+    () =>
+      film
+        ? consequenceFilm(film.consequence, cast, film.stanceClimate ?? null)
+        : [],
     [film, cast],
   );
 
@@ -98,6 +103,13 @@ export function TerminalConsequence({
         {film.reasoning ? (
           <p className="mt-6 max-w-xl text-center font-serif text-base italic leading-relaxed text-white/60">
             “{film.reasoning}”
+          </p>
+        ) : null}
+        {film.stanceClimate ? (
+          <p className="mt-4 text-[11px] uppercase tracking-[0.25em] text-white/40">
+            {film.stanceClimate === "aligned"
+              ? "Advisors held one line"
+              : "Advisors were already divided"}
           </p>
         ) : null}
         <button

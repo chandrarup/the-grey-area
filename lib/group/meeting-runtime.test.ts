@@ -9,6 +9,8 @@ import {
   evaluatePhaseTransition,
   evaluateStanceReadiness,
   evaluateCeoCommitGate,
+  evaluateRoomStanceClimate,
+  filmClimatePlace,
   applyIntegrityLatch,
   resolveIntegrityAfterCeoCommit,
   buildAdvisorStanceSeats,
@@ -397,6 +399,84 @@ describe("pickBotStanceChip", () => {
 
   test("empty chip list yields null (caller must not auto-stance)", () => {
     assert.equal(pickBotStanceChip([]), null);
+  });
+});
+
+describe("evaluateRoomStanceClimate", () => {
+  const authored = {
+    marcus: [
+      { key: "meet", label: "Meet" },
+      { key: "walk", label: "Walk" },
+    ],
+    david: [
+      { key: "keep", label: "Keep option" },
+      { key: "hold", label: "Hold" },
+    ],
+    priya: [
+      { key: "evidence", label: "Evidence" },
+      { key: "pause", label: "Pause" },
+    ],
+  };
+
+  test("all brief-default locks → aligned", () => {
+    assert.equal(
+      evaluateRoomStanceClimate({
+        authored,
+        records: [
+          { seatId: "marcus", status: "locked", chipKey: "meet" },
+          { seatId: "david", status: "locked", chipKey: "keep" },
+          { seatId: "priya", status: "locked", chipKey: "evidence" },
+        ],
+      }),
+      "aligned",
+    );
+  });
+
+  test("all alternative locks → aligned (unanimous dissent from brief)", () => {
+    assert.equal(
+      evaluateRoomStanceClimate({
+        authored,
+        records: [
+          { seatId: "marcus", status: "locked", chipKey: "walk" },
+          { seatId: "david", status: "locked", chipKey: "hold" },
+          { seatId: "priya", status: "locked", chipKey: "pause" },
+        ],
+      }),
+      "aligned",
+    );
+  });
+
+  test("mix of brief and alt → split", () => {
+    assert.equal(
+      evaluateRoomStanceClimate({
+        authored,
+        records: [
+          { seatId: "marcus", status: "locked", chipKey: "meet" },
+          { seatId: "david", status: "locked", chipKey: "hold" },
+          { seatId: "priya", status: "abstain", chipKey: null },
+        ],
+      }),
+      "split",
+    );
+  });
+
+  test("sparse locks (thin room) → split / conflicted", () => {
+    assert.equal(
+      evaluateRoomStanceClimate({
+        authored,
+        records: [
+          { seatId: "marcus", status: "locked", chipKey: "meet" },
+          { seatId: "david", status: "abstain", chipKey: null },
+          { seatId: "priya", status: "abstain", chipKey: null },
+        ],
+      }),
+      "split",
+    );
+  });
+
+  test("filmClimatePlace is presentation-only copy", () => {
+    assert.equal(filmClimatePlace("aligned"), "The room held one line");
+    assert.equal(filmClimatePlace("split"), "The room was already divided");
   });
 });
 

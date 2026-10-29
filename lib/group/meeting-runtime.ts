@@ -240,6 +240,56 @@ export function evaluateCeoCommitGate(
 }
 
 /**
+ * How advisory pressure felt before the CEO commit — presentation / AI bias
+ * only. Never selects `option.next` and never touches integrity.
+ *
+ * - aligned: every locked seat chose the same brief-side (all first chip, or
+ *   all non-first). Abstains ignored when ≥2 locks agree.
+ * - split: locked seats disagree on brief-side, or the room is thin
+ *   (0–1 locks among recorded rows → conflicted / incomplete pressure).
+ */
+export type RoomStanceClimate = "aligned" | "split";
+
+export type StanceClimateRecord = {
+  seatId: string;
+  status: "locked" | "abstain";
+  chipKey: string | null;
+};
+
+export type StanceClimateInput = {
+  /** Authored chips per advisor seat (CEO omitted). */
+  authored: Readonly<Record<string, readonly PressureStanceChip[]>>;
+  records: readonly StanceClimateRecord[];
+};
+
+/**
+ * Classify the room's locked pressure as aligned vs split/conflicted.
+ * Does not invent stances; abstain-only or sparse locks → split.
+ */
+export function evaluateRoomStanceClimate(
+  input: StanceClimateInput,
+): RoomStanceClimate {
+  const lockedSides: Array<"brief" | "alt"> = [];
+  for (const row of input.records) {
+    if (row.status !== "locked" || !row.chipKey) continue;
+    const chips = input.authored[row.seatId] ?? [];
+    const idx = chips.findIndex((c) => c.key === row.chipKey);
+    if (idx < 0) continue;
+    lockedSides.push(idx === 0 ? "brief" : "alt");
+  }
+  if (lockedSides.length < 2) return "split";
+  const first = lockedSides[0]!;
+  return lockedSides.every((s) => s === first) ? "aligned" : "split";
+}
+
+/** Copy for the consequence film title card — same story beats, different frame. */
+export function filmClimatePlace(climate: RoomStanceClimate): string {
+  return climate === "aligned"
+    ? "The room held one line"
+    : "The room was already divided";
+}
+
+/**
  * Monotonic integrity latch: clean → compromised on compromising CEO commit.
  * Never flips back. Pressure stances do not call this.
  */
@@ -269,6 +319,8 @@ export const GroupMeetingRuntime = {
   evaluatePhaseTransition,
   evaluateStanceReadiness,
   evaluateCeoCommitGate,
+  evaluateRoomStanceClimate,
+  filmClimatePlace,
   applyIntegrityLatch,
   resolveIntegrityAfterCeoCommit,
   buildAdvisorStanceSeats,
