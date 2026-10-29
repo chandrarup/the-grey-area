@@ -24,6 +24,7 @@ import {
   type PlannedGroup,
 } from "@/lib/group/batch-plan";
 import type { SeatKey } from "@/lib/case/group-roles";
+import { getCase } from "@/lib/case/registry";
 import {
   getInvitePreflight,
   resendParticipantInvite,
@@ -99,7 +100,10 @@ export async function saveDraftBatchAction(input: {
   const payload: DraftBatchPayload = {
     batchName: input.batchName,
     caseSlug: input.caseSlug || "cost-of-winning",
-    decisionCount: Math.min(5, Math.max(1, input.decisionCount)),
+    decisionCount: Math.min(
+      getCase(input.caseSlug || "cost-of-winning").maxDepth,
+      Math.max(1, input.decisionCount),
+    ),
     minGroupSize: input.minGroupSize,
     roleplayModel,
     graderModel,
@@ -156,7 +160,10 @@ export async function confirmBatchAction(
     batchId: input.batchId ?? undefined,
     name: input.batchName.trim() || `Batch ${new Date().toLocaleDateString()}`,
     caseSlug: input.caseSlug || "cost-of-winning",
-    decisionCount: Math.min(5, Math.max(1, input.decisionCount)),
+    decisionCount: Math.min(
+      getCase(input.caseSlug || "cost-of-winning").maxDepth,
+      Math.max(1, input.decisionCount),
+    ),
     roleplayModel,
     graderModel,
     groups: groupsForCreate(input.groups),

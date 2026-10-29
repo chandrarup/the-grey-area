@@ -370,15 +370,15 @@ export function NewBatchClient({
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-xs text-muted-foreground">
-            Decisions (1–5)
+            Decisions (1–3)
             <input
               type="number"
               min={1}
-              max={5}
+              max={3}
               className={input}
               value={decisionCount}
               disabled={isReady}
-              onChange={(e) => setDecisionCount(Number(e.target.value) || 5)}
+              onChange={(e) => setDecisionCount(Math.min(3, Number(e.target.value) || 3))}
             />
           </label>
           <label className="block text-xs text-muted-foreground">

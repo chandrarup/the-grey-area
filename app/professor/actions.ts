@@ -10,6 +10,7 @@ import {
   getPublishedCase,
 } from "@/lib/db/queries";
 import { gradeRun } from "@/lib/engine/grader";
+import { getModelPrefs } from "@/lib/model-prefs";
 import type { RunStageData } from "@/lib/db/schema";
 
 export async function releaseRunAssessment(runId: string, notes: string) {
@@ -33,6 +34,7 @@ export async function triggerGradeRun(runId: string) {
     decisions,
     messages,
     reflections: stageData.reflections ?? [],
+    model: (await getModelPrefs()).graderModel,
   });
   revalidatePath("/professor/runs");
 }

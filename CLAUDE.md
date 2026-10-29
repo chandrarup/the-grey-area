@@ -22,3 +22,17 @@ npm run db:seed
 - Reintroduce heavy animation or gamified chrome.
 - Violate principles in `PROJECT.md` (immutable decisions, monotonic integrity, no “correct” option signaling, suggestions never block free input).
 - Duplicate product truth here — update `PROJECT.md` / `MEMORY.md` only.
+
+## Agent skills
+
+### Issue tracker
+
+Local markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.

@@ -87,7 +87,7 @@ export default async function ProfessorGroupDetailPage({
       </p>
       {expired ? (
         <p className="mt-3 border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
-          This session passed the 30-minute window. Students cannot join or
+          This session passed its time window. Students cannot join or
           play. Delete it and create a new session if needed.
         </p>
       ) : session.status === "lobby" || session.status === "active" ? (

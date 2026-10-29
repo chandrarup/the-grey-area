@@ -42,7 +42,7 @@ import { z } from "zod";
 export async function createSessionAction(formData: FormData) {
   const profile = await getProfessorActor();
   const prefs = await getModelPrefs();
-  const decisionCount = Number(formData.get("decisionCount") ?? 5);
+  const decisionCount = Number(formData.get("decisionCount") ?? 3);
 
   const seats = {
     ceo: "human" as const,

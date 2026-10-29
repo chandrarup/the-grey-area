@@ -1,6 +1,8 @@
 import type { GroupSession } from "@/lib/db/schema";
 
-export const SESSION_TTL_SECONDS = 1800; // 30 minutes
+export const SESSION_TTL_SECONDS = 1800; // 30 minutes in the lobby
+/** Play window, restarted when the CEO opens the meeting (three decisions + consequence films). */
+export const MEETING_TTL_SECONDS = 2700; // 45 minutes
 
 /** When the session window closes (from createdAt + clockSeconds). */
 export function sessionExpiresAt(session: GroupSession): Date {

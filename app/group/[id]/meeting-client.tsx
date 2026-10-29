@@ -2,21 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   startMeetingAction,
   toggleReadyAction,
 } from "@/app/group/actions";
-import { MessageBubble } from "@/app/components/chat/message-bubble";
-import { ThinkingIndicator } from "@/app/components/chat/thinking-indicator";
-import { AnswerComposer } from "@/app/components/group/answer-composer";
-import { DecisionDots } from "@/app/components/group/decision-dots";
-import { ParticipantTile } from "@/app/components/group/participant-tile";
-import {
-  GROUP_ROLES,
-  HUMAN_MSG_GATE,
-  suggestionLines,
-  type SeatKey,
-} from "@/lib/case/group-roles";
+import { GROUP_ROLES, type SeatKey } from "@/lib/case/group-roles";
 import type {
   GroupSessionState,
   RealtimeMessage,
@@ -24,7 +15,6 @@ import type {
 } from "@/lib/realtime/types";
 import { useGroupRealtime } from "@/lib/realtime/use-group-realtime";
 import { formatSessionRemaining } from "@/lib/group-session-lifetime";
-import { characterName } from "@/lib/group/public-roster";
 import {
   readSeatToken,
   seatHeaders,
@@ -32,21 +22,14 @@ import {
 } from "@/lib/group/seat-token-client";
 import { LoadingSpinner } from "@/app/components/loading-spinner";
 import { withBusyBar } from "@/app/components/navigation-progress";
+import { prepareVoices } from "@/app/simulation/decisions/three/speech";
+import type { CastMember, StageMood } from "@/lib/case/types";
+import type { GroupFilm } from "./group-stage";
+
+const GroupStage = dynamic(() => import("./group-stage"), { ssr: false });
 
 type Msg = RealtimeMessage;
 
-function displayNameForRole(
-  roleKey: string,
-  cast: { id: string; name: string }[],
-  participants: RealtimeParticipant[],
-) {
-  const seat = participants.find((p) => p.roleKey === roleKey);
-  const raw = seat?.displayName?.trim();
-  if (raw && !/^you\b/i.test(raw) && !raw.startsWith("You —")) return raw;
-  const member = cast.find((c) => c.id === roleKey);
-  if (member?.name) return member.name;
-  return characterName(roleKey);
-}
 
 const FALLBACK_POLL_MS = 2000;
 
@@ -67,9 +50,11 @@ export function GroupMeetingClient(props: {
     title: string;
     timeLabel?: string;
     brief?: string;
+    commitPrompt?: string;
+    mood?: StageMood;
     minExchanges: number;
   } | null;
-  cast: { id: string; name: string }[];
+  cast: CastMember[];
   sceneCast: { id: string; name: string; title: string }[];
   messages: Msg[];
   options: { key: string; label: string }[];
@@ -80,6 +65,7 @@ export function GroupMeetingClient(props: {
     objective: string;
     opening?: string | null;
   };
+  film?: GroupFilm | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -94,21 +80,15 @@ export function GroupMeetingClient(props: {
   const [sceneId, setSceneId] = useState(props.scene?.id ?? null);
   const [decisionsMade, setDecisionsMade] = useState(props.decisionsMade);
   const [msRemaining, setMsRemaining] = useState<number | null>(null);
-  const [briefOpen, setBriefOpen] = useState(false);
   const [reasoning, setReasoning] = useState("");
   const [optionKey, setOptionKey] = useState<string | null>(null);
   const [customText, setCustomText] = useState("");
-  const [countdown, setCountdown] = useState(30 * 60);
   const [seatToken, setSeatToken] = useState(props.joinToken);
   const cursorRef = useRef(
     props.messages.length ? Math.max(...props.messages.map((m) => m.id)) : 0,
   );
   const sceneIdRef = useRef(props.scene?.id ?? null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const tickRef = useRef<(() => Promise<void>) | null>(null);
-  const stickToBottomRef = useRef(true);
-  const scrollInstantRef = useRef(false);
-  const [animateIds, setAnimateIds] = useState<Set<number>>(() => new Set());
   const pendingOptimisticRef = useRef<{
     id: number;
     content: string;
@@ -171,7 +151,7 @@ export function GroupMeetingClient(props: {
     );
   }, [props.messages]);
 
-  const mergeMessage = useCallback((m: Msg, opts?: { animate?: boolean }) => {
+  const mergeMessage = useCallback((m: Msg) => {
     setMessages((prev) => {
       if (m.id > 0) {
         const existingIdx = prev.findIndex((x) => x.id === m.id);
@@ -200,16 +180,7 @@ export function GroupMeetingClient(props: {
       // Optimistic insert
       return [...prev, m];
     });
-    if (m.id > 0) {
-      cursorRef.current = Math.max(cursorRef.current, m.id);
-      if (opts?.animate) {
-        setAnimateIds((prev) => {
-          const next = new Set(prev);
-          next.add(m.id);
-          return next;
-        });
-      }
-    }
+    if (m.id > 0) cursorRef.current = Math.max(cursorRef.current, m.id);
   }, []);
 
   const mergeState = useCallback(
@@ -299,34 +270,18 @@ export function GroupMeetingClient(props: {
   useGroupRealtime(props.sessionId, {
     onChange: () => void tickRef.current?.(),
     onMessageInsert: (row) => {
-      const roleKey = String(row.role_key);
-      mergeMessage(
-        {
-          id: Number(row.id),
-          roleKey,
-          senderKind: String(row.sender_kind),
-          content: String(row.content),
-          sceneId: String(row.scene_id),
-        },
-        { animate: roleKey !== props.roleKey },
-      );
+      mergeMessage({
+        id: Number(row.id),
+        roleKey: String(row.role_key),
+        senderKind: String(row.sender_kind),
+        content: String(row.content),
+        sceneId: String(row.scene_id),
+      });
     },
   });
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || !stickToBottomRef.current) return;
-    const instant = scrollInstantRef.current;
-    scrollInstantRef.current = false;
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: instant ? "auto" : "auto",
-    });
-  }, [messages, thinkingRoleKeys]);
-
-  useEffect(() => {
-    const t = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
-    return () => clearInterval(t);
+    void prepareVoices();
   }, []);
 
   async function sendMessage(body: string) {
@@ -339,8 +294,6 @@ export function GroupMeetingClient(props: {
       content: body,
       roleKey: props.roleKey,
     };
-    stickToBottomRef.current = true;
-    scrollInstantRef.current = true;
     mergeMessage({
       id: optimisticId,
       roleKey: props.roleKey,
@@ -361,7 +314,7 @@ export function GroupMeetingClient(props: {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Send failed");
         if (data.message) {
-          mergeMessage(data.message as Msg, { animate: false });
+          mergeMessage(data.message as Msg);
         }
 
         const mentioned: string[] = data.mentionedAiRoles ?? [];
@@ -413,6 +366,9 @@ export function GroupMeetingClient(props: {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Commit failed");
+        setReasoning("");
+        setOptionKey(null);
+        setCustomText("");
         router.refresh();
       });
     } catch (err) {
@@ -602,240 +558,44 @@ export function GroupMeetingClient(props: {
   const sceneMessages = messages.filter(
     (m) => m.sceneId === (sceneId ?? props.scene!.id),
   );
-  const humanCount = sceneMessages.filter((m) => m.senderKind === "human").length;
-  const commitUnlocked = humanCount >= HUMAN_MSG_GATE;
-  const suggestions = suggestionLines(props.roleKey);
-  const mm = Math.floor(countdown / 60);
-  const ss = String(countdown % 60).padStart(2, "0");
-  const myBrief = GROUP_ROLES[props.roleKey as SeatKey];
-  const myLabel = myBrief?.name ?? characterName(props.roleKey);
-
-  const speakingRole =
-    thinkingRoleKeys[0] ?? (sending ? props.roleKey : null);
 
   return (
-    <div className="mt-4 w-full space-y-6">
-      <p className="border border-accent/40 bg-surface px-3 py-2 text-sm text-foreground">
-        You are <span className="font-medium">{myLabel}</span>
-        {myBrief?.title ? (
-          <span className="text-muted-foreground"> — {myBrief.title}</span>
-        ) : null}
-        {!seatToken ? (
-          <span className="mt-1 block text-xs text-muted-foreground">
-            Missing seat token — re-open your join link so messages send as this role.
-          </span>
-        ) : null}
-      </p>
-
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Live meeting · Decision {decisionsMade + 1} of {props.decisionCount}
-          </p>
-          <h2 className="font-serif text-3xl font-medium text-foreground">
-            {props.scene.title}
-          </h2>
-        </div>
-        <div className="flex items-center gap-3.5">
-          <DecisionDots made={decisionsMade} total={props.decisionCount} />
-          <p className="font-mono text-[13px] tabular-nums text-muted-foreground">
-            {mm}:{ss}
-            {msRemaining != null && msRemaining > 0
-              ? ` · ${formatSessionRemaining(msRemaining)}`
-              : ""}
-          </p>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-        {props.sceneCast.map((s) => {
-          const seat = participants.find((p) => p.roleKey === s.id);
-          const isAi = seat?.isAi ?? s.id === "eleanor";
-          const isYou = s.id === props.roleKey;
-          const active = speakingRole === s.id;
-          let tag: string | undefined;
-          if (active) {
-            tag = thinkingRoleKeys.includes(s.id) ? "Thinking" : "Speaking";
-          } else if (isYou) {
-            tag = "You";
-          } else if (isAi) {
-            tag = "AI";
-          }
-          return (
-            <ParticipantTile
-              key={s.id}
-              roleKey={s.id}
-              name={s.name}
-              title={s.title}
-              tag={tag}
-              active={active}
-            />
-          );
-        })}
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_min(260px,24%)]">
-        <div className="min-w-0 overflow-hidden border border-border bg-background">
-          <div
-            ref={scrollRef}
-            onScroll={() => {
-              const el = scrollRef.current;
-              if (!el) return;
-              const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-              stickToBottomRef.current = dist < 80;
-            }}
-            className="chat-thread flex h-[min(62vh,34rem)] flex-col gap-3 overflow-y-auto px-5 py-5"
-          >
-            {props.scene.timeLabel ? (
-              <p className="mx-auto mb-1 text-center font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                {props.scene.timeLabel}
-              </p>
-            ) : null}
-            {sceneMessages.map((m) => {
-              const isMe = m.roleKey === props.roleKey;
-              const isNarrator =
-                m.senderKind === "narrator" || m.roleKey === "narrator";
-              const charName = characterName(m.roleKey);
-              const humanName = displayNameForRole(
-                m.roleKey,
-                props.cast,
-                participants,
-              );
-              const title =
-                GROUP_ROLES[m.roleKey as SeatKey]?.title ??
-                (m.roleKey === "ceo" ? "Chief Executive Officer" : undefined);
-              if (isNarrator) {
-                return (
-                  <p
-                    key={m.id}
-                    className="mx-auto max-w-[90%] whitespace-pre-wrap text-center text-xs italic text-muted-foreground"
-                  >
-                    {m.content}
-                  </p>
-                );
-              }
-              return (
-                <MessageBubble
-                  key={m.id}
-                  side={isMe ? "right" : "left"}
-                  castId={m.roleKey === "ceo" ? "ceo" : m.roleKey}
-                  name={isMe ? "You" : charName}
-                  role={
-                    isMe
-                      ? myLabel
-                      : humanName !== charName
-                        ? `${title ?? ""} · ${humanName}`.replace(/^ · /, "")
-                        : title
-                  }
-                  text={m.content}
-                  animate={m.id > 0 && animateIds.has(m.id)}
-                />
-              );
-            })}
-            {thinkingRoleKeys[0] ? (
-              <ThinkingIndicator
-                castId={thinkingRoleKeys[0]}
-                name={characterName(thinkingRoleKeys[0])}
-              />
-            ) : null}
-          </div>
-
-          <div className="border-t border-border bg-surface/50 px-4 py-4">
-            <AnswerComposer
-              key={`speak-${props.roleKey}`}
-              suggestions={suggestions}
-              sending={sending}
-              onSend={sendMessage}
-              mentionTargets={props.sceneCast
-                .filter((s) => s.id !== props.roleKey)
-                .map((s) => ({
-                  roleKey: s.id,
-                  name: s.name,
-                  title: s.title,
-                }))}
-              placeholder="Speak in character…"
-            />
-            {error ? (
-              <p className="mt-2 text-sm text-muted-foreground">{error}</p>
-            ) : (
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Live · Realtime · {humanCount}/{HUMAN_MSG_GATE} human msgs ·
-                anyone can speak at any time
-              </p>
-            )}
-          </div>
-        </div>
-
-        <aside className="flex flex-col gap-4">
-          {props.scene.brief ? (
-            <div className="border border-border bg-surface p-4 text-sm leading-relaxed text-foreground">
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                Scene brief
-              </p>
-              {props.scene.brief}
-            </div>
-          ) : null}
-
-          {props.roleBriefCollapsed ? (
-            <div className="border border-border bg-surface p-4 text-sm">
-              <button
-                type="button"
-                className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground underline"
-                onClick={() => setBriefOpen((o) => !o)}
-              >
-                {briefOpen ? "Hide my brief" : "My brief"}
-              </button>
-              {briefOpen ? (
-                <div className="mt-3">
-                  <p className="font-medium">
-                    {props.roleBriefCollapsed.name} —{" "}
-                    {props.roleBriefCollapsed.title}
-                  </p>
-                  <p className="mt-2 text-muted-foreground">
-                    {props.roleBriefCollapsed.stance}
-                  </p>
-                  <p className="mt-2">{props.roleBriefCollapsed.objective}</p>
-                  {props.roleBriefCollapsed.opening ? (
-                    <p className="mt-2 italic text-muted-foreground">
-                      {props.roleBriefCollapsed.opening}
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </aside>
-      </div>
-
-      {props.isCeo ? (
-        <div className="border-t border-border pt-6">
-          <AnswerComposer
-            mode="commit"
-            options={props.options}
-            reasoning={reasoning}
-            onReasoningChange={setReasoning}
-            selectedKey={optionKey}
-            onSelectOption={setOptionKey}
-            customText={customText}
-            onCustomTextChange={setCustomText}
-            commitUnlocked={commitUnlocked}
-            unlockHint={`Commit unlocks after ${HUMAN_MSG_GATE} human messages (${humanCount}/${HUMAN_MSG_GATE}).`}
-            commitDisabled={
-              committing ||
-              pending ||
-              !optionKey ||
-              reasoning.trim().length < 20 ||
-              (optionKey === "custom" && !customText.trim())
-            }
-            committing={committing}
-            onCommit={commit}
-          />
-        </div>
-      ) : (
-        <p className="text-sm italic text-muted-foreground">
-          The CEO will decide.
-        </p>
-      )}
-    </div>
+    <GroupStage
+      key={props.scene.id}
+      sessionId={props.sessionId}
+      roleKey={props.roleKey}
+      isCeo={props.isCeo}
+      scene={{
+        id: props.scene.id,
+        title: props.scene.title,
+        timeLabel: props.scene.timeLabel,
+        brief: props.scene.brief,
+        commitPrompt: props.scene.commitPrompt,
+        mood: props.scene.mood ?? "morning",
+      }}
+      decisionsMade={decisionsMade}
+      decisionCount={props.decisionCount}
+      cast={props.cast}
+      sceneCast={props.sceneCast}
+      participants={participants}
+      messages={sceneMessages}
+      thinkingRoleKeys={thinkingRoleKeys}
+      msRemaining={msRemaining}
+      sending={sending}
+      onSend={sendMessage}
+      options={props.options}
+      reasoning={reasoning}
+      onReasoningChange={setReasoning}
+      optionKey={optionKey}
+      onSelectOption={setOptionKey}
+      customText={customText}
+      onCustomTextChange={setCustomText}
+      committing={committing}
+      onCommit={commit}
+      error={error}
+      missingToken={!seatToken}
+      roleBrief={props.roleBriefCollapsed}
+      film={props.film ?? null}
+    />
   );
 }

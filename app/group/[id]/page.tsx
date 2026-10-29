@@ -16,6 +16,8 @@ import { isSessionExpired } from "@/lib/group-session-lifetime";
 import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { GroupMeetingClient } from "./meeting-client";
+import { AwaitRelease } from "./await-release";
+import type { CastMember, StageMood } from "@/lib/case/types";
 
 export default async function GroupSessionPage({
   params,
@@ -52,6 +54,14 @@ export default async function GroupSessionPage({
   const decisions = await listGroupDecisions(id);
   const assessment = await getGroupAssessment(id);
   const publicRoster = toPublicRoster(participants, roleKey);
+  // Personas are server-only prompts; the stage needs names and locations.
+  const stageCast: CastMember[] = caseConfig.cast.map((m) => ({
+    id: m.id,
+    name: m.name,
+    role: m.role,
+    location: m.location,
+    persona: "",
+  }));
 
   if (!me) {
     return (
@@ -71,7 +81,7 @@ export default async function GroupSessionPage({
       <div className="mx-auto max-w-lg px-6 py-16">
         <h1 className="font-serif text-2xl text-foreground">Session expired</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          This group session ended after 30 minutes. Ask your professor to create
+          This group session ran out of time. Ask your professor to create
           a new session and send a fresh join link.
         </p>
       </div>
@@ -247,7 +257,7 @@ export default async function GroupSessionPage({
             decisionsMade={session.decisionsMade}
             decisionCount={session.decisionCount}
             scene={null}
-            cast={caseConfig.cast}
+            cast={stageCast}
             sceneCast={[]}
             messages={[]}
             options={[]}
@@ -363,13 +373,33 @@ export default async function GroupSessionPage({
 
   if (session.status === "committed" || session.status === "graded") {
     return (
-      <div className="mx-auto max-w-lg px-6 py-16">
-        <h1 className="font-serif text-2xl text-foreground">
-          Meeting concluded
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          The debrief will appear when your professor releases it.
+      <div className="mx-auto max-w-2xl px-6 py-16 md:px-8">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          Meeting concluded · {session.displayName?.trim() || session.code}
         </p>
+        <h1 className="mt-3 font-serif text-3xl text-foreground">
+          The decisions are on the record
+        </h1>
+        <ol className="mt-10 space-y-6">
+          {decisions.map((d, i) => (
+            <li key={d.id} className="border-l-2 border-border pl-4">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Decision {i + 1} · {caseConfig.scenes[d.sceneId]?.title ?? d.sceneId}
+              </p>
+              <p className="mt-1 font-serif text-lg text-foreground">{d.decision}</p>
+              {d.reasoning ? (
+                <p className="mt-1 text-sm italic text-muted-foreground">
+                  “{d.reasoning}”
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-10 text-sm text-muted-foreground">
+          Your group debrief appears here when your professor releases it.
+          This page updates on its own.
+        </p>
+        <AwaitRelease sessionId={session.id} />
       </div>
     );
   }
@@ -377,6 +407,27 @@ export default async function GroupSessionPage({
   const sceneCast = scene
     ? groupCastForScene(session.caseSlug, scene.id)
     : [];
+  const mood: StageMood =
+    scene?.script?.find(
+      (b): b is Extract<typeof b, { kind: "setting" }> => b.kind === "setting",
+    )?.mood ?? "morning";
+
+  // Consequence of the decision that led into this scene, played once per seat.
+  const lastDecision = decisions[decisions.length - 1];
+  const lastOption = lastDecision
+    ? caseConfig.scenes[lastDecision.sceneId]?.options.find(
+        (o) => o.key === lastDecision.optionKey,
+      )
+    : undefined;
+  const film =
+    lastDecision && lastOption?.consequence && lastOption.next === scene?.id
+      ? {
+          decisionId: lastDecision.id,
+          label: lastDecision.decision,
+          reasoning: lastDecision.reasoning,
+          consequence: lastOption.consequence,
+        }
+      : null;
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 md:px-8">
@@ -406,11 +457,13 @@ export default async function GroupSessionPage({
                 title: scene.title,
                 timeLabel: scene.timeLabel,
                 brief: scene.brief,
+                commitPrompt: scene.commitPrompt,
+                mood,
                 minExchanges: scene.minExchanges,
               }
             : null
         }
-        cast={caseConfig.cast}
+        cast={stageCast}
         sceneCast={sceneCast}
         messages={messages.map((m) => ({
           id: m.id,
@@ -427,6 +480,7 @@ export default async function GroupSessionPage({
           objective: brief.centralObjective,
           opening: brief.openingStatement,
         }}
+        film={film}
       />
 
       {decisions.length > 0 ? (

@@ -52,6 +52,11 @@ export async function complete<T>(req: LLMRequest<T>): Promise<LLMResponse<T>> {
       messages: req.messages,
       temperature: req.temperature,
       maxOutputTokens: req.maxTokens,
+      // Gemini 2.5 thinking tokens count against maxOutputTokens; call-site
+      // budgets are sized for visible JSON, so thinking truncates replies.
+      ...(model.provider === "gemini"
+        ? { providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } } }
+        : {}),
     });
 
     return {

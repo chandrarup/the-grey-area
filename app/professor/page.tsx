@@ -51,8 +51,9 @@ export default async function ProfessorPage() {
     <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
       <h1 className="font-serif text-3xl text-foreground">Sessions</h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Create a live meeting, assign seats, and share join links. Sessions
-        expire after 30 minutes in lobby or play.
+        Create a live meeting, assign seats, and share join links. Lobbies
+        expire after 30 minutes; once the CEO starts, the meeting has 45
+        minutes.
       </p>
 
       <p className="mt-8">

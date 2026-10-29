@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { STAGES } from "./stages";
 import { StepRail } from "./step-rail";
@@ -14,6 +15,26 @@ export function SimulationShell({
 }) {
   const pathname = usePathname();
   const currentSlug = pathname.split("/").filter(Boolean).pop() ?? "";
+  const immersive = currentSlug === "decisions";
+
+  useEffect(() => {
+    if (!immersive) return;
+    document.body.classList.add("immersive-decisions");
+    return () => document.body.classList.remove("immersive-decisions");
+  }, [immersive]);
+
+  if (immersive) {
+    return (
+      <div className="relative min-h-[100dvh] bg-surface-raised">
+        {showReset ? (
+          <div className="absolute right-3 top-3 z-30 bg-background sm:right-5 sm:top-4">
+            <ResetSoloButton label="Start over" />
+          </div>
+        ) : null}
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-5xl gap-16 px-6 py-12 md:px-8 md:py-16">
@@ -29,13 +50,7 @@ export function SimulationShell({
         <div className="mb-8 md:hidden">
           <StepRail stages={STAGES} currentSlug={currentSlug} />
         </div>
-        <div
-          className={`mx-auto ${
-            currentSlug === "decisions" ? "max-w-2xl" : "max-w-xl"
-          }`}
-        >
-          {children}
-        </div>
+        <div className="mx-auto max-w-xl">{children}</div>
       </div>
     </div>
   );

@@ -2,15 +2,15 @@ import { eq } from "drizzle-orm";
 import { getCase } from "@/lib/case/registry";
 import { db } from "@/lib/db";
 import { cases } from "@/lib/db/schema";
-import { getPublishedCase } from "@/lib/db/queries";
 
 const SLUG = "cost-of-winning";
 
-/** Auto-publish Cost of Winning if missing — keeps / and solo play working. */
+/**
+ * Auto-publish Cost of Winning if missing, and always refresh `config`
+ * from the typed case in `lib/case/` so DB blobs cannot drift from the
+ * registry the API uses (e.g. renamed start scenes).
+ */
 export async function ensureHomeCase() {
-  const published = await getPublishedCase(SLUG);
-  if (published) return published;
-
   const config = getCase(SLUG);
   const [existing] = await db
     .select()

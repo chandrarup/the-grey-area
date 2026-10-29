@@ -131,6 +131,13 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
         errors.push(
           `Non-terminal option "${option.key}" on "${scene.id}" is missing consequence`,
         );
+      } else if (option.consequence.story) {
+        const joined = option.consequence.story.map((f) => f.text).join(" ");
+        if (joined !== option.consequence.narrative) {
+          errors.push(
+            `Consequence story for "${scene.id}/${option.key}" does not match its narrative`,
+          );
+        }
       }
     }
   }

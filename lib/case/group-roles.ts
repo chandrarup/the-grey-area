@@ -333,8 +333,11 @@ export function getRoleBrief(roleKey: string): GroupRoleBrief | null {
   return GROUP_ROLES[roleKey as SeatKey] ?? null;
 }
 
-/** Speak chips: opening + rebuttal responses. CEO also gets decisionOptions as direction chips. */
-export function suggestionLines(roleKey: string): string[] {
+/**
+ * Speak chips: opening + rebuttal responses. CEO also gets direction chips —
+ * the current scene's options when given, else the brief's decisionOptions.
+ */
+export function suggestionLines(roleKey: string, sceneOptions?: string[]): string[] {
   const brief = getRoleBrief(roleKey);
   if (!brief) return [];
   const lines: string[] = [];
@@ -342,9 +345,11 @@ export function suggestionLines(roleKey: string): string[] {
   for (const r of brief.rebuttals) {
     lines.push(r.youCanRespond);
   }
-  // CEO (and any seat with decisionOptions) — direction prompts for the room
-  if (brief.decisionOptions?.length) {
-    for (const opt of brief.decisionOptions) {
+  const directions = brief.decisionOptions?.length
+    ? (sceneOptions ?? brief.decisionOptions)
+    : [];
+  if (directions.length) {
+    for (const opt of directions) {
       if (!lines.includes(opt)) lines.push(opt);
     }
   }

@@ -107,7 +107,7 @@ export async function runAiTurn(params: {
         member.persona,
         marcusFeeNote,
         "",
-        `Reply ONLY as ${member.name}, 2-4 sentences, in character, no name prefix.`,
+        `Reply ONLY as ${member.name}, in character, no name prefix. Your reply is spoken aloud in the meeting: at most 3 short sentences, under 70 words, one point at a time.`,
       ]
         .filter(Boolean)
         .join("\n"),

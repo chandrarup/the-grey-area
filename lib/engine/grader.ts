@@ -82,7 +82,14 @@ Evaluate the QUALITY of ethical reasoning, leadership judgment, and decision-mak
 
 Return JSON matching the schema. Assess all readiness dimensions with scores 1-10. Keep each prose field concise (2-5 sentences). The coaching_letter should be a short board-facing letter.`;
 
-const GROUP_GRADING_SYSTEM = `You are grading a group leadership ethics simulation debrief. Focus on collective process, not individuals. Never name participants. Return JSON matching the schema. Include readiness_scores (1-10) for each scoring area listed in the prompt.`;
+const GROUP_GRADING_SYSTEM = `You are grading a group leadership ethics simulation debrief. Focus on collective process, not individuals. Never name participants. Return JSON matching the schema. Include readiness_scores (1-10) for each scoring area listed in the prompt.
+
+Exact list lengths (responses with other lengths are rejected):
+- what_went_well: exactly 3 items
+- what_to_improve: exactly 3 items
+- better_decisions: exactly 3 items
+- evidence: at most 4 short quotes or paraphrases
+Keep epilogue and summary to 2-4 sentences, and each list item to one sentence.`;
 
 function buildSoloPayload(params: {
   caseConfig: CaseConfig;
@@ -154,7 +161,7 @@ export async function gradeRun(params: {
     messages: [{ role: "user" as const, content: userContent }],
     schema: assessmentSchema,
     temperature: 0,
-    maxTokens: 4000,
+    maxTokens: 12000,
   };
 
   let result;
@@ -209,15 +216,32 @@ export async function gradeGroupSession(params: {
 
   const model = params.model ?? DEFAULT_GRADER_MODEL;
 
-  const result = await complete({
+  const request = {
     model,
     schemaName: "group_assessment",
     system: GROUP_GRADING_SYSTEM,
-    messages: [{ role: "user", content: userContent }],
+    messages: [{ role: "user" as const, content: userContent }],
     schema: groupAssessmentSchema,
     temperature: 0,
-    maxTokens: 3500,
-  });
+    maxTokens: 12000,
+  };
+
+  let result;
+  try {
+    result = await complete(request);
+  } catch {
+    result = await complete({
+      ...request,
+      messages: [
+        {
+          role: "user",
+          content:
+            userContent +
+            "\n\nYour previous response was incomplete or failed schema validation. Return concise, valid JSON only matching the schema.",
+        },
+      ],
+    });
+  }
 
   return result.data;
 }

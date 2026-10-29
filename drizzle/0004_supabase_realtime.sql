@@ -51,11 +51,15 @@ ALTER TABLE group_sessions ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE group_participants ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE group_messages ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 
-DROP POLICY IF EXISTS "demo_anon_read_group_sessions" ON group_sessions;--> statement-breakpoint
-CREATE POLICY "demo_anon_read_group_sessions" ON group_sessions FOR SELECT TO anon USING (true);--> statement-breakpoint
-
-DROP POLICY IF EXISTS "demo_anon_read_group_participants" ON group_participants;--> statement-breakpoint
-CREATE POLICY "demo_anon_read_group_participants" ON group_participants FOR SELECT TO anon USING (true);--> statement-breakpoint
-
-DROP POLICY IF EXISTS "demo_anon_read_group_messages" ON group_messages;--> statement-breakpoint
-CREATE POLICY "demo_anon_read_group_messages" ON group_messages FOR SELECT TO anon USING (true);
+-- The anon role only exists on Supabase; skip the demo policies on plain Postgres / Neon.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    DROP POLICY IF EXISTS "demo_anon_read_group_sessions" ON group_sessions;
+    CREATE POLICY "demo_anon_read_group_sessions" ON group_sessions FOR SELECT TO anon USING (true);
+    DROP POLICY IF EXISTS "demo_anon_read_group_participants" ON group_participants;
+    CREATE POLICY "demo_anon_read_group_participants" ON group_participants FOR SELECT TO anon USING (true);
+    DROP POLICY IF EXISTS "demo_anon_read_group_messages" ON group_messages;
+    CREATE POLICY "demo_anon_read_group_messages" ON group_messages FOR SELECT TO anon USING (true);
+  END IF;
+END $$;

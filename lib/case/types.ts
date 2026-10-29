@@ -12,6 +12,8 @@ export type CastMember = {
 export type Consequence = {
   headline: string;
   narrative: string;
+  /** Narrative split into illustrated frames for the solo replay. */
+  story?: StoryFrame[];
   beats: { speaker: string; line: string }[];
 };
 
@@ -32,6 +34,93 @@ export type SceneProp = {
   body: string;
 };
 
+/**
+ * Authored beats for the solo player. Played one at a time, in order.
+ * `moment` beats are where the CEO responds; suggested responses never
+ * replace free input, and none is marked as preferred.
+ */
+export type StageMood = "morning" | "evening" | "night";
+
+export type StoryArt =
+  | "invoice"
+  | "stamp"
+  | "press"
+  | "regulator"
+  | "ledger"
+  | "handshake"
+  | "phone"
+  | "board"
+  | "gap"
+  | "distant"
+  | "skyline"
+  | "door"
+  | "hourglass"
+  | "network"
+  | "voices"
+  | "pen";
+
+export type Invoice = {
+  vendor: string;
+  vendorAddress: string;
+  number: string;
+  date: string;
+  billTo: string;
+  currency: string;
+  items: { description: string; amount: number }[];
+  terms: string;
+  bank: string;
+  stamp?: string;
+  sticky?: string;
+};
+
+export type StoryFrame = { art: StoryArt; text: string; invoice?: Invoice };
+
+export type ScriptBeat =
+  | {
+      kind: "setting";
+      time: string;
+      place: string;
+      text: string;
+      mood?: StageMood;
+    }
+  | {
+      kind: "call";
+      from: string;
+      castId?: string;
+      detail: string;
+      connected: string;
+    }
+  | {
+      kind: "narration";
+      text: string;
+      act?: {
+        castId: string;
+        action: "write" | "lean" | "phone" | "nod" | "shake" | "lookDown";
+      };
+    }
+  | { kind: "story"; art: StoryArt; text: string; invoice?: Invoice }
+  | { kind: "line"; castId: string; text: string }
+  | { kind: "chat"; castId: string; text: string }
+  | {
+      kind: "message";
+      channel: "text" | "email" | "news";
+      from: string;
+      castId?: string;
+      meta?: string;
+      subject?: string;
+      text: string;
+    }
+  | { kind: "document"; title: string; subtitle?: string; body: string }
+  | { kind: "invoice"; invoice: Invoice }
+  | { kind: "desk"; text: string }
+  | {
+      kind: "moment";
+      prompt: string;
+      seconds?: number;
+      responses: { key: string; say: string; reaction: ScriptBeat[] }[];
+      silence?: ScriptBeat[];
+    };
+
 export type Scene = {
   id: string;
   depth: number; // 1..maxDepth (this case: 3)
@@ -43,6 +132,7 @@ export type Scene = {
   minExchanges: number;
   props?: SceneProp[];
   sceneDirective?: string; // extra staging instructions for the scene director
+  script?: ScriptBeat[];
   commitPrompt: string;
   commitPrefill?: string;
   options: DecisionOption[];

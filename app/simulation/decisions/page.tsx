@@ -61,6 +61,7 @@ export default async function DecisionsPage() {
 
   return (
     <DecisionWorkspace
+      key={sceneId}
       runId={run.id}
       caseSlug={caseConfig.slug}
       caseTitle={caseConfig.title}

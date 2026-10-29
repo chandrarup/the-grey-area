@@ -1,4 +1,8 @@
 import type { CaseConfig } from "./types";
+import {
+  COST_OF_WINNING_SCRIPTS as SCRIPTS,
+  COST_OF_WINNING_STORIES as STORIES,
+} from "./cost-of-winning-scripts";
 
 /**
  * The Cost of Winning — three escalating decisions.
@@ -92,6 +96,7 @@ export const COST_OF_WINNING: CaseConfig = {
     // ─── Scene 1: The Introduction ─────────────────────────────────────
     s1_introduction: {
       id: "s1_introduction",
+      script: SCRIPTS.s1_introduction,
       depth: 1,
       title: "The Introduction",
       timeLabel: "Monday, 7:45 a.m. — week two · 30 minutes",
@@ -147,6 +152,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: false,
           next: "s2_door_closed",
           consequence: {
+            story: STORIES["s1_introduction/refuse"],
             headline: "Nine days later",
             narrative:
               "You closed the door. Marcus went quiet on the call and has been professional — and distant — ever since. On Wednesday, Meridian Infrastructure Group announced an 'in-country advisory partnership' in Ardania. Since then, the ministry has stopped answering your team's clarification requests.",
@@ -170,6 +176,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: false,
           next: "s2_invoice_diligence",
           consequence: {
+            story: STORIES["s1_introduction/conditions"],
             headline: "Six weeks later",
             narrative:
               "Tom's expedited review is still open. Marcus met Salim once under a written 'no agency' script. An invoice has arrived from a local firm you did not select — for 'coordination services' no one can itemise. Marcus says the partner came recommended through Salim's network. David cannot find a deliverable list. Tom wants the invoice held.",
@@ -192,6 +199,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s2_invoice_authorised",
           consequence: {
+            story: STORIES["s1_introduction/authorise"],
             headline: "Five weeks later",
             narrative:
               "Marcus closed the retainer. Salim is 'on the file.' An invoice has arrived — services described in three vague lines, amount large enough to notice and small enough to approve under local discretion. Someone you trust says this is normal here. Someone else you trust says it is not.",
@@ -213,6 +221,7 @@ export const COST_OF_WINNING: CaseConfig = {
     // ─── Scene 2 branches ──────────────────────────────────────────────
     s2_door_closed: {
       id: "s2_door_closed",
+      script: SCRIPTS.s2_door_closed,
       depth: 2,
       title: "The Invoice",
       timeLabel: "Nine days later — the door closed behind you",
@@ -235,6 +244,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: false,
           next: "s3_clean_file",
           consequence: {
+            story: STORIES["s2_door_closed/stop_disclose"],
             headline: "Four months later",
             narrative:
               "You put the first decision on the record. The board backed a clean file. Meridian is the preferred technical interlocutor in Ardania. A trade journal is preparing a piece on how GIS 'walked away from the corridor.' Regulators have asked for documents — your file is complete. The headline is not.",
@@ -253,6 +263,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
+            story: STORIES["s2_door_closed/contain"],
             headline: "Four months later",
             narrative:
               "The second partner is on the books as 'market intelligence.' Emails stop mid-thread. A journalist has a draft alleging GIS used a cut-out after refusing Salim. Regulators want documents. There is a gap where the first decision should be explained.",
@@ -271,6 +282,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_managed",
           consequence: {
+            story: STORIES["s2_door_closed/keep_going"],
             headline: "Four months later",
             narrative:
               "Marcus kept the corridor warm. A ministry aide now returns calls. Journalists have the story; regulators want papers. An executive offers to 'help the file make sense' before the production deadline.",
@@ -287,6 +299,7 @@ export const COST_OF_WINNING: CaseConfig = {
 
     s2_invoice_diligence: {
       id: "s2_invoice_diligence",
+      script: SCRIPTS.s2_invoice_diligence,
       depth: 2,
       title: "The Invoice",
       timeLabel: "Six weeks later — diligence still open",
@@ -309,6 +322,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: false,
           next: "s3_clean_file",
           consequence: {
+            story: STORIES["s2_invoice_diligence/stop_disclose"],
             headline: "Three months later",
             narrative:
               "You froze the invoice and briefed Audit. Salim's competitor track went quiet. A reporter has a story on GIS 'hesitating' on Ardania while Meridian advances. Regulators have opened a routine inquiry. Your file shows the hold — and the unfinished diligence.",
@@ -327,6 +341,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
+            story: STORIES["s2_invoice_diligence/contain"],
             headline: "Three months later",
             narrative:
               "The invoice cleared under a vendor code that does not name Salim. Diligence memos stop updating. Journalists have a partial ledger. Regulators want the missing reviews. There is a gap between what the board was told and what the books show.",
@@ -345,6 +360,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_managed",
           consequence: {
+            story: STORIES["s2_invoice_diligence/keep_going"],
             headline: "Three months later",
             narrative:
               "The invoice is paid. More follow. The corridor is warmer. Journalists and regulators arrive together. An executive offers to reconstruct the diligence narrative so the file 'reads cleanly.'",
@@ -361,6 +377,7 @@ export const COST_OF_WINNING: CaseConfig = {
 
     s2_invoice_authorised: {
       id: "s2_invoice_authorised",
+      script: SCRIPTS.s2_invoice_authorised,
       depth: 2,
       title: "The Invoice",
       timeLabel: "Five weeks later — Salim is on the file",
@@ -383,6 +400,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: false,
           next: "s3_gap_record",
           consequence: {
+            story: STORIES["s2_invoice_authorised/stop_disclose"],
             headline: "Three months later",
             narrative:
               "You cut the payments and told the board what the first decision had already set in motion. Salim is gone. The file shows a retainer, an invoice, and a stop. Journalists have both. Regulators want everything. There is a gap between 'authorised to negotiate' and what the invoices claim.",
@@ -401,6 +419,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
+            story: STORIES["s2_invoice_authorised/contain"],
             headline: "Three months later",
             narrative:
               "Descriptions get shorter. Approvals get faster. A journalist has a bank trail that does not match the board summary. Regulators ask for the missing diligence. The gap is now the story.",
@@ -419,6 +438,7 @@ export const COST_OF_WINNING: CaseConfig = {
           isCompromise: true,
           next: "s3_managed",
           consequence: {
+            story: STORIES["s2_invoice_authorised/keep_going"],
             headline: "Three months later",
             narrative:
               "Local leadership owns the file. The corridor moves. Then the call comes: journalists, regulators, a production deadline. An executive offers to help the record 'make sense' before anyone else reads it.",
@@ -436,6 +456,7 @@ export const COST_OF_WINNING: CaseConfig = {
     // ─── Scene 3 endings (re-converged) ────────────────────────────────
     s3_clean_file: {
       id: "s3_clean_file",
+      script: SCRIPTS.s3_clean_file,
       depth: 3,
       title: "The Call",
       timeLabel: "Months later — clean file, ugly headline",
@@ -477,6 +498,7 @@ export const COST_OF_WINNING: CaseConfig = {
 
     s3_gap_record: {
       id: "s3_gap_record",
+      script: SCRIPTS.s3_gap_record,
       depth: 3,
       title: "The Call",
       timeLabel: "Months later — a gap in the record",
@@ -518,6 +540,7 @@ export const COST_OF_WINNING: CaseConfig = {
 
     s3_managed: {
       id: "s3_managed",
+      script: SCRIPTS.s3_managed,
       depth: 3,
       title: "The Call",
       timeLabel: "Months later — the bill arrives",

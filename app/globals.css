@@ -216,6 +216,10 @@
     animation: chat-rise 0.35s ease-out both;
   }
 
+  body.immersive-decisions > header {
+    display: none;
+  }
+
   .chat-thread {
     background-color: color-mix(in srgb, var(--surface) 55%, var(--background));
     background-image:
@@ -354,6 +358,276 @@
     }
     .tcw-mark-animate .tcw-q4 {
       opacity: 1;
+    }
+  }
+
+  /* Solo stage — phone, call and notification motion */
+  @keyframes stage-buzz {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    10%, 30%, 50%, 70% { transform: translateX(-3px) rotate(-1.2deg); }
+    20%, 40%, 60%, 80% { transform: translateX(3px) rotate(1.2deg); }
+  }
+  @keyframes stage-ring-cycle {
+    0%, 2% { transform: translateX(0) rotate(0); }
+    4%, 8%, 12%, 24%, 28%, 32% { transform: translateX(-3px) rotate(-1.4deg); }
+    6%, 10%, 14%, 26%, 30%, 34% { transform: translateX(3px) rotate(1.4deg); }
+    16%, 22%, 36%, 100% { transform: translateX(0) rotate(0); }
+  }
+  @keyframes stage-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+    100% { box-shadow: 0 0 0 38px rgba(255, 255, 255, 0); }
+  }
+  @keyframes stage-drop {
+    from { opacity: 0; transform: translateY(-18px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes stage-slide {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes stage-bar {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1.2); }
+  }
+  @keyframes stage-accept {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  .stage-phone-buzz { animation: stage-buzz 0.6s ease-in-out 0.15s 1; }
+  .stage-phone-ring { animation: stage-ring-cycle 3s linear infinite; }
+  .stage-ring-pulse { animation: stage-pulse 1.5s ease-out infinite; }
+  .stage-notification { animation: stage-drop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.1s both; }
+  .stage-slide-in { animation: stage-slide 0.45s ease-out both; }
+  .stage-bar { animation: stage-bar 0.7s ease-in-out infinite; transform-origin: bottom; }
+  .stage-accept { animation: stage-accept 1.2s ease-in-out infinite; }
+
+  /* Desk */
+  @keyframes desk-paper-in {
+    from { opacity: 0; transform: translateY(-160%) rotate(calc(var(--r) - 18deg)); }
+    to { opacity: 1; transform: translateY(0) rotate(var(--r)); }
+  }
+  @keyframes desk-steam {
+    0% { opacity: 0; transform: translateY(6px) scaleY(0.6); }
+    40% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateY(-18px) scaleY(1.3) translateX(3px); }
+  }
+  @keyframes desk-lift {
+    from { opacity: 0; transform: translateY(40px) scale(0.86) rotate(-2deg); }
+    to { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+  }
+  .desk-paper { transform: rotate(var(--r)); animation: desk-paper-in 0.7s cubic-bezier(0.2, 0.8, 0.25, 1) both; }
+  .desk-steam { animation: desk-steam 2.4s ease-out infinite; }
+  .desk-lift { animation: desk-lift 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+
+  /* Call */
+  @keyframes call-breathe {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.012); }
+  }
+  @keyframes call-talk {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    25% { transform: translateY(-1.5px) rotate(-0.6deg); }
+    75% { transform: translateY(0.5px) rotate(0.5deg); }
+  }
+  @keyframes call-pop {
+    from { opacity: 0; transform: translateY(14px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .call-breathe { transform-origin: 50% 100%; animation: call-breathe 4s ease-in-out infinite; }
+  .call-talk { transform-origin: 50% 100%; animation: call-talk 0.9s ease-in-out infinite; }
+  .call-toast { animation: call-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+  .call-chat-in { animation: call-pop 0.3s ease-out both; }
+
+  /* Immersive replay */
+  @keyframes vr-twinkle {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.9; }
+  }
+  @keyframes vr-floor {
+    from { background-position: 0 0; }
+    to { background-position: 0 70px; }
+  }
+  @keyframes vr-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  @keyframes vr-tunnel {
+    from { transform: rotate(0) scale(0.6); }
+    to { transform: rotate(40deg) scale(2.2); }
+  }
+  @keyframes vr-warp-out {
+    0%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .vr-twinkle { animation: vr-twinkle 3.5s ease-in-out infinite; }
+  .vr-floor { animation: vr-floor 2.2s linear infinite; }
+  .vr-float { animation: vr-float 6s ease-in-out infinite; }
+  .vr-tunnel { animation: vr-tunnel 1.6s cubic-bezier(0.5, 0, 0.75, 0) both; }
+  .vr-warp { animation: vr-warp-out 1.6s ease-in both; }
+
+  /* Consequence film */
+  @keyframes film-prop-in {
+    0% { opacity: 0; transform: translateY(30px) scale(0.94); }
+    12% { opacity: 1; }
+    100% { opacity: 1; transform: translateY(0) scale(1.05); }
+  }
+  @keyframes film-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .film-prop { animation: film-prop-in 9s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .film-title { animation: film-fade 1.2s ease-out both; }
+  .film-caption { animation: film-fade 0.8s ease-out 0.2s both; }
+  @media (prefers-reduced-motion: reduce) {
+    .film-prop, .film-title, .film-caption { animation: none; }
+  }
+
+  /* Invoice */
+  @keyframes invoice-in {
+    from { opacity: 0; transform: translateY(60px) rotate(3deg) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) rotate(-0.6deg) scale(1); }
+  }
+  @keyframes invoice-stamp {
+    0% { opacity: 0; transform: rotate(-14deg) scale(2.2); }
+    60% { opacity: 0.85; transform: rotate(-14deg) scale(0.95); }
+    100% { opacity: 0.8; transform: rotate(-14deg) scale(1); }
+  }
+  @keyframes invoice-sticky {
+    from { opacity: 0; transform: rotate(18deg) translate(40px, -30px); }
+    to { opacity: 1; transform: rotate(5deg) translate(0, 0); }
+  }
+  .invoice-in { animation: invoice-in 0.7s cubic-bezier(0.2, 0.8, 0.25, 1) both; }
+  .invoice-stamp { animation: invoice-stamp 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) 0.9s both; }
+  .invoice-sticky { animation: invoice-sticky 0.5s ease-out 1.5s both; }
+  @media (prefers-reduced-motion: reduce) {
+    .invoice-in, .invoice-stamp, .invoice-sticky { animation: none; }
+  }
+
+  /* Consequence story frames */
+  .story-stage svg * { transform-box: fill-box; transform-origin: center; }
+  @keyframes story-push { from { transform: scale(1); } to { transform: scale(1.06); } }
+  @keyframes story-stamp {
+    0% { opacity: 0; transform: scale(2.4) rotate(8deg); }
+    55% { opacity: 1; transform: scale(0.94); }
+    70% { transform: scale(1.04); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes story-spin-in {
+    from { opacity: 0; transform: rotate(-200deg) scale(0.2); }
+    to { opacity: 1; transform: rotate(0) scale(1); }
+  }
+  @keyframes story-flashbulb {
+    0%, 30%, 100% { opacity: 0.05; transform: scale(1); }
+    35% { opacity: 0.9; transform: scale(2.2); }
+    50% { opacity: 0.1; }
+  }
+  @keyframes story-slide-up {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes story-left-in {
+    from { opacity: 0; transform: translateX(-40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes story-right-in {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes story-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+  @keyframes story-flash {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+  @keyframes story-walk-away {
+    from { transform: translateX(-40px) scale(1.1); opacity: 1; }
+    to { transform: translateX(30px) scale(0.7); opacity: 0.45; }
+  }
+  @keyframes story-swing {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+  }
+  @keyframes story-door {
+    from { transform: perspective(300px) rotateY(-70deg); }
+    to { transform: perspective(300px) rotateY(0); }
+  }
+  @keyframes story-sand { to { stroke-dashoffset: -12; } }
+  @keyframes story-dash { to { stroke-dashoffset: -16; } }
+  @keyframes story-strike {
+    from { stroke-dasharray: 0 80; }
+    to { stroke-dasharray: 80 0; }
+  }
+  @keyframes story-write {
+    from { stroke-dashoffset: 70; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes story-pen {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-18px, 14px); }
+  }
+  .story-live .story-door { transform-origin: left center !important; animation: story-door 1.4s cubic-bezier(0.5, 0, 0.2, 1) 0.4s both; }
+  .story-sand { animation: story-sand 0.8s linear infinite; }
+  .story-dash { animation: story-dash 1.2s linear infinite; }
+  .story-live .story-strike { animation: story-strike 0.8s ease-out 0.3s both; }
+  .story-live .story-write { animation: story-write 1.4s ease-out 0.9s both; }
+  .story-pen { animation: story-pen 2.4s ease-in-out infinite; }
+  .story-live { animation: story-push 9s ease-out both; }
+  .story-live .story-stamp { animation: story-stamp 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) 0.5s both; }
+  .story-live .story-spin-in { animation: story-spin-in 0.9s cubic-bezier(0.2, 0.9, 0.3, 1) 0.2s both; }
+  .story-live .story-flashbulb { animation: story-flashbulb 2.8s ease-out 1s infinite; }
+  .story-live .story-slide-up { animation: story-slide-up 0.8s ease-out 0.2s both; }
+  .story-live .story-left-in { animation: story-left-in 1s ease-out 0.2s both; }
+  .story-live .story-right-in { animation: story-right-in 1s ease-out 0.2s both; }
+  .story-live .story-walk-away { animation: story-walk-away 4s ease-in-out 0.4s both; }
+  .story-blink { animation: story-blink 1.6s ease-in-out infinite; }
+  .story-flash { animation: story-flash 1.4s ease-in-out infinite; }
+  .story-swing { transform-origin: top !important; animation: story-swing 3s ease-in-out infinite; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .story-live,
+    .story-live .story-stamp,
+    .story-live .story-spin-in,
+    .story-live .story-flashbulb,
+    .story-live .story-slide-up,
+    .story-live .story-left-in,
+    .story-live .story-right-in,
+    .story-live .story-walk-away,
+    .story-blink,
+    .story-flash,
+    .story-swing,
+    .story-live .story-door,
+    .story-sand,
+    .story-dash,
+    .story-live .story-strike,
+    .story-live .story-write,
+    .story-pen {
+      animation: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .desk-paper,
+    .desk-steam,
+    .desk-lift,
+    .call-breathe,
+    .call-talk,
+    .call-toast,
+    .call-chat-in,
+    .vr-twinkle,
+    .vr-floor,
+    .vr-float,
+    .vr-tunnel,
+    .vr-warp {
+      animation: none;
+    }
+    .stage-phone-buzz,
+    .stage-phone-ring,
+    .stage-ring-pulse,
+    .stage-notification,
+    .stage-slide-in,
+    .stage-bar,
+    .stage-accept {
+      animation: none;
     }
   }
 }

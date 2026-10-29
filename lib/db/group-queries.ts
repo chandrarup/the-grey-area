@@ -17,6 +17,7 @@ import { SEAT_ORDER, type SeatKey } from "@/lib/case/group-roles";
 import { getCase } from "@/lib/case/registry";
 import {
   isSessionExpired,
+  MEETING_TTL_SECONDS,
   SESSION_TTL_SECONDS,
   shouldAutoExpire,
 } from "@/lib/group-session-lifetime";
@@ -69,7 +70,10 @@ export async function createGroupSession(params: {
           code: randomCode(),
           displayName: params.displayName?.trim() || null,
           caseSlug: params.caseSlug,
-          decisionCount: Math.min(5, Math.max(1, params.decisionCount)),
+          decisionCount: Math.min(
+            caseConfig.maxDepth,
+            Math.max(1, params.decisionCount),
+          ),
           currentSceneId: caseConfig.startScene,
           status: "lobby",
           createdBy: params.createdBy.id,
@@ -522,7 +526,7 @@ export async function deleteExpiredGroupSessions(profile: Profile): Promise<numb
 
 export function assertSessionPlayable(session: GroupSession) {
   if (session.status === "expired" || isSessionExpired(session)) {
-    throw new Error("This session has expired (30-minute limit). Ask the professor for a new link.");
+    throw new Error("This session has expired. Ask the professor for a new link.");
   }
 }
 
@@ -686,16 +690,40 @@ export async function startGroupSession(
       ? session.currentSceneId
       : startScene;
 
+  const startedAt = new Date();
   const [updated] = await db
     .update(groupSessions)
     .set({
       status: "active",
-      startedAt: new Date(),
+      startedAt,
       currentSceneId: sceneOk,
+      clockSeconds: MEETING_TTL_SECONDS,
+      expiresAt: new Date(startedAt.getTime() + MEETING_TTL_SECONDS * 1000),
     })
-    .where(eq(groupSessions.id, sessionId))
+    .where(and(eq(groupSessions.id, sessionId), eq(groupSessions.status, "lobby")))
     .returning();
+  if (!updated) return (await getGroupSession(sessionId)) ?? session;
+  await postSceneOpening(sessionId, session.caseSlug, sceneOk);
   return updated;
+}
+
+/** The scene's authored opening line, posted once when the group enters the scene. */
+async function postSceneOpening(
+  sessionId: string,
+  caseSlug: string,
+  sceneId: string,
+) {
+  const scene = getCase(caseSlug).scenes[sceneId];
+  if (!scene) return;
+  const existing = await getGroupMessages(sessionId, sceneId);
+  if (existing.length > 0) return;
+  await appendGroupMessage(
+    sessionId,
+    sceneId,
+    scene.opening.castId,
+    "script",
+    scene.opening.text,
+  );
 }
 
 /** Fix active sessions whose current_scene_id no longer exists in case config. */
@@ -713,7 +741,7 @@ export async function appendGroupMessage(
   sessionId: string,
   sceneId: string,
   roleKey: string,
-  senderKind: "human" | "ai" | "narrator",
+  senderKind: "human" | "ai" | "narrator" | "script",
   content: string,
 ) {
   const [row] = await db
@@ -810,6 +838,10 @@ export async function commitGroupDecision(params: {
       endedAt: terminal ? new Date() : null,
     })
     .where(eq(groupSessions.id, params.sessionId));
+
+  if (!terminal && params.nextSceneId) {
+    await postSceneOpening(params.sessionId, session.caseSlug, params.nextSceneId);
+  }
 
   return decision;
 }

@@ -36,16 +36,16 @@ export function CreateSessionForm({
     >
       <h2 className="text-sm font-medium text-foreground">New session</h2>
       <label className="mt-4 block text-xs uppercase tracking-wide text-muted-foreground">
-        How many decisions? (1–5)
+        How many decisions? (1–3)
       </label>
       <p className="mt-1 text-xs text-muted-foreground">
-        1 = the emergency meeting (~30 min). 5 = the full arc.
+        1 = the first meeting only. 3 = the full arc, with consequences between decisions.
       </p>
       <input
         name="decisionCount"
         type="number"
         min={1}
-        max={5}
+        max={3}
         defaultValue={3}
         className="mt-2 block w-24 border border-border bg-background px-3 py-2 text-sm"
       />

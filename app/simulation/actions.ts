@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/queries";
 import { getCase, getOption, getScene } from "@/lib/case/registry";
 import { gradeRun } from "@/lib/engine/grader";
+import { getModelPrefs } from "@/lib/model-prefs";
 import type { RunStageData } from "@/lib/db/schema";
 import { nextStageIndexAfter } from "@/lib/simulation/progress";
 
@@ -92,6 +93,7 @@ export async function saveReflections(runId: string, reflections: string[]) {
     decisions: await getDecisions(profile, runId),
     messages: await getMessages(profile, runId),
     reflections,
+    model: (await getModelPrefs()).graderModel,
   });
   revalidatePath("/simulation/debrief");
 }
@@ -160,7 +162,8 @@ export async function commitSceneDecision(input: {
     isCompromise: option.isCompromise,
   });
 
-  revalidatePath("/simulation/decisions");
+  // No revalidatePath: it would remount the next scene before the
+  // consequence plays. The player calls router.refresh() when it ends.
   return {
     decision,
     nextSceneId,
