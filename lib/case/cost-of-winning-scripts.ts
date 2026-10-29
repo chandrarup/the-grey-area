@@ -113,6 +113,60 @@ export const COST_OF_WINNING_STORIES: Record<string, StoryFrame[]> = {
     { art: "press", text: "Then the call comes: journalists, regulators, a production deadline." },
     { art: "pen", text: "An executive offers to help the record 'make sense' before anyone else reads it." },
   ],
+  "s3_clean_file/full_coop": [
+    { art: "regulator", text: "You produce the complete file and flag every open question in the cover note." },
+    { art: "board", text: "The board stands by the process. Audit calls the record careful." },
+    { art: "press", text: "The press still frames GIS as late to Ardania while Meridian advances." },
+    { art: "distant", text: "Jobs and pipeline questions remain — owned, not invented." },
+  ],
+  "s3_clean_file/narrow_coop": [
+    { art: "pen", text: "You answer what was asked. The rest stays inside the building." },
+    { art: "regulator", text: "A second request arrives — broader, with a forensic hold." },
+    { art: "board", text: "Directors ask what else never left the room." },
+    { art: "press", text: "Journalists fill the gaps the production left blank." },
+  ],
+  "s3_clean_file/managed": [
+    { art: "pen", text: "The production set is limited. Communications brief the narrative first." },
+    { art: "gap", text: "Documents conflict with what the cover letter implies." },
+    { art: "regulator", text: "Regulators ask for the withheld set by name." },
+    { art: "press", text: "A loyal executive's memo becomes its own exhibit." },
+  ],
+  "s3_gap_record/full_coop": [
+    { art: "board", text: "You produce everything that exists — including where the file stops." },
+    { art: "regulator", text: "Self-report opens a formal inquiry." },
+    { art: "gap", text: "The unfinished diligence is the story. You own it on the record." },
+    { art: "press", text: "The board forms a special committee. The corridor award is already gone." },
+  ],
+  "s3_gap_record/narrow_coop": [
+    { art: "pen", text: "Answers stay careful. Anything not requested stays back." },
+    { art: "gap", text: "The gap surfaces anyway in a bank trail and an unfinished review." },
+    { art: "regulator", text: "Production expands. Counsel can no longer narrow the ask." },
+    { art: "board", text: "Directors lose patience with partial briefings." },
+  ],
+  "s3_gap_record/managed": [
+    { art: "ledger", text: "The file is brought current before anyone outside reads it." },
+    { art: "pen", text: "On paper, the timeline looks continuous." },
+    { art: "gap", text: "Source systems do not match the finished narrative." },
+    { art: "regulator", text: "Outside counsel flags alteration risk in the first week." },
+  ],
+  "s3_managed/full_coop": [
+    { art: "regulator", text: "You produce the file as it stands and tell the board what it shows." },
+    { art: "gap", text: "Fragments go out: retainer, invoices, stops that never quite landed." },
+    { art: "board", text: "Directors back disclosure. The inquiry turns to the earlier authorisations." },
+    { art: "press", text: "The headline is messy. It is also yours." },
+  ],
+  "s3_managed/narrow_coop": [
+    { art: "pen", text: "Controlled production ships with a prepared board message." },
+    { art: "press", text: "The message holds for a news cycle." },
+    { art: "regulator", text: "Then a second demand arrives — systems imaging, not summaries." },
+    { art: "distant", text: "Local leadership goes quiet. HQ owns the next answer." },
+  ],
+  "s3_managed/managed": [
+    { art: "pen", text: "The papers are aligned before the production deadline." },
+    { art: "ledger", text: "The narrative is coherent. The ledgers underneath are not." },
+    { art: "board", text: "Half the board wants credit for clarity. Half wants to know who wrote it." },
+    { art: "press", text: "The press asks the same question out loud." },
+  ],
 };
 
 /**
@@ -151,7 +205,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
     {
       kind: "line",
       castId: "marcus",
-      text: "Thank you for moving this. We have the best technical proposal in the field — but this award will not be decided on engineering alone. Victor Salim can read the people and the obstacles behind the formal process. A competitor is already courting him. He needs a signal today. I'm not asking us to ignore compliance. I'm asking us not to close the door before we understand what we're looking at.",
+      text: "Thank you for moving this. We have the strongest engineering package on the table — but this award will not be decided on drawings alone. Victor Salim knows who actually moves the file inside the ministry. A competitor is already courting him. He needs a signal today. I'm not asking us to ignore the rules. I'm asking us not to close the door before we understand what we're looking at.",
     },
     {
       kind: "line",

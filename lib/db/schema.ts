@@ -140,6 +140,8 @@ export const groupSessions = pgTable("group_sessions", {
   decisionCount: integer("decision_count").notNull().default(3),
   currentSceneId: text("current_scene_id"),
   decisionsMade: integer("decisions_made").notNull().default(0),
+  /** Monotonic clean → compromised; flipped only by CEO isCompromise commit. */
+  integrity: text("integrity").notNull().default("clean"), // 'clean' | 'compromised'
   status: text("status").notNull().default("lobby"), // lobby|active|committed|graded|released|expired
   /** Hard-synced beat: decided|film|open|script|live (ADR 0001). */
   scenePhase: text("scene_phase").notNull().default("open"),
@@ -179,6 +181,8 @@ export const groupParticipants = pgTable(
     profileId: uuid("profile_id").references(() => profiles.id),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     isReady: boolean("is_ready").notNull().default(false),
+    /** Empathy debrief answers after the final consequence; same prompts as solo. */
+    reflections: jsonb("reflections").$type<string[]>(),
   },
   (table) => [unique("group_participants_session_role").on(table.sessionId, table.roleKey)],
 );

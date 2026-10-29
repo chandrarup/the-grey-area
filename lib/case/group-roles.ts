@@ -105,7 +105,7 @@ export const GROUP_ROLES: Record<SeatKey, GroupRoleBrief> = {
       "Thank you for making the time. I have not decided anything yet. Marcus — start with what Salim is actually offering, including the fee. Then I want each of you to tell me the one risk or opportunity the others are underweighting.",
     decisionOptions: [
       "Close the Salim channel and compete on the formal process alone",
-      "Avoid owning an engagement tonight — park with diligence and keep the conversation open",
+      "Authorize diligence in parallel; no engagement tonight",
       "Green-light Marcus to negotiate now while the window is open",
     ],
     successCondition:

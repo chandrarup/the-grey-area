@@ -25,6 +25,7 @@ import {
   evaluatePhaseTransition,
   FILM_TIMEOUT_MS,
   isScenePhase,
+  resolveIntegrityAfterCeoCommit,
   type PhaseEvent,
   type ScenePhase,
 } from "@/lib/group/meeting-runtime";
@@ -83,6 +84,7 @@ export async function createGroupSession(params: {
           ),
           currentSceneId: caseConfig.startScene,
           status: "lobby",
+          integrity: "clean",
           createdBy: params.createdBy.id,
           roleplayModel: params.roleplayModel ?? "gemini-flash",
           graderModel: params.graderModel ?? "gemini-flash",
@@ -667,6 +669,47 @@ export async function setParticipantReady(
   return updated;
 }
 
+/** Persist empathy debrief answers for one human seat after the meeting concludes. */
+export async function saveParticipantReflections(params: {
+  participantId: string;
+  sessionId: string;
+  reflections: string[];
+}): Promise<GroupParticipant> {
+  const session = await getGroupSession(params.sessionId);
+  if (!session) throw new Error("Session not found");
+  if (session.status !== "committed" && session.status !== "graded") {
+    throw new Error("Reflections open after the meeting concludes");
+  }
+
+  const [participant] = await db
+    .select()
+    .from(groupParticipants)
+    .where(eq(groupParticipants.id, params.participantId))
+    .limit(1);
+  if (!participant || participant.sessionId !== params.sessionId) {
+    throw new Error("Not your seat");
+  }
+  if (participant.isAi) {
+    throw new Error("AI seats do not submit reflections");
+  }
+  if (participant.reflections?.length) {
+    throw new Error("Reflections already submitted");
+  }
+  if (
+    params.reflections.length === 0 ||
+    params.reflections.some((a) => a.trim().length < 10)
+  ) {
+    throw new Error("Each reflection needs at least a short sentence");
+  }
+
+  const [updated] = await db
+    .update(groupParticipants)
+    .set({ reflections: params.reflections.map((a) => a.trim()) })
+    .where(eq(groupParticipants.id, params.participantId))
+    .returning();
+  return updated;
+}
+
 export async function startGroupSession(
   sessionId: string,
   opts: { force?: boolean; profile: Profile },
@@ -802,6 +845,8 @@ export async function commitGroupDecision(params: {
   decision: string;
   reasoning: string;
   nextSceneId: string | null;
+  /** Drives monotonic integrity latch (solo parity). Custom/free text → false. */
+  isCompromise: boolean;
   profile: Profile;
 }) {
   const session = await getGroupSession(params.sessionId);
@@ -839,6 +884,10 @@ export async function commitGroupDecision(params: {
   const decisionsMade = session.decisionsMade + 1;
   const terminal =
     params.nextSceneId === null || decisionsMade >= session.decisionCount;
+  const nextIntegrity = resolveIntegrityAfterCeoCommit(
+    session.integrity,
+    params.isCompromise,
+  );
 
   // Next scene opens on the decided card when a consequence film exists for
   // the option that just led here; otherwise start at open (title card).
@@ -859,6 +908,7 @@ export async function commitGroupDecision(params: {
       decisionsMade,
       currentSceneId: terminal ? null : params.nextSceneId,
       status: terminal ? "committed" : "active",
+      integrity: nextIntegrity,
       endedAt: terminal ? new Date() : null,
       scenePhase: terminal ? "live" : nextPhase,
       phaseDeadlineAt: null,

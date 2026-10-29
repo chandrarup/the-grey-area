@@ -28,6 +28,8 @@ export type GroupSessionState = {
   currentSceneId: string | null;
   decisionsMade: number;
   decisionCount: number;
+  /** Monotonic clean → compromised (ADR 0003). */
+  integrity: "clean" | "compromised";
   /** Hard-synced scene phase (ADR 0001). */
   scenePhase: string;
   /** ISO deadline for film window; null outside a timed phase. */

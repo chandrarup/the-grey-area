@@ -7,9 +7,28 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ## 2026-10-29 — Hard-synced scene phases (ticket 03)
 
-**What:** Group meeting beats are server-owned: `group_sessions.scene_phase` (+ `phase_deadline_at`, film/script seat lists). `GroupMeetingRuntime.ScenePhase` is decided → film → open → **script** → live. `POST /api/group/[code]/phase` applies events through the runtime; state poll exposes phase so seats converge after refresh. Film advances on all-watched, ~90s deadline, or CEO force; script advances on all-done or CEO force. `group-stage` no longer treats localStorage as phase authority (beat resume only). Migration `0010_hard_synced_scene_phases`.
+**What:** Group meeting beats are server-owned: `group_sessions.scene_phase` (+ `phase_deadline_at`, film/script seat lists). `GroupMeetingRuntime.ScenePhase` is decided → film → open → **script** → live. `POST /api/group/[code]/phase` applies events through the runtime; state poll exposes phase so seats converge after refresh. Film advances on all-watched, ~90s deadline, or CEO force; script advances on all-done or CEO force. `group-stage` no longer treats localStorage as phase authority (beat resume only). Migration `0012_hard_synced_scene_phases`.
 **Why:** ADR 0001 / advisor P0 — per-seat film/script localStorage desynced the room.
 **Do not undo:** Do not reintroduce localStorage as the source of truth for phase; keep transitions in `GroupMeetingRuntime` and persist via session columns.
+
+## 2026-10-29 — Decision 3 consequence film + label/quiz polish (ticket 10)
+
+**What:** Authored `consequence` + `COST_OF_WINNING_STORIES` for all `s3_*` options; solo plays the film before reflections; group plays terminal film via `TerminalConsequence` before reflections/await-release. Rewrote virtue-leaking option labels to equal-weight exec language (keys/posture/isCompromise/next unchanged); mirrored Scene 1 CEO `decisionOptions`. Removed DecisionView quiz meta and Scene 1 `commitPrefill`. Light hook jargon tighten on Marcus’s open. `validate:cases` now requires consequence on every option including terminals.
+**Why:** Training ended cold after Decision 3; labels and quiz chrome leaked “correct answer” valence.
+**Do not undo:** Keep D3 lived films before reflection/concluded; do not restore virtue-tell labels or “No option is marked right or wrong.”
+
+## 2026-10-29 — Empathy debrief parity (ticket 11)
+
+**What:** Case `reflectionQuestions` now include an explicit pressure-appeal prompt (“what pressures made the shortcut path look appealing”). Shared `ReflectionForm` UI; solo still submits then awaits release. Group participants no longer jump straight from concluded decisions to await-release — each human seat must submit the same reflection set (stored on `group_participants.reflections`, migration `0011`) before the await-release screen. Release gate unchanged; AI feedback still hidden until professor release. Optional re-grade can include seat reflections in the transcript.
+**Why:** Spec/ticket 11 + Advisor QA — empathy bridge to reality in both modes; group had skipped reflections.
+**Do not undo:** Do not skip group reflections or show assessment content before release; keep pressure-appeal wording in the shared case question set.
+
+## 2026-10-29 — Group integrity latch (ticket 04)
+
+**What:** `group_sessions.integrity` column (migration `0010`, default `clean`). CEO `commitGroupDecision` takes `isCompromise` and updates via `resolveIntegrityAfterCeoCommit` / `applyIntegrityLatch` (monotonic; never clears). Returned on `/api/group/[code]/state` and commit response. Runtime + commit-path unit tests. Ticket 04 resolved.
+**Why:** ADR 0003 — group graded debriefs and path consequences need the same integrity latch as solo; stances must never flip it.
+**Do not undo:** Do not clear integrity after compromise; do not let pressure-stance writes touch integrity; keep commit path on the runtime latch helpers.
+
 
 ## 2026-10-29 — Briefing pager crash on fast Next clicks
 

@@ -77,6 +77,7 @@ export async function POST(
     let optionKey = body.optionKey?.trim() || "custom";
     let decisionLabel = body.customText?.trim() || "";
     let nextSceneId: string | null = null;
+    let isCompromise = false;
     let consequence: {
       headline: string;
       narrative: string;
@@ -91,6 +92,7 @@ export async function POST(
       optionKey = option.key;
       decisionLabel = option.label;
       nextSceneId = option.next;
+      isCompromise = option.isCompromise;
       consequence = option.consequence ?? null;
     } else {
       if (!decisionLabel) {
@@ -109,6 +111,7 @@ export async function POST(
       decision: decisionLabel,
       reasoning,
       nextSceneId,
+      isCompromise,
       profile,
     });
 
@@ -161,6 +164,7 @@ export async function POST(
       status: finalSession?.status,
       currentSceneId: finalSession?.currentSceneId,
       decisionsMade: finalSession?.decisionsMade,
+      integrity: finalSession?.integrity ?? "clean",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Commit failed";

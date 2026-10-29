@@ -10,6 +10,7 @@ import {
   evaluateStanceReadiness,
   evaluateCeoCommitGate,
   applyIntegrityLatch,
+  resolveIntegrityAfterCeoCommit,
   FILM_TIMEOUT_MS,
   HUMAN_MESSAGE_GATE,
   type ScenePhase,
@@ -300,4 +301,73 @@ describe("applyIntegrityLatch", () => {
       );
     });
   }
+});
+
+/**
+ * Commit-path smoke (no DB): mirrors how commitGroupDecision resolves latch
+ * from persisted session.integrity + option.isCompromise. Stances never call this.
+ */
+describe("resolveIntegrityAfterCeoCommit (commit path)", () => {
+  const cases: {
+    name: string;
+    sessionIntegrity: string | null | undefined;
+    isCompromise: boolean;
+    expected: Integrity;
+  }[] = [
+    {
+      name: "new session null integrity + non-compromise stays clean",
+      sessionIntegrity: null,
+      isCompromise: false,
+      expected: "clean",
+    },
+    {
+      name: "undefined integrity + compromise latches",
+      sessionIntegrity: undefined,
+      isCompromise: true,
+      expected: "compromised",
+    },
+    {
+      name: "clean + compromise latches",
+      sessionIntegrity: "clean",
+      isCompromise: true,
+      expected: "compromised",
+    },
+    {
+      name: "clean + non-compromise stays clean",
+      sessionIntegrity: "clean",
+      isCompromise: false,
+      expected: "clean",
+    },
+    {
+      name: "compromised + non-compromise cannot restore clean",
+      sessionIntegrity: "compromised",
+      isCompromise: false,
+      expected: "compromised",
+    },
+    {
+      name: "junk persisted value treated as clean until compromise",
+      sessionIntegrity: "unknown",
+      isCompromise: false,
+      expected: "clean",
+    },
+  ];
+
+  for (const c of cases) {
+    test(c.name, () => {
+      assert.equal(
+        resolveIntegrityAfterCeoCommit(c.sessionIntegrity, c.isCompromise),
+        c.expected,
+      );
+    });
+  }
+
+  test("stance-shaped input is not a latch API (commit uses isCompromise only)", () => {
+    // Pressure stances must never call resolveIntegrityAfterCeoCommit.
+    // Documented contract: only CEO commit path passes isCompromise.
+    const afterStanceWouldHaveBeen = resolveIntegrityAfterCeoCommit(
+      "clean",
+      false,
+    );
+    assert.equal(afterStanceWouldHaveBeen, "clean");
+  });
 });

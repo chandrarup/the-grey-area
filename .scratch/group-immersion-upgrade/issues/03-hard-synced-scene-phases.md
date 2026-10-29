@@ -23,7 +23,7 @@ See `.scratch/group-immersion-upgrade/advisor-realism-review.md` and `scene-walk
 
 Hard-sync is live on the session:
 
-- Schema: `scene_phase`, `phase_deadline_at`, `film_watched_seat_ids`, `script_done_seat_ids` (+ migration `0010`).
+- Schema: `scene_phase`, `phase_deadline_at`, `film_watched_seat_ids`, `script_done_seat_ids` (+ migration `0012`).
 - Runtime: `ScenePhase` includes `script`; film/script all-ready + timeout/CEO force rules covered by unit tests.
 - API: `POST /api/group/[code]/phase`; `GET .../state` returns phase fields; commit/start reset phase for the next scene.
 - UI: `group-stage` renders server phase via poll; localStorage is beat-resume only, not phase authority.

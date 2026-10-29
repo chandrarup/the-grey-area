@@ -34,6 +34,8 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const integrity =
+    state.session.integrity === "compromised" ? "compromised" : "clean";
   const filmWatched = Array.isArray(state.session.filmWatchedSeatIds)
     ? state.session.filmWatchedSeatIds.filter(
         (v): v is string => typeof v === "string",
@@ -52,6 +54,7 @@ export async function GET(
     currentSceneId: state.session.currentSceneId,
     decisionsMade: state.session.decisionsMade,
     decisionCount: state.session.decisionCount,
+    integrity,
     scenePhase: state.session.scenePhase ?? "open",
     phaseDeadlineAt: state.session.phaseDeadlineAt
       ? state.session.phaseDeadlineAt.toISOString()

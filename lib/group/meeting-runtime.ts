@@ -207,12 +207,26 @@ export function applyIntegrityLatch(
   return "clean";
 }
 
+/**
+ * Commit-path helper: normalize persisted session integrity, then latch.
+ * Only CEO commits call this — never pressure stances.
+ */
+export function resolveIntegrityAfterCeoCommit(
+  sessionIntegrity: string | null | undefined,
+  isCompromise: boolean,
+): Integrity {
+  const current: Integrity =
+    sessionIntegrity === "compromised" ? "compromised" : "clean";
+  return applyIntegrityLatch(current, { isCompromise });
+}
+
 /** Named seam export for later API/UI wiring. */
 export const GroupMeetingRuntime = {
   evaluatePhaseTransition,
   evaluateStanceReadiness,
   evaluateCeoCommitGate,
   applyIntegrityLatch,
+  resolveIntegrityAfterCeoCommit,
   isScenePhase,
   FILM_TIMEOUT_MS,
   HUMAN_MESSAGE_GATE,
