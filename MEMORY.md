@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Ticket 09: Compliant / Shortcut / Bystander option framing
+
+**What:** Remapped case `Posture` to `compliant | shortcut | bystander`. Every Cost of Winning checkpoint now exposes one of each; option keys/branching/`isCompromise` kept coherent (Compliant never compromises; Shortcut always; Bystander from Scene 2 onward). User-facing option labels and CEO group `decisionOptions` rewritten as corporate-pressure grey-area copy (no steal-vs-good). `validate:cases` requires the three-posture set per scene.
+**Why:** Spec/ticket 09 — learners should face plausible corporate pressures, not cartoon moral binaries.
+**Do not undo:** Do not restore restrictive/cautious/permissive postures or “Refuse / Full cooperation / Authorise” virtue-signal labels; keep keys and integrity latch behaviour.
+
 ## 2026-10-29 — Three-decision copy + DB defaults (ticket 12)
 
 **What:** Replaced stale “five decisions” solo UI strings (leadership team, values, decisions complete, debrief gate) with three. Set `group_sessions` / `group_batches.decision_count` Drizzle defaults to 3 and added migration `0009_decision_count_default_3`. Professor create/batch forms were already 1–3 / default 3.

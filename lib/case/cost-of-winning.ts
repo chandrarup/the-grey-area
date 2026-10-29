@@ -7,7 +7,10 @@ import {
 /**
  * The Cost of Winning — three escalating decisions.
  * Structure: 1 start + 3 Scene-2 branches + 3 Scene-3 endings (re-converged).
- * Integrity latch: first isCompromise option flips the run permanently.
+ * Each checkpoint exposes Compliant / Shortcut / Bystander grey-area options
+ * (keys + branching unchanged; labels are corporate-pressure framing).
+ * Integrity latch: first isCompromise option flips the run permanently
+ * (Shortcut always; Bystander often; Compliant never).
  */
 export const COST_OF_WINNING: CaseConfig = {
   slug: "cost-of-winning",
@@ -147,8 +150,9 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "refuse",
-          label: "Refuse further discussions with Salim",
-          posture: "restrictive",
+          label:
+            "Close the Salim channel and compete on the formal process alone",
+          posture: "compliant",
           isCompromise: false,
           next: "s2_door_closed",
           consequence: {
@@ -171,8 +175,8 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "conditions",
           label:
-            "Engage with hard conditions — diligence first, no commitment until review clears",
-          posture: "cautious",
+            "Avoid owning an engagement tonight — park with diligence and keep the conversation open",
+          posture: "bystander",
           isCompromise: false,
           next: "s2_invoice_diligence",
           consequence: {
@@ -194,8 +198,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "authorise",
-          label: "Authorise Marcus to negotiate and move fast",
-          posture: "permissive",
+          label:
+            "Green-light Marcus to negotiate now while the window is open",
+          posture: "shortcut",
           isCompromise: true,
           next: "s2_invoice_authorised",
           consequence: {
@@ -239,8 +244,9 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "stop_disclose",
-          label: "Stop outreach and disclose the Salim decision to the board",
-          posture: "restrictive",
+          label:
+            "Stop the new outreach and put the first Salim call on the board record",
+          posture: "compliant",
           isCompromise: false,
           next: "s3_clean_file",
           consequence: {
@@ -258,8 +264,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "contain",
-          label: "Contain quietly — reopen through Marcus's partner, keep it off the board pack",
-          posture: "cautious",
+          label:
+            "Stay quiet with the board — reopen through Marcus's partner off the pack",
+          posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
@@ -277,8 +284,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "keep_going",
-          label: "Keep going — let Marcus run the channel; you will not micromanage Ardania",
-          posture: "permissive",
+          label:
+            "Keep the corridor warm — let Marcus run the local channel without HQ micromanaging",
+          posture: "shortcut",
           isCompromise: true,
           next: "s3_managed",
           consequence: {
@@ -317,8 +325,9 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "stop_disclose",
-          label: "Stop, hold the invoice, and disclose the gap to Audit and the board",
-          posture: "restrictive",
+          label:
+            "Hold the invoice and brief Audit and the board on the gap",
+          posture: "compliant",
           isCompromise: false,
           next: "s3_clean_file",
           consequence: {
@@ -336,8 +345,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "contain",
-          label: "Contain quietly — pay under a capped local vendor code, keep diligence 'in progress'",
-          posture: "cautious",
+          label:
+            "Stay off the record — clear it under a capped local code while diligence stays 'in progress'",
+          posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
@@ -355,8 +365,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "keep_going",
-          label: "Keep going — clear the invoice and let Marcus handle local partners",
-          posture: "permissive",
+          label:
+            "Clear the invoice and leave local partners to Marcus",
+          posture: "shortcut",
           isCompromise: true,
           next: "s3_managed",
           consequence: {
@@ -395,8 +406,9 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "stop_disclose",
-          label: "Stop payments and disclose the engagement and invoice to the board",
-          posture: "restrictive",
+          label:
+            "Cut the payments and put the engagement and invoice on the board agenda",
+          posture: "compliant",
           isCompromise: false,
           next: "s3_gap_record",
           consequence: {
@@ -414,8 +426,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "contain",
-          label: "Contain quietly — pay, narrow the description, keep the board at 'routine advisory'",
-          posture: "cautious",
+          label:
+            "Pay, shorten the description, and keep the board at 'routine advisory'",
+          posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
           consequence: {
@@ -433,8 +446,9 @@ export const COST_OF_WINNING: CaseConfig = {
         },
         {
           key: "keep_going",
-          label: "Keep going — clear it and let local leadership own the paperwork",
-          posture: "permissive",
+          label:
+            "Clear it and let local leadership own the paperwork",
+          posture: "shortcut",
           isCompromise: true,
           next: "s3_managed",
           consequence: {
@@ -474,22 +488,25 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "full_coop",
-          label: "Full cooperation — produce the file and self-report any open questions",
-          posture: "restrictive",
+          label:
+            "Produce the complete file and flag any open questions yourself",
+          posture: "compliant",
           isCompromise: false,
           next: null,
         },
         {
           key: "narrow_coop",
-          label: "Cooperate narrowly — answer what is asked, manage the story tightly",
-          posture: "cautious",
+          label:
+            "Answer what is asked — keep the rest of the story inside the building",
+          posture: "bystander",
           isCompromise: true,
           next: null,
         },
         {
           key: "managed",
-          label: "Let the narrative be managed — keep production minimal and controlled",
-          posture: "permissive",
+          label:
+            "Limit production and let the narrative be shaped before it leaves",
+          posture: "shortcut",
           isCompromise: true,
           next: null,
         },
@@ -516,22 +533,25 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "full_coop",
-          label: "Full cooperation — disclose the gap, produce everything, self-report",
-          posture: "restrictive",
+          label:
+            "Disclose the gap, produce everything, and self-report",
+          posture: "compliant",
           isCompromise: false,
           next: null,
         },
         {
           key: "narrow_coop",
-          label: "Cooperate narrowly — answer carefully, limit what leaves the building",
-          posture: "cautious",
+          label:
+            "Answer carefully and limit what leaves the building",
+          posture: "bystander",
           isCompromise: true,
           next: null,
         },
         {
           key: "managed",
-          label: "Let it be managed — allow the file to be reconstructed before production",
-          posture: "permissive",
+          label:
+            "Allow the file to be reconstructed before anyone else reads it",
+          posture: "shortcut",
           isCompromise: true,
           next: null,
         },
@@ -558,22 +578,25 @@ export const COST_OF_WINNING: CaseConfig = {
       options: [
         {
           key: "full_coop",
-          label: "Full cooperation — no reconstruction; produce the file as it is and self-report",
-          posture: "restrictive",
+          label:
+            "Produce the file as it stands — no reconstruction — and self-report",
+          posture: "compliant",
           isCompromise: false,
           next: null,
         },
         {
           key: "narrow_coop",
-          label: "Cooperate narrowly — controlled production, careful messaging",
-          posture: "cautious",
+          label:
+            "Controlled production with careful messaging",
+          posture: "bystander",
           isCompromise: true,
           next: null,
         },
         {
           key: "managed",
-          label: "Let it be managed for you — allow the file to be made coherent first",
-          posture: "permissive",
+          label:
+            "Allow the file to be made coherent before production",
+          posture: "shortcut",
           isCompromise: true,
           next: null,
         },
