@@ -3,7 +3,12 @@
  * which bones a clip may drive so standing mocap never tips a seated body.
  */
 
+import type { StageMood } from "@/lib/case/types";
+
 export type AvatarAction = "write" | "lean" | "phone" | "nod" | "shake" | "lookDown" | null;
+
+/** Face / talk-pressure mood (blendshapes + talkNervous / talkAssured). */
+export type AvatarMood = "neutral" | "tense" | "warm" | "guarded";
 
 /** Boardroom behaviour intents — only the acts a meeting needs. */
 export type AvatarIntent =
@@ -117,4 +122,43 @@ export function clipsForIntent(intent: AvatarIntent, talkPool: string[]): string
     case "lookDown":
       return [];
   }
+}
+
+/**
+ * Prefer talkNervous / talkAssured from face mood so speak overlays match
+ * boardroom pressure (night / tense → nervous; warm → assured).
+ */
+export function talkClipsForMood(
+  mood: AvatarMood,
+  basePool: readonly string[],
+): string[] {
+  const pool = [...basePool];
+  const prefer =
+    mood === "tense" || mood === "guarded"
+      ? "talkNervous"
+      : mood === "warm"
+        ? "talkAssured"
+        : pool.includes("talkRelaxed")
+          ? "talkRelaxed"
+          : null;
+  if (!prefer) return pool;
+  return [prefer, ...pool.filter((c) => c !== prefer)];
+}
+
+/** Escalate cast face mood with scene lighting pressure (night/evening). */
+export function castMoodForStage(
+  base: AvatarMood,
+  stageMood: StageMood,
+): AvatarMood {
+  if (stageMood === "night") {
+    if (base === "warm") return "guarded";
+    if (base === "neutral") return "tense";
+    return base;
+  }
+  if (stageMood === "evening") {
+    if (base === "warm") return "neutral";
+    if (base === "neutral") return "guarded";
+    return base;
+  }
+  return base;
 }

@@ -163,11 +163,11 @@ export const COST_OF_WINNING: CaseConfig = {
             beats: [
               {
                 speaker: "Marcus Reed",
-                line: "Salim signed with Meridian on Wednesday. I'd like the record to show I flagged this.",
+                line: "Salim signed with Meridian on Wednesday. … I'd like the record to show I flagged this.",
               },
               {
                 speaker: "David Okafor",
-                line: "The board sees the pipeline model on Thursday. I need to know what I'm telling them.",
+                line: "The board sees the pipeline model on Thursday. … I need to know what I'm telling them.",
               },
             ],
           },

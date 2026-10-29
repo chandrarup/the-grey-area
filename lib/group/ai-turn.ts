@@ -89,7 +89,7 @@ export async function runAiTurn(params: {
       params.roleKey === "marcus" &&
       session.currentSceneId.startsWith("s1") &&
       aiRepliesAsRole < 2
-        ? `\nCRITICAL SCENE DIRECTIVE: By this reply (at latest your second), you MUST disclose the commercial terms out loud: a modest retainer plus an $8.4 MILLION success fee payable only if GIS wins. Frame it as roughly one-tenth of one percent of the contract, paid only if you win.`
+        ? `\nCRITICAL SCENE DIRECTIVE: By this reply (at latest your second), you MUST disclose the commercial terms out loud: a modest retainer plus an $8.4 MILLION success fee payable only if GIS wins. Frame it as roughly one-tenth of one percent of the contract, paid only if you win. Pace the reveal — short clauses with a clear pause before the dollar figure (use … or a full stop), as if you are choosing your words carefully in the room.`
         : "";
 
     const characterLines = transcript.map((m) => {

@@ -8,6 +8,7 @@ import type { CastMember, StageMood, StoryArt } from "@/lib/case/types";
 import { LOCAL_FIRM_INVOICE } from "@/lib/case/cost-of-winning-scripts";
 import { Avatar, type AvatarAction } from "./avatar";
 import { BACKDROPS, Boardroom, CAST_MOOD, backdropKey, type Shot } from "./boardroom";
+import { castMoodForStage } from "./avatar-motion";
 import { say, stopSpeech } from "./speech";
 import { InvoicePaper } from "../stage-invoice";
 import { BankStatement, FileIndex, Newspaper, PhoneSilence, Redline, RegulatorLetter } from "./film-props";
@@ -86,7 +87,17 @@ function PortraitCamera() {
   return null;
 }
 
-function PortraitSet({ castId, location, action }: { castId: string; location: string; action: AvatarAction }) {
+function PortraitSet({
+  castId,
+  location,
+  action,
+  stageMood,
+}: {
+  castId: string;
+  location: string;
+  action: AvatarAction;
+  stageMood: StageMood;
+}) {
   const b = BACKDROPS[backdropKey(location)];
   const gaze = useMemo(() => new THREE.Vector3(0.75, 1.28, 1.2), []);
   return (
@@ -122,7 +133,7 @@ function PortraitSet({ castId, location, action }: { castId: string; location: s
           sitting
           lookAt={gaze}
           action={action}
-          mood={CAST_MOOD[castId] ?? "neutral"}
+          mood={castMoodForStage(CAST_MOOD[castId] ?? "neutral", stageMood)}
           isSpeaker
         />
       </Suspense>
@@ -198,6 +209,7 @@ export default function Film({
                   castId={plan.castId}
                   location={portraitMember?.location ?? ""}
                   action={plan.action}
+                  stageMood={mood}
                 />
               ) : (
                 <Boardroom

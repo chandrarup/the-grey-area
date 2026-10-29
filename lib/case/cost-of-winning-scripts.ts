@@ -215,12 +215,12 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
     {
       kind: "line",
       castId: "marcus",
-      text: "A modest retainer. Then a success fee: one-tenth of one percent of the contract. Eight point four million dollars — and we pay nothing if we lose.",
+      text: "A modest retainer. … Then a success fee — one-tenth of one percent of the contract. … Eight point four million dollars. And we pay nothing if we lose.",
     },
     {
       kind: "chat",
       castId: "priya",
-      text: "Sorry — connection dropped. Did he say $8.4 million?",
+      text: "Sorry — connection dropped. … Did he say $8.4 million?",
     },
     {
       kind: "narration",
@@ -230,7 +230,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
     {
       kind: "line",
       castId: "david",
-      text: "Eight point four million for services I can't list yet. I'm not saying no. I'm saying I can't benchmark something that has no scope.",
+      text: "Eight point four million … for services I can't list yet. I'm not saying no. … I'm saying I can't benchmark something that has no scope.",
     },
     {
       kind: "moment",
@@ -260,7 +260,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
             {
               kind: "line",
               castId: "tom",
-              text: "Nothing you've heard proves anything unlawful. But a contingent fee, on a government award, to a man whose value is his access — that's how every enforcement case I prosecuted started.",
+              text: "Nothing you've heard proves anything unlawful. … But a contingent fee, on a government award, to a man whose value is his access — that's how every enforcement case I prosecuted started.",
             },
             {
               kind: "line",

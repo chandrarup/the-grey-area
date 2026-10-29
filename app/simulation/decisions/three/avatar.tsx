@@ -12,12 +12,13 @@ import {
   clipLayerFor,
   clipsForIntent,
   resolveAvatarIntent,
+  talkClipsForMood,
   type AvatarAction,
   type AvatarIntent,
+  type AvatarMood,
 } from "./avatar-motion";
 
-export type { AvatarAction, AvatarIntent } from "./avatar-motion";
-export type AvatarMood = "neutral" | "tense" | "warm" | "guarded";
+export type { AvatarAction, AvatarIntent, AvatarMood } from "./avatar-motion";
 
 const VISEME_KEYS = [
   "viseme_sil", "viseme_PP", "viseme_FF", "viseme_TH", "viseme_DD", "viseme_kk", "viseme_CH",
@@ -368,7 +369,8 @@ export function Avatar({
         s.overlay = null;
       }
       if (wantOverlay && !s.overlay) {
-        const pool = clipsForIntent(intent, TALK[id] ?? ["talk1"]);
+        const talkPool = talkClipsForMood(mood, TALK[id] ?? ["talk1"]);
+        const pool = clipsForIntent(intent, talkPool);
         const clipName = pool[intent === "speak" ? s.talkIdx++ % pool.length : 0];
         const overlay = clipName ? rig.act(clipName) : null;
         if (overlay) {

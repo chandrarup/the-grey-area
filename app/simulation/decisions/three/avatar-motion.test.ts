@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   PROFESSIONAL_CLIPS,
   boneFilterFor,
+  castMoodForStage,
   clipLayerFor,
   clipsForIntent,
   resolveAvatarIntent,
+  talkClipsForMood,
 } from "./avatar-motion";
 
 describe("resolveAvatarIntent", () => {
@@ -75,5 +77,33 @@ describe("clipsForIntent", () => {
     assert.deepEqual(clipsForIntent("speak", ["talk1", "talk2"]), ["talk1", "talk2"]);
     assert.deepEqual(clipsForIntent("listen", ["talk1"]), ["listen"]);
     assert.deepEqual(clipsForIntent("idle", ["talk1"]), []);
+  });
+});
+
+describe("talkClipsForMood", () => {
+  it("prefers talkNervous under tense/guarded pressure", () => {
+    assert.equal(
+      talkClipsForMood("tense", ["talkAssured", "talkRelaxed"])[0],
+      "talkNervous",
+    );
+    assert.equal(
+      talkClipsForMood("guarded", ["talk1", "talk2"])[0],
+      "talkNervous",
+    );
+  });
+
+  it("prefers talkAssured when warm", () => {
+    assert.equal(
+      talkClipsForMood("warm", ["talkRelaxed", "talk1"])[0],
+      "talkAssured",
+    );
+  });
+});
+
+describe("castMoodForStage", () => {
+  it("escalates morning warm → night guarded", () => {
+    assert.equal(castMoodForStage("warm", "morning"), "warm");
+    assert.equal(castMoodForStage("warm", "night"), "guarded");
+    assert.equal(castMoodForStage("neutral", "night"), "tense");
   });
 });

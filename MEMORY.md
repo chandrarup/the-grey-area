@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Speech pacing + talkNervous/Assured from scene pressure
+
+**What:** `paceSpeechDelivery` inserts ellipsis pauses before fee/reveal and bad-news clauses; HeadTTS/`say` apply it and slightly slow those lines. Authored Scene 1 fee-reveal + key consequence beats use `…`. `talkClipsForMood` / `castMoodForStage` prefer `talkNervous` under tense/guarded/night pressure and `talkAssured` when warm; boardroom seats use stage-escalated mood. Marcus AI fee directive asks for a paced dollar reveal. Still Rocketbox + HeadTTS (no Unity/ElevenLabs).
+**Why:** Corporate-training realism without leaving the web stack — same jobs as TTS emotion + lip-sync polish.
+**Do not undo:** Keep pacing in `say`/synth (not a second engine); do not swap Rocketbox for MetaHuman/RPM; talk overlays stay seated additive clips only.
+
 ## 2026-10-29 — Case validation + solo/group arc smokes (ticket 07)
 
 **What:** Kept `validate:cases` as ship gate for stances / grey-area / consequences. Added `enumerateCompletePaths` + `story-arc.test.ts` (27 paths, D3 films, scripts, integrity). DB smokes `lib/db/solo-arc.smoke.ts` and `lib/db/group-arc.smoke.ts` walk hook→decisions→film payload→reflections→release (group: mixed human/bot, phases, stances, message gate). Scripts: `smoke:solo`, `smoke:group`, `smoke:arcs`.

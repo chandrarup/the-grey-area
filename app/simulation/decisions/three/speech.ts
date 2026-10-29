@@ -2,12 +2,15 @@
 
 import { isMuted } from "../stage-sound";
 import { speak as systemSpeak, stopSpeaking, voicesEnabled } from "../stage-voice";
+import { paceSpeechDelivery, speechSpeedMultiplier } from "./speech-pacing";
 
 /**
  * Character speech. Uses HeadTTS (Kokoro neural voices, in-browser via
  * WebGPU/WASM) for audio + Oculus viseme timings; until that model has
  * loaded, falls back to the browser's speech synthesis with estimated
  * mouth movement. Avatars read `speechBus.current` every frame.
+ *
+ * Fee/reveal lines get ellipsis pacing via `paceSpeechDelivery` before synth.
  */
 
 const HEADTTS = "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3";
@@ -120,14 +123,21 @@ export function prepareVoices() {
 }
 
 function synth(castId: string, text: string): Promise<Clip> {
+  const paced = paceSpeechDelivery(text);
   const v = VOICES[castId] ?? VOICES.narrator;
-  const key = `${v.voice}|${text}`;
+  const speed = v.speed * speechSpeedMultiplier(paced);
+  const key = `${v.voice}|${speed.toFixed(3)}|${paced}`;
   const hit = cache.get(key);
   if (hit) return hit;
   const job = (async () => {
     if (!tts) throw new Error("tts not ready");
-    void tts.setup({ voice: v.voice, language: "en-us", speed: v.speed, audioEncoding: "wav" });
-    const messages = await tts.synthesize({ input: text });
+    void tts.setup({
+      voice: v.voice,
+      language: "en-us",
+      speed,
+      audioEncoding: "wav",
+    });
+    const messages = await tts.synthesize({ input: paced });
     const ac = audioCtx();
     const parts: Clip[] = [];
     for (const m of messages) {
@@ -181,10 +191,11 @@ export async function say(castId: string, text: string): Promise<void> {
   stopSpeech();
   const token = activeToken;
   const silent = isMuted() || !voicesEnabled();
+  const paced = paceSpeechDelivery(text);
 
   if (!silent && speechBus.status === "ready") {
     try {
-      const clip = await synth(castId, text);
+      const clip = await synth(castId, paced);
       if (token !== activeToken) return;
       const ac = audioCtx();
       const src = ac.createBufferSource();
@@ -212,7 +223,7 @@ export async function say(castId: string, text: string): Promise<void> {
     }
   }
 
-  const duration = Math.max(1.2, text.length * 0.062);
+  const duration = Math.max(1.2, paced.length * 0.062);
   speechBus.current = {
     castId,
     start: performance.now() / 1000,
@@ -232,7 +243,7 @@ export async function say(castId: string, text: string): Promise<void> {
     if (silent) {
       window.setTimeout(finish, duration * 1000);
     } else {
-      systemSpeak(castId, text, { onEnd: finish });
+      systemSpeak(castId, paced, { onEnd: finish });
       window.setTimeout(finish, duration * 1000 + 4000);
     }
   });

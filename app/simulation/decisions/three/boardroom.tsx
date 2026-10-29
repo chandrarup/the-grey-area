@@ -6,6 +6,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, PerspectiveCamera, RenderTexture, Text } from "@react-three/drei";
 import type { StageMood } from "@/lib/case/types";
 import { Avatar, Chair, type AvatarAction, type AvatarMood } from "./avatar";
+import { castMoodForStage } from "./avatar-motion";
 
 export const PLAYER = new THREE.Vector3(0, 1.2, 2.75);
 
@@ -30,6 +31,10 @@ export const CAST_MOOD: Record<string, AvatarMood> = {
   priya: MOODS.neutral,
   eleanor: MOODS.guarded,
 };
+
+function seatMood(id: string, stageMood: StageMood): AvatarMood {
+  return castMoodForStage(CAST_MOOD[id] ?? "neutral", stageMood);
+}
 
 const LIGHT: Record<StageMood, { sun: string; sunI: number; amb: number; sky: [string, string]; ceiling: number }> = {
   morning: { sun: "#fff1dc", sunI: 2.4, amb: 0.55, sky: ["#bcd3ea", "#f4e6d2"], ceiling: 0.6 },
@@ -146,6 +151,7 @@ function RemoteTile({
   listening,
   action,
   dim,
+  stageMood,
 }: {
   id: string;
   location: string;
@@ -155,6 +161,7 @@ function RemoteTile({
   listening: boolean;
   action: AvatarAction;
   dim: boolean;
+  stageMood: StageMood;
 }) {
   const b = BACKDROPS[backdropKey(location)];
   const camPos = useMemo(() => new THREE.Vector3(0, 1.3, 1.05), []);
@@ -196,7 +203,7 @@ function RemoteTile({
                 sitting
                 lookAt={camPos}
                 action={action}
-                mood={CAST_MOOD[id] ?? "neutral"}
+                mood={seatMood(id, stageMood)}
                 isSpeaker={speaking}
                 listening={listening}
               />
@@ -429,6 +436,7 @@ export function Boardroom({
             listening={Boolean(direction.speakerId) && direction.attention === "speaker" && speaker !== r.id}
             action={direction.actions[r.id] ?? null}
             dim={false}
+            stageMood={mood}
           />
         ))}
         <YouTile position={tiles[remote.length].pos} size={tiles[remote.length].size} photo={photo}
@@ -499,7 +507,7 @@ export function Boardroom({
               sitting
               lookAt={lookTarget}
               action={direction.actions[p.id] ?? null}
-              mood={CAST_MOOD[p.id] ?? "neutral"}
+              mood={seatMood(p.id, mood)}
               chair
               isSpeaker={speaker === p.id}
               listening={floorHeld && speaker !== p.id}
