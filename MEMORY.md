@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Shared story parity: group plays solo script pipeline (ticket 08)
+
+**What:** Extracted `SceneScriptPlayer` + shared beat helpers (`scene-script-player.tsx`) from the solo stage. Group meeting phases are now decided → film → open → **script** → live: after the title card, group plays the same authored `scene.script` beats (settings, desk, call, lines, moments, etc.) before free discussion. Solo `decision-workspace` imports the shared `BeatView`/helpers so story content is not forked. CEO responds to moment beats; other seats continue via the silence path. Live human chat + AI bot seats for empty seats are unchanged after the script. Glossary/ADR 0001 phases include `script`. Ticket 08 resolved.
+**Why:** ADR 0004 — group must not stay a thinner chat-only path; same Cost of Winning narrative both modes.
+**Do not undo:** Do not skip the script phase in group or reintroduce a separate thinner group narrative; keep bots on unfilled seats using case cast personas.
+
 ## 2026-10-29 — Immersion+story upgrade: baseline branch + ticket graph
 
 **What:** Integration branch `integrate/group-immersion-upgrade` baselines the unpushed 3D/group stage work plus grill artefacts (`GLOSSARY.md`, ADRs 0001–0004, `.scratch/group-immersion-upgrade/` spec and tickets 01–12). Spec now requires **shared story** solo↔group (ADR 0004): same arc; solo = human CEO + bots; group = humans + bots. Tickets add story work (08 parity, 09 grey-area framing, 10 D3 consequence, 11 empathy debrief, 12 three-decision copy) alongside immersion 01–07.

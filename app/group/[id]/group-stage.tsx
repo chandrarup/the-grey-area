@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import type { CastMember, Consequence, StageMood } from "@/lib/case/types";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type {
+  CastMember,
+  Consequence,
+  SceneProp,
+  ScriptBeat,
+  StageMood,
+} from "@/lib/case/types";
 import type { RealtimeMessage, RealtimeParticipant } from "@/lib/realtime/types";
 import { AnswerComposer } from "@/app/components/group/answer-composer";
 import { GROUP_ROLES, HUMAN_MSG_GATE, suggestionLines, type SeatKey } from "@/lib/case/group-roles";
@@ -23,6 +29,10 @@ import {
 import { isMuted, setMuted, unlockAudio } from "@/app/simulation/decisions/stage-sound";
 import { setVoicesEnabled, voicesEnabled } from "@/app/simulation/decisions/stage-voice";
 import { PhotoButton, useStudentPhoto } from "@/app/simulation/decisions/stage-photo";
+import {
+  SceneScriptPlayer,
+  scriptFingerprint,
+} from "@/app/simulation/decisions/scene-script-player";
 
 export type GroupFilm = {
   decisionId: number;
@@ -31,7 +41,8 @@ export type GroupFilm = {
   consequence: Consequence;
 };
 
-type Phase = "decided" | "film" | "open" | "live";
+/** decided → film → open → script → live (ADR 0001 / 0004 shared story). */
+type Phase = "decided" | "film" | "open" | "script" | "live";
 
 const MAX_BACKLOG = 3;
 
@@ -84,6 +95,9 @@ export default function GroupStage(props: {
     opening?: string | null;
   };
   film: GroupFilm | null;
+  /** Same authored script as solo (ADR 0004). */
+  script: ScriptBeat[];
+  sceneProps?: SceneProp[];
 }) {
   const { messages, roleKey, isCeo, scene } = props;
   const castById = useMemo(
@@ -93,12 +107,15 @@ export default function GroupStage(props: {
   const filmKey = props.film
     ? `group-film:${props.sessionId}:${props.film.decisionId}`
     : null;
+  const scriptKey = `group-script:${props.sessionId}:${scene.id}:${scriptFingerprint(props.script)}`;
+  const scriptDoneKey = `${scriptKey}:done`;
   const [phase, setPhase] = useState<Phase>(() => {
-    if (!filmKey) return "open";
     try {
-      return localStorage.getItem(filmKey) ? "open" : "decided";
+      if (filmKey && !localStorage.getItem(filmKey)) return "decided";
+      if (localStorage.getItem(scriptDoneKey)) return "live";
+      return "open";
     } catch {
-      return "decided";
+      return props.film ? "decided" : "open";
     }
   });
   const filmBeats = useMemo(
@@ -228,14 +245,41 @@ export default function GroupStage(props: {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length, chatOpen, props.thinkingRoleKeys.length]);
 
-  function joinMeeting() {
+  const enterLive = useCallback(() => {
     unlockAudio();
     const real = messages.filter((m) => m.id > 0);
     setSpokenUpTo(real.length ? real[real.length - 1].id - 1 : 0);
     setLiveAt(Date.now());
     setNow(Date.now());
     setPhase("live");
+  }, [messages]);
+
+  function joinMeeting() {
+    unlockAudio();
+    try {
+      if (localStorage.getItem(scriptDoneKey)) {
+        enterLive();
+        return;
+      }
+    } catch {
+      /* private mode */
+    }
+    if (props.script.length === 0) {
+      enterLive();
+      return;
+    }
+    setPhase("script");
   }
+
+  const finishScript = useCallback(() => {
+    stopSpeech();
+    try {
+      localStorage.setItem(scriptDoneKey, "1");
+    } catch {
+      /* private mode */
+    }
+    enterLive();
+  }, [scriptDoneKey, enterLive]);
 
   function finishFilm() {
     stopSpeech();
@@ -302,6 +346,25 @@ export default function GroupStage(props: {
     );
   }
 
+  if (phase === "script") {
+    return (
+      <SceneScriptPlayer
+        script={props.script}
+        cast={props.cast}
+        sceneCastIds={props.sceneCast.map((s) => s.id)}
+        sceneProps={props.sceneProps}
+        title={scene.title}
+        heading={`Decision ${decisionNo} of ${props.decisionCount}`}
+        storageKey={scriptKey}
+        canRespondToMoments={isCeo}
+        showPhoto={isCeo}
+        youLabel={isCeo ? "You · CEO" : `${ceoName} · CEO`}
+        youPlaceholder={isCeo ? "You" : firstName(ceoName)}
+        onComplete={finishScript}
+      />
+    );
+  }
+
   if (phase !== "live") {
     return (
       <Card>
@@ -328,12 +391,15 @@ export default function GroupStage(props: {
             </>
           )}
         </p>
+        <p className="mt-4 max-w-md text-center text-sm text-white/45">
+          The same scene as the solo case — then open discussion at the table.
+        </p>
         <button
           type="button"
           onClick={joinMeeting}
           className="mt-8 rounded-full bg-white px-6 py-2 text-sm font-medium text-black"
         >
-          Join the meeting
+          {props.script.length ? "Begin the scene" : "Join the meeting"}
         </button>
         {voiceStatus ? (
           <p className="mt-4 text-[11px] text-white/40">{voiceStatus}</p>
@@ -599,7 +665,7 @@ export default function GroupStage(props: {
             <p className="mt-2 text-[11px] text-white/40">
               {props.missingToken
                 ? "Missing seat token — reopen your join link so messages send as this role."
-                : props.error ?? "Everyone hears what you type in your character’s voice. AI seats answer when you @mention them."}
+                : props.error ?? "Everyone hears what you type in your character’s voice. Empty seats are filled by the same AI cast as solo."}
             </p>
           </div>
         </aside>

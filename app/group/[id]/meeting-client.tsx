@@ -23,7 +23,7 @@ import {
 import { LoadingSpinner } from "@/app/components/loading-spinner";
 import { withBusyBar } from "@/app/components/navigation-progress";
 import { prepareVoices } from "@/app/simulation/decisions/three/speech";
-import type { CastMember, StageMood } from "@/lib/case/types";
+import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
 import type { GroupFilm } from "./group-stage";
 
 const GroupStage = dynamic(() => import("./group-stage"), { ssr: false });
@@ -66,6 +66,8 @@ export function GroupMeetingClient(props: {
     opening?: string | null;
   };
   film?: GroupFilm | null;
+  script?: ScriptBeat[];
+  sceneProps?: SceneProp[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -596,6 +598,8 @@ export function GroupMeetingClient(props: {
       missingToken={!seatToken}
       roleBrief={props.roleBriefCollapsed}
       film={props.film ?? null}
+      script={props.script ?? []}
+      sceneProps={props.sceneProps}
     />
   );
 }

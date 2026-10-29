@@ -17,7 +17,7 @@ import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { GroupMeetingClient } from "./meeting-client";
 import { AwaitRelease } from "./await-release";
-import type { CastMember, StageMood } from "@/lib/case/types";
+import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
 
 export default async function GroupSessionPage({
   params,
@@ -481,6 +481,8 @@ export default async function GroupSessionPage({
           opening: brief.openingStatement,
         }}
         film={film}
+        script={(scene?.script ?? []) as ScriptBeat[]}
+        sceneProps={(scene?.props ?? []) as SceneProp[]}
       />
 
       {decisions.length > 0 ? (

@@ -27,15 +27,7 @@ import {
 import { stagePath } from "../stages";
 import { BusyButton } from "@/app/components/busy-button";
 import { withBusyBar } from "@/app/components/navigation-progress";
-import {
-  CallView,
-  DocumentView,
-  LineView,
-  MessageView,
-  MomentView,
-  NarrationView,
-  SettingView,
-} from "./stage-beats";
+import { MomentView } from "./stage-beats";
 import {
   isMuted,
   playChat,
@@ -44,7 +36,6 @@ import {
   unlockAudio,
 } from "./stage-sound";
 import { setVoicesEnabled, voicesEnabled } from "./stage-voice";
-import { DeskScene } from "./stage-desk";
 import dynamic from "next/dynamic";
 import {
   prefetch,
@@ -58,13 +49,19 @@ import type { Direction } from "./three/boardroom";
 import type { AvatarAction } from "./three/avatar";
 import { PhotoButton, useStudentPhoto } from "./stage-photo";
 import { consequenceFilm } from "./three/film-beats";
+import {
+  BeatView,
+  captionChunks,
+  sceneScript,
+  scriptFingerprint,
+  stageContextAt,
+  type PlayBeat,
+} from "./scene-script-player";
 
 const MeetingStage = dynamic(() => import("./three/meeting-stage"), {
   ssr: false,
 });
 const Film = dynamic(() => import("./three/film"), { ssr: false });
-import { StoryArtwork } from "./stage-story";
-import { InvoicePaper } from "./stage-invoice";
 
 type DbMessage = {
   id: number;
@@ -88,8 +85,6 @@ type Props = {
   props: SceneProp[];
 };
 
-type PlayBeat = ScriptBeat | { kind: "you"; text: string };
-
 type Saved = { queue: PlayBeat[]; pos: number; persistedUpTo: number };
 
 const noopSubscribe = () => () => {};
@@ -105,81 +100,11 @@ const STAGE_BG: Record<StageMood, string> = {
     "radial-gradient(ellipse at 50% -20%, rgba(80,110,165,0.22), transparent 60%), #0e1117",
 };
 
-function clockOf(label: string): string | null {
-  const m = label.match(/(\d{1,2}:\d{2})\s*[ap]\.?m/i);
-  return m ? m[1] : null;
-}
-
-function stageContextAt(
-  beats: PlayBeat[],
-  upTo: number,
-  base: StageContext,
-): StageContext {
-  const ctx = { ...base };
-  for (let i = 0; i <= upTo && i < beats.length; i++) {
-    const b = beats[i];
-    if (b.kind === "setting") {
-      if (b.mood) ctx.mood = b.mood;
-      ctx.clock = clockOf(b.time) ?? ctx.clock;
-      if (b.time.includes("·")) ctx.day = b.time.split("·")[0].trim();
-    } else if (b.kind === "call") {
-      ctx.clock = clockOf(b.connected) ?? ctx.clock;
-    }
-  }
-  return ctx;
-}
-
-function sceneScript(scene: Scene): PlayBeat[] {
-  if (scene.script?.length) return scene.script;
-  return [
-    { kind: "setting", time: scene.timeLabel, place: scene.title, text: scene.brief },
-    { kind: "line", castId: scene.opening.castId, text: scene.opening.text },
-  ];
-}
-
 function consequenceBeats(
   consequence: Consequence,
   cast: CastMember[],
 ): PlayBeat[] {
   return consequenceFilm(consequence, cast);
-}
-
-/** Changes whenever the authored script changes, so stale saved progress is ignored. */
-function scriptFingerprint(beats: PlayBeat[]) {
-  const json = JSON.stringify(beats);
-  let h = 0;
-  for (let i = 0; i < json.length; i++) h = (h * 31 + json.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
-
-/** Split a spoken line into short subtitle chunks, keeping source offsets. */
-function captionChunks(text: string): { start: number; text: string }[] {
-  const pieces: string[] = [];
-  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
-    if (sentence.length <= 90) {
-      pieces.push(sentence);
-      continue;
-    }
-    let rest = sentence;
-    while (rest.length > 90) {
-      const window = rest.slice(0, 90);
-      const cut = Math.max(
-        window.lastIndexOf(", "),
-        window.lastIndexOf(" — "),
-        window.lastIndexOf("; "),
-      );
-      const at = cut > 30 ? cut + 1 : window.lastIndexOf(" ");
-      pieces.push(rest.slice(0, at).trim());
-      rest = rest.slice(at).trim();
-    }
-    if (rest) pieces.push(rest);
-  }
-  let cursor = 0;
-  return pieces.map((piece) => {
-    const start = Math.max(0, text.indexOf(piece, cursor));
-    cursor = start + piece.length;
-    return { start, text: piece };
-  });
 }
 
 function toHistory(beats: PlayBeat[]): SceneTurn[] {
@@ -860,107 +785,6 @@ export function DecisionWorkspace(props: Props) {
       {transcript}
     </div>
   );
-}
-
-function BeatView({
-  beat,
-  stage,
-  onAcceptCall,
-  castById,
-  props,
-  busy,
-  error,
-  onRespond,
-  onSilence,
-  onFreeText,
-}: {
-  beat: PlayBeat;
-  stage: StageContext;
-  onAcceptCall: () => void;
-  castById: Map<string, CastMember>;
-  props: SceneProp[];
-  busy: boolean;
-  error: string | null;
-  onRespond: (key: string) => void;
-  onSilence: () => void;
-  onFreeText: (text: string) => void;
-}) {
-  switch (beat.kind) {
-    case "setting":
-      return <SettingView beat={beat} />;
-    case "narration":
-      return <NarrationView text={beat.text} />;
-    case "story":
-      return (
-        <div className="mx-auto max-w-xl text-center">
-          <div className="mx-auto h-48 w-80 text-accent">
-            <StoryArtwork art={beat.art} />
-          </div>
-          <p className="mt-6 font-serif text-2xl leading-snug text-foreground">
-            {beat.text}
-          </p>
-        </div>
-      );
-    case "message":
-      return (
-        <MessageView
-          beat={beat}
-          mood={stage.mood}
-          clock={stage.clock}
-          day={stage.day}
-        />
-      );
-    case "call":
-      return (
-        <CallView
-          beat={beat}
-          mood={stage.mood}
-          clock={stage.clock}
-          day={stage.day}
-          onAccept={onAcceptCall}
-        />
-      );
-    case "document":
-      return <DocumentView beat={beat} />;
-    case "invoice":
-      return (
-        <div className="px-8">
-          <InvoicePaper invoice={beat.invoice} />
-        </div>
-      );
-    case "desk":
-      return <DeskScene text={beat.text} props={props} mood={stage.mood} />;
-    case "chat":
-      return (
-        <LineView speaker={castById.get(beat.castId)} text={beat.text} isYou={false} />
-      );
-    case "line":
-      return (
-        <LineView speaker={castById.get(beat.castId)} text={beat.text} isYou={false} />
-      );
-    case "you":
-      return (
-        <div>
-          <LineView text={beat.text} isYou />
-          {error ? (
-            <p className="mt-4 text-right text-sm text-red-700 dark:text-red-400">
-              {error}
-            </p>
-          ) : null}
-        </div>
-      );
-    case "moment":
-      return (
-        <MomentView
-          beat={beat}
-          busy={busy}
-          error={error}
-          onRespond={onRespond}
-          onSilence={onSilence}
-          onFreeText={onFreeText}
-        />
-      );
-  }
 }
 
 function DecisionView({
