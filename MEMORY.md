@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Shared story parity: group plays solo script pipeline (ticket 08)
+
+**What:** Extracted `SceneScriptPlayer` + shared beat helpers (`scene-script-player.tsx`) from the solo stage. Group meeting phases are now decided → film → open → **script** → live: after the title card, group plays the same authored `scene.script` beats (settings, desk, call, lines, moments, etc.) before free discussion. Solo `decision-workspace` imports the shared `BeatView`/helpers so story content is not forked. CEO responds to moment beats; other seats continue via the silence path. Live human chat + AI bot seats for empty seats are unchanged after the script. Glossary/ADR 0001 phases include `script`. Ticket 08 resolved.
+**Why:** ADR 0004 — group must not stay a thinner chat-only path; same Cost of Winning narrative both modes.
+**Do not undo:** Do not skip the script phase in group or reintroduce a separate thinner group narrative; keep bots on unfilled seats using case cast personas.
+
 ## 2026-10-29 — Seated Rocketbox intent layer (solo + group)
 
 **What:** Ticket 02. Shared boardroom motion now goes through an intent seam (`avatar-motion.ts`: idle / listen / speak + nod/shake/phone/write/lean/lookDown). Talk/listen/nod/phone clips stay arms- or head-only additives (`clipLayerFor`); settle remains the safety net. `Boardroom` passes `isSpeaker` / `listening` into `Avatar` for both HQ seats and remote tiles (solo `MeetingStage` and group `group-stage` already share this path). Anim build script exports only the professional clip set, prefers `sit_chair_*` talk/listen sources when present, and strips pelvis/spine from standing sources. `stage-lab` has idle/listen/speak controls for visual QA. Unit tests: `npm run test:unit`.

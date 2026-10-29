@@ -17,7 +17,7 @@ A timed, per-seat position an advisor locks in before the CEO commit. It shapes 
 _Avoid_: Advisor vote, secondary decision, poll
 
 **Scene phase**:
-Where the shared group meeting is in its beat sequence for the current scene: decided → film → open → live (commit happens inside live).
+Where the shared group meeting is in its beat sequence for the current scene: decided → film → open → script → live (commit happens inside live). Script plays the same authored beats as solo before free discussion.
 _Avoid_: UI mode, screen state, client view
 
 **Integrity latch**:
