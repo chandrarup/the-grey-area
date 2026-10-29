@@ -145,8 +145,6 @@ export const COST_OF_WINNING: CaseConfig = {
         "STAGING — THE FEE REVEAL: Marcus has kept the commercial terms out of the written briefing. He MUST disclose them no later than his second reply, whether or not anyone asks: a modest initial retainer plus an $8.4 MILLION SUCCESS FEE (0.1% of the contract) payable only if GIS wins. He frames it as 'one-tenth of one percent, and we pay nothing if we lose.' Once the fee is on the table, David tests whether it is benchmarkable, Tom notes that contingent payment tied to winning a government contract is the largest warning sign, and Priya asks what the company would actually be buying. Do not let the CEO leave without the number being said out loud.",
       commitPrompt:
         "State your decision and the reasoning behind it — principles, risks, stakeholders.",
-      commitPrefill:
-        "An $8.4M success fee for services no one can describe, from an adviser we cannot monitor, on a government contract, under a same-day deadline. I need to decide what we will agree to before we know what we are buying.",
       options: [
         {
           key: "refuse",
@@ -175,7 +173,7 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "conditions",
           label:
-            "Avoid owning an engagement tonight — park with diligence and keep the conversation open",
+            "Authorize diligence in parallel; no engagement tonight",
           posture: "bystander",
           isCompromise: false,
           next: "s2_invoice_diligence",
@@ -265,7 +263,7 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "contain",
           label:
-            "Stay quiet with the board — reopen through Marcus's partner off the pack",
+            "Leave the board pack as-is; reopen through Marcus's partner channel",
           posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
@@ -285,7 +283,7 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "keep_going",
           label:
-            "Keep the corridor warm — let Marcus run the local channel without HQ micromanaging",
+            "Keep the corridor warm — leave the local channel with Marcus",
           posture: "shortcut",
           isCompromise: true,
           next: "s3_managed",
@@ -346,7 +344,7 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "contain",
           label:
-            "Stay off the record — clear it under a capped local code while diligence stays 'in progress'",
+            "Clear under local vendor code with a hard cap while Tom finishes",
           posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
@@ -427,7 +425,7 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "contain",
           label:
-            "Pay, shorten the description, and keep the board at 'routine advisory'",
+            "Clear the invoice as routine advisory under local discretion",
           posture: "bystander",
           isCompromise: true,
           next: "s3_gap_record",
@@ -489,26 +487,62 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "full_coop",
           label:
-            "Produce the complete file and flag any open questions yourself",
+            "Produce the complete file and flag open questions in the cover note",
           posture: "compliant",
           isCompromise: false,
           next: null,
+          consequence: {
+            story: STORIES["s3_clean_file/full_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "You produce the complete file and flag every open question in the cover note. The board stands by the process. Audit calls the record careful. The press still frames GIS as late to Ardania while Meridian advances. Jobs and pipeline questions remain — owned, not invented.",
+            beats: [
+              {
+                speaker: "Eleanor Voss",
+                line: "We look careful. We also look late. I can defend careful. I need you ready for late.",
+              },
+            ],
+          },
         },
         {
           key: "narrow_coop",
           label:
-            "Answer what is asked — keep the rest of the story inside the building",
+            "Respond to the requests on the table; keep the rest internal",
           posture: "bystander",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_clean_file/narrow_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "You answer what was asked. The rest stays inside the building. A second request arrives — broader, with a forensic hold. Directors ask what else never left the room. Journalists fill the gaps the production left blank.",
+            beats: [
+              {
+                speaker: "Tom Bradley",
+                line: "Narrow answers buy days, not outcomes. The hold just arrived.",
+              },
+            ],
+          },
         },
         {
           key: "managed",
           label:
-            "Limit production and let the narrative be shaped before it leaves",
+            "Limit the production set and brief the board narrative before release",
           posture: "shortcut",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_clean_file/managed"],
+            headline: "Eight weeks later",
+            narrative:
+              "The production set is limited. Communications brief the narrative first. Documents conflict with what the cover letter implies. Regulators ask for the withheld set by name. A loyal executive's memo becomes its own exhibit.",
+            beats: [
+              {
+                speaker: "Priya Nair",
+                line: "The story we briefed and the papers we sent are no longer the same object.",
+              },
+            ],
+          },
         },
       ],
     },
@@ -534,26 +568,62 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "full_coop",
           label:
-            "Disclose the gap, produce everything, and self-report",
+            "Produce everything that exists, including where the file is incomplete",
           posture: "compliant",
           isCompromise: false,
           next: null,
+          consequence: {
+            story: STORIES["s3_gap_record/full_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "You produce everything that exists — including where the file stops. Self-report opens a formal inquiry. The unfinished diligence is the story. You own it on the record. The board forms a special committee. The corridor award is already gone.",
+            beats: [
+              {
+                speaker: "Tom Bradley",
+                line: "Owning the gap is still ownership. The committee will ask how it got there.",
+              },
+            ],
+          },
         },
         {
           key: "narrow_coop",
           label:
-            "Answer carefully and limit what leaves the building",
+            "Answer the questions asked; hold anything not specifically requested",
           posture: "bystander",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_gap_record/narrow_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "Answers stay careful. Anything not requested stays back. The gap surfaces anyway in a bank trail and an unfinished review. Production expands. Counsel can no longer narrow the ask. Directors lose patience with partial briefings.",
+            beats: [
+              {
+                speaker: "David Okafor",
+                line: "I can defend a held document once. I cannot defend a pattern.",
+              },
+            ],
+          },
         },
         {
           key: "managed",
           label:
-            "Allow the file to be reconstructed before anyone else reads it",
+            "Bring the file current before anyone outside reads it",
           posture: "shortcut",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_gap_record/managed"],
+            headline: "Eight weeks later",
+            narrative:
+              "The file is brought current before anyone outside reads it. On paper, the timeline looks continuous. Source systems do not match the finished narrative. Outside counsel flags alteration risk in the first week.",
+            beats: [
+              {
+                speaker: "Eleanor Voss",
+                line: "Continuity on paper is not continuity in the systems. That is now our problem.",
+              },
+            ],
+          },
         },
       ],
     },
@@ -579,26 +649,62 @@ export const COST_OF_WINNING: CaseConfig = {
         {
           key: "full_coop",
           label:
-            "Produce the file as it stands — no reconstruction — and self-report",
+            "Produce the file as it stands and self-report",
           posture: "compliant",
           isCompromise: false,
           next: null,
+          consequence: {
+            story: STORIES["s3_managed/full_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "You produce the file as it stands and tell the board what it shows. Fragments go out: retainer, invoices, stops that never quite landed. Directors back disclosure. The inquiry turns to the earlier authorisations. The headline is messy. It is also yours.",
+            beats: [
+              {
+                speaker: "Marcus Reed",
+                line: "I would have preferred a cleaner story. I will live with an honest one.",
+              },
+            ],
+          },
         },
         {
           key: "narrow_coop",
           label:
-            "Controlled production with careful messaging",
+            "Run a controlled production with a prepared board message",
           posture: "bystander",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_managed/narrow_coop"],
+            headline: "Eight weeks later",
+            narrative:
+              "Controlled production ships with a prepared board message. The message holds for a news cycle. Then a second demand arrives — systems imaging, not summaries. Local leadership goes quiet. HQ owns the next answer.",
+            beats: [
+              {
+                speaker: "Priya Nair",
+                line: "The message bought us a week. The imaging request spends it.",
+              },
+            ],
+          },
         },
         {
           key: "managed",
           label:
-            "Allow the file to be made coherent before production",
+            "Align the papers before the production deadline",
           posture: "shortcut",
           isCompromise: true,
           next: null,
+          consequence: {
+            story: STORIES["s3_managed/managed"],
+            headline: "Eight weeks later",
+            narrative:
+              "The papers are aligned before the production deadline. The narrative is coherent. The ledgers underneath are not. Half the board wants credit for clarity. Half wants to know who wrote it. The press asks the same question out loud.",
+            beats: [
+              {
+                speaker: "Tom Bradley",
+                line: "Coherent is not the same as contemporaneous. That distinction just went public.",
+              },
+            ],
+          },
         },
       ],
     },

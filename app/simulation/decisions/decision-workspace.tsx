@@ -812,7 +812,7 @@ function DecisionView({
         It’s your call.
       </p>
       <p className="mx-auto mt-3 max-w-lg text-center text-sm leading-relaxed text-muted-foreground">
-        {scene.commitPrompt} No option is marked right or wrong.
+        {scene.commitPrompt}
       </p>
       <div className="mt-8 flex flex-col gap-2.5">
         {scene.options.map((option) => {

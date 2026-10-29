@@ -16,8 +16,7 @@ import { isSessionExpired } from "@/lib/group-session-lifetime";
 import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { GroupMeetingClient } from "./meeting-client";
-import { AwaitRelease } from "./await-release";
-import { GroupReflectionForm } from "./reflection-form";
+import { TerminalConsequence } from "./terminal-consequence";
 import type { CastMember, SceneProp, ScriptBeat, StageMood } from "@/lib/case/types";
 
 export default async function GroupSessionPage({
@@ -373,56 +372,44 @@ export default async function GroupSessionPage({
   }
 
   if (session.status === "committed" || session.status === "graded") {
+    const lastDecision = decisions[decisions.length - 1];
+    const lastOption = lastDecision
+      ? caseConfig.scenes[lastDecision.sceneId]?.options.find(
+          (o) => o.key === lastDecision.optionKey,
+        )
+      : undefined;
+    const terminalFilm =
+      lastDecision && lastOption?.consequence && lastOption.next === null
+        ? {
+            decisionId: lastDecision.id,
+            label: lastDecision.decision,
+            reasoning: lastDecision.reasoning,
+            consequence: lastOption.consequence,
+          }
+        : null;
+    const sceneTitles = Object.fromEntries(
+      Object.values(caseConfig.scenes).map((s) => [s.id, s.title]),
+    );
     const needsReflection =
       !me.isAi && !(me.reflections && me.reflections.length > 0);
-
-    if (needsReflection) {
-      return (
-        <div className="mx-auto max-w-2xl px-6 py-16 md:px-8">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-            Meeting concluded · {session.displayName?.trim() || session.code}
-          </p>
-          <div className="mt-8">
-            <GroupReflectionForm
-              sessionId={session.id}
-              participantId={me.id}
-              joinToken={me.joinToken ?? seatToken ?? ""}
-              questions={caseConfig.reflectionQuestions}
-            />
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="mx-auto max-w-2xl px-6 py-16 md:px-8">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          Meeting concluded · {session.displayName?.trim() || session.code}
-        </p>
-        <h1 className="mt-3 font-serif text-3xl text-foreground">
-          The decisions are on the record
-        </h1>
-        <ol className="mt-10 space-y-6">
-          {decisions.map((d, i) => (
-            <li key={d.id} className="border-l-2 border-border pl-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Decision {i + 1} · {caseConfig.scenes[d.sceneId]?.title ?? d.sceneId}
-              </p>
-              <p className="mt-1 font-serif text-lg text-foreground">{d.decision}</p>
-              {d.reasoning ? (
-                <p className="mt-1 text-sm italic text-muted-foreground">
-                  “{d.reasoning}”
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-        <p className="mt-10 text-sm text-muted-foreground">
-          Your reflections are submitted. Your group debrief appears here when
-          your professor releases it. This page updates on its own.
-        </p>
-        <AwaitRelease sessionId={session.id} />
-      </div>
+      <TerminalConsequence
+        sessionId={session.id}
+        sessionLabel={session.displayName?.trim() || session.code}
+        film={terminalFilm}
+        decisions={decisions.map((d) => ({
+          id: d.id,
+          sceneId: d.sceneId,
+          decision: d.decision,
+          reasoning: d.reasoning,
+        }))}
+        sceneTitles={sceneTitles}
+        cast={stageCast}
+        needsReflection={needsReflection}
+        participantId={me.id}
+        joinToken={me.joinToken ?? seatToken ?? ""}
+        reflectionQuestions={caseConfig.reflectionQuestions}
+      />
     );
   }
 

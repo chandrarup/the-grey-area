@@ -155,17 +155,9 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
         );
       }
 
-      if (option.next === null) {
-        continue;
-      }
-      if (!sceneIds.has(option.next)) {
-        errors.push(
-          `Option "${option.key}" on "${scene.id}" next="${option.next}" is not an existing scene`,
-        );
-      }
       if (!option.consequence) {
         errors.push(
-          `Non-terminal option "${option.key}" on "${scene.id}" is missing consequence`,
+          `Option "${option.key}" on "${scene.id}" is missing consequence`,
         );
       } else if (option.consequence.story) {
         const joined = option.consequence.story.map((f) => f.text).join(" ");
@@ -174,6 +166,15 @@ function validateCase(caseConfig: CaseConfig): ValidationResult {
             `Consequence story for "${scene.id}/${option.key}" does not match its narrative`,
           );
         }
+      }
+
+      if (option.next === null) {
+        continue;
+      }
+      if (!sceneIds.has(option.next)) {
+        errors.push(
+          `Option "${option.key}" on "${scene.id}" next="${option.next}" is not an existing scene`,
+        );
       }
     }
 
