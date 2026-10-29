@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Decision 3 consequence film + label/quiz polish (ticket 10)
+
+**What:** Authored `consequence` + `COST_OF_WINNING_STORIES` for all `s3_*` options; solo plays the film before reflections; group plays terminal film via `TerminalConsequence` before concluded/await-release. Rewrote virtue-leaking option labels to equal-weight exec language (keys/posture/isCompromise/next unchanged); mirrored Scene 1 CEO `decisionOptions`. Removed DecisionView quiz meta and Scene 1 `commitPrefill`. Light hook jargon tighten on Marcus’s open. `validate:cases` now requires consequence on every option including terminals.
+**Why:** Training ended cold after Decision 3; labels and quiz chrome leaked “correct answer” valence.
+**Do not undo:** Keep D3 lived films before reflection/concluded; do not restore virtue-tell labels or “No option is marked right or wrong.”
+
 ## 2026-10-29 — Briefing pager crash on fast Next clicks
 
 **What:** `BriefingPager` now clamps page index and guards a missing page so rapid Next clicks cannot crash the read-case stage.

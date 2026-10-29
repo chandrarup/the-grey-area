@@ -24,7 +24,7 @@ export type DecisionOption = {
   posture: Posture;
   isCompromise: boolean; // drives the integrity latch
   next: string | null; // null = run ends after this option
-  consequence?: Consequence; // required when next !== null
+  consequence?: Consequence; // required for every option (incl. terminal film)
 };
 
 export type SceneProp = {
