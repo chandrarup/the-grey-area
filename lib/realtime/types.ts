@@ -28,6 +28,8 @@ export type GroupSessionState = {
   currentSceneId: string | null;
   decisionsMade: number;
   decisionCount: number;
+  /** Monotonic clean → compromised (ADR 0003). */
+  integrity: "clean" | "compromised";
   roleplayModel: string;
   graderModel: string;
   cursor: number;

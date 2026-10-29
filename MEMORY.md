@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Group integrity latch (ticket 04)
+
+**What:** `group_sessions.integrity` column (migration `0010`, default `clean`). CEO `commitGroupDecision` takes `isCompromise` and updates via `resolveIntegrityAfterCeoCommit` / `applyIntegrityLatch` (monotonic; never clears). Returned on `/api/group/[code]/state` and commit response. Runtime + commit-path unit tests. Ticket 04 resolved.
+**Why:** ADR 0003 — group graded debriefs and path consequences need the same integrity latch as solo; stances must never flip it.
+**Do not undo:** Do not clear integrity after compromise; do not let pressure-stance writes touch integrity; keep commit path on the runtime latch helpers.
+
 ## 2026-10-29 — Briefing pager crash on fast Next clicks
 
 **What:** `BriefingPager` now clamps page index and guards a missing page so rapid Next clicks cannot crash the read-case stage.

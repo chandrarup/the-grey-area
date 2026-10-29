@@ -140,6 +140,8 @@ export const groupSessions = pgTable("group_sessions", {
   decisionCount: integer("decision_count").notNull().default(3),
   currentSceneId: text("current_scene_id"),
   decisionsMade: integer("decisions_made").notNull().default(0),
+  /** Monotonic clean → compromised; flipped only by CEO isCompromise commit. */
+  integrity: text("integrity").notNull().default("clean"), // 'clean' | 'compromised'
   status: text("status").notNull().default("lobby"), // lobby|active|committed|graded|released|expired
   clockSeconds: integer("clock_seconds").notNull().default(1800),
   roleplayModel: text("roleplay_model").notNull().default("gemini-flash"),

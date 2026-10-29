@@ -343,6 +343,7 @@ export async function commitGroupDecisionAction(input: {
     decision: option.label,
     reasoning: input.reasoning,
     nextSceneId: option.next,
+    isCompromise: option.isCompromise,
     profile,
   });
 

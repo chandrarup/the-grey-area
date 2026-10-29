@@ -34,6 +34,9 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const integrity =
+    state.session.integrity === "compromised" ? "compromised" : "clean";
+
   const payload: GroupSessionState = {
     sessionId: state.session.id,
     code: state.session.code,
@@ -41,6 +44,7 @@ export async function GET(
     currentSceneId: state.session.currentSceneId,
     decisionsMade: state.session.decisionsMade,
     decisionCount: state.session.decisionCount,
+    integrity,
     roleplayModel: state.session.roleplayModel,
     graderModel: state.session.graderModel,
     cursor: state.cursor,

@@ -21,6 +21,7 @@ import {
   SESSION_TTL_SECONDS,
   shouldAutoExpire,
 } from "@/lib/group-session-lifetime";
+import { resolveIntegrityAfterCeoCommit } from "@/lib/group/meeting-runtime";
 
 function randomCode(length = 6): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -76,6 +77,7 @@ export async function createGroupSession(params: {
           ),
           currentSceneId: caseConfig.startScene,
           status: "lobby",
+          integrity: "clean",
           createdBy: params.createdBy.id,
           roleplayModel: params.roleplayModel ?? "gemini-flash",
           graderModel: params.graderModel ?? "gemini-flash",
@@ -791,6 +793,8 @@ export async function commitGroupDecision(params: {
   decision: string;
   reasoning: string;
   nextSceneId: string | null;
+  /** Drives monotonic integrity latch (solo parity). Custom/free text → false. */
+  isCompromise: boolean;
   profile: Profile;
 }) {
   const session = await getGroupSession(params.sessionId);
@@ -828,6 +832,10 @@ export async function commitGroupDecision(params: {
   const decisionsMade = session.decisionsMade + 1;
   const terminal =
     params.nextSceneId === null || decisionsMade >= session.decisionCount;
+  const nextIntegrity = resolveIntegrityAfterCeoCommit(
+    session.integrity,
+    params.isCompromise,
+  );
 
   await db
     .update(groupSessions)
@@ -835,6 +843,7 @@ export async function commitGroupDecision(params: {
       decisionsMade,
       currentSceneId: terminal ? null : params.nextSceneId,
       status: terminal ? "committed" : "active",
+      integrity: nextIntegrity,
       endedAt: terminal ? new Date() : null,
     })
     .where(eq(groupSessions.id, params.sessionId));
