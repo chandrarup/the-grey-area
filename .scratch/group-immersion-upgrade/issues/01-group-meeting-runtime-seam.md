@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] GroupMeetingRuntime can evaluate phase transitions (including film watched / timeout / CEO force → open → live) from session + events without UI
 - [ ] Runtime can evaluate stance lock, abstain, and “all human advisors ready”

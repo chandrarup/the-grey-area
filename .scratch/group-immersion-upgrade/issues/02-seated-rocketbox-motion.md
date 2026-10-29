@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Seated idle and talk/gesture motion no longer drive standing full-body poses that tip bodies through chairs
 - [ ] Solo and group boardroom stages both use the upgraded motion path

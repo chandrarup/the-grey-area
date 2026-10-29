@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] No student/professor UI string still promises five decisions for this case
 - [ ] Group session defaults / create forms align with three decisions for Cost of Winning

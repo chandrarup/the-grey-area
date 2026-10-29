@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Every decision scene exposes three options aligned to Compliant / Shortcut / Bystander framing in user-facing copy
 - [ ] No option signals itself as the “correct” answer
