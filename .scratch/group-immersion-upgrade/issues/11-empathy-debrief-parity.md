@@ -4,7 +4,7 @@
 
 **Blocked by:** 08 (Shared story parity)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Group participants complete reflection prompts after the final consequence (including pressure-appeal question)
 - [ ] Solo reflection set includes the same pressure-appeal intent (reuse or align wording)

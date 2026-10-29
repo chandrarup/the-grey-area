@@ -4,7 +4,7 @@
 
 **Blocked by:** 09 (Grey-area option framing)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Scene 3 options each carry a consequence suitable for the film pipeline
 - [ ] Solo and group show the Decision 3 consequence before reflections / concluded

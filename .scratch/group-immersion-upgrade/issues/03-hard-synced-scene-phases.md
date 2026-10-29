@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (GroupMeetingRuntime seam + tests)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Current scene phase (and phase-window deadline as needed) is persisted on the group session and exposed via group state
 - [ ] All human seats converge on the same phase after refresh/poll

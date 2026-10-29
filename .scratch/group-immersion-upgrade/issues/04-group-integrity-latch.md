@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (GroupMeetingRuntime seam + tests)
 
-**Status:** ready-for-agent
+**Status:** claimed
 
 - [ ] Group session persists integrity and returns it in group state
 - [ ] Compromising CEO commit latches compromised; non-compromise commits leave clean unchanged if still clean
