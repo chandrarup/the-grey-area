@@ -5,6 +5,12 @@ Running log for agents. **Newest first.** Keep ~20 active entries; move older on
 
 ---
 
+## 2026-10-29 — Standards + Spec code review (immersion upgrade)
+
+**What:** Wrote `.scratch/group-immersion-upgrade/code-review.md` for `integrate/group-immersion-upgrade` vs merge-base `3d1a40a`. Two-axis review (Standards + Spec); ranked MUST-FIX punch list: D3 terminal film still per-seat localStorage, Marcus fee hard-coded in `ai-turn.ts`, Ardania/Salim strings in desk/film props. Partials noted (anim rebuild residual, thin film flavor, group integrity smoke, bystander validate).
+**Why:** Gate the immersion+story integrate branch before merge; punch list for a follow-up fix agent (no code fixes in this commit).
+**Do not undo:** Keep review findings separate by axis; do not mark ticket 03 “done” for hard-sync until terminal D3 film is server-owned.
+
 ## 2026-10-29 — Speech pacing + talkNervous/Assured from scene pressure
 
 **What:** `paceSpeechDelivery` inserts ellipsis pauses before fee/reveal and bad-news clauses; HeadTTS/`say` apply it and slightly slow those lines. Authored Scene 1 fee-reveal + key consequence beats use `…`. `talkClipsForMood` / `castMoodForStage` prefer `talkNervous` under tense/guarded/night pressure and `talkAssured` when warm; boardroom seats use stage-escalated mood. Marcus AI fee directive asks for a paced dollar reveal. Still Rocketbox + HeadTTS (no Unity/ElevenLabs).
