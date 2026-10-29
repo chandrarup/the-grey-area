@@ -14,3 +14,10 @@
 ## Answer
 
 Remapped `Posture` to `compliant | shortcut | bystander` (replacing restrictive/cautious/permissive). Every Cost of Winning decision scene now has one of each; option **keys**, `next`, and stories unchanged. User-facing labels (and CEO group `decisionOptions`) rewritten as corporate-pressure framing without steal-vs-good or “correct answer” signalling. Integrity: Compliant never compromises; Shortcut always does; Bystander compromises from Scene 2 onward (Scene 1 bystander stays non-compromising as authored). `validate:cases` enforces the three-posture set plus that Compliant/Shortcut integrity rule.
+
+## Comments
+
+### Advisor QA (2026-10-29)
+See `.scratch/group-immersion-upgrade/advisor-realism-review.md` and `scene-walkthrough.md`.
+
+- P0 follow-up: rewrite virtue-leaking labels (e.g. “Avoid owning”, “Stay off the record”, D3 “reconstructed”); remove DecisionView quiz meta; neutralize Scene 1 commitPrefill.

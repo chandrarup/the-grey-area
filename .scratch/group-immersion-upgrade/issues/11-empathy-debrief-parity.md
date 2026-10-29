@@ -10,3 +10,10 @@
 - [ ] Solo reflection set includes the same pressure-appeal intent (reuse or align wording)
 - [ ] Feedback/grades remain invisible until release
 - [ ] Debrief content can reference values / choices without labeling options as correct/incorrect in the student UI
+
+## Comments
+
+### Advisor QA (2026-10-29)
+See `.scratch/group-immersion-upgrade/advisor-realism-review.md` and `scene-walkthrough.md`.
+
+- Add explicit pressure-appeal reflection; group must not skip straight to await-release.

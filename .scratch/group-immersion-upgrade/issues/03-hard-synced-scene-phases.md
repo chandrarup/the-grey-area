@@ -11,3 +11,10 @@
 - [ ] Film completion follows all-watched OR ~90s timeout OR CEO force-advance
 - [ ] Per-seat localStorage film-skip is no longer authoritative
 - [ ] Runtime (01) is the authority for transition rules; UI/API only emit events and render
+
+## Comments
+
+### Advisor QA (2026-10-29)
+See `.scratch/group-immersion-upgrade/advisor-realism-review.md` and `scene-walkthrough.md`.
+
+- P0: server-own phase including `script`; stop localStorage as film/script authority; align GroupMeetingRuntime ScenePhase with UI.

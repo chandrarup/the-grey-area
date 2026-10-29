@@ -10,3 +10,10 @@
 - [ ] Solo and group show the Decision 3 consequence before reflections / concluded
 - [ ] Opening hook beats use straightforward workplace dialogue (jargon reduced where it blocked clarity)
 - [ ] Stories/films stay consequence-based (no handbook “incorrect” popup)
+
+## Comments
+
+### Advisor QA (2026-10-29)
+See `.scratch/group-immersion-upgrade/advisor-realism-review.md` and `scene-walkthrough.md`.
+
+- P0: author + play Decision 3 consequence films for all s3_* options before reflections/concluded.
