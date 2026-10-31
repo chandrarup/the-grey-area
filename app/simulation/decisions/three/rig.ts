@@ -158,3 +158,20 @@ export function applyPose(
   }
   root.updateWorldMatrix(true, true);
 }
+
+/**
+ * Three only writes a property when its mixed value changes. A frozen idle
+ * therefore does NOT reset the gaze/lean added after the previous update.
+ * Restore the last unmodified animation pose, evaluate, then remember it
+ * before the caller layers this frame's procedural motion on top.
+ */
+export function createRigFrame(bones: Bones, mixer: THREE.AnimationMixer) {
+  const animatedPose = snapshot(bones);
+  return (dt: number) => {
+    restore(bones, animatedPose);
+    mixer.update(dt);
+    for (const [key, bone] of Object.entries(bones)) {
+      animatedPose[key].copy(bone.quaternion);
+    }
+  };
+}

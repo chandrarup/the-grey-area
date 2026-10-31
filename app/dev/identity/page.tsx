@@ -1,3 +1,4 @@
+import { localPreviewEnabled } from "@/lib/auth/policy";
 import { notFound } from "next/navigation";
 import { desc } from "drizzle-orm";
 import { getCurrentProfile } from "@/lib/auth";
@@ -12,7 +13,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function DevIdentityPage() {
-  if (process.env.DEV_IDENTITY !== "true") {
+  if (!localPreviewEnabled()) {
     notFound();
   }
 

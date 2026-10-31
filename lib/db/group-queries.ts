@@ -472,7 +472,7 @@ export async function getParticipantInviteTarget(participantId: string) {
 }
 
 export async function listGroupSessions(profile?: Profile): Promise<GroupSession[]> {
-  if (profile) {
+  if (profile && profile.role !== "admin") {
     await sweepExpiredSessions(profile.id);
     return db
       .select()
@@ -534,7 +534,7 @@ export async function deleteGroupSession(
 ): Promise<void> {
   const session = await getGroupSession(sessionId);
   if (!session) throw new Error("Session not found");
-  if (profile && session.createdBy !== profile.id) {
+  if (profile && profile.role !== "admin" && session.createdBy !== profile.id) {
     throw new Error("Not your session");
   }
   await db.delete(groupSessions).where(eq(groupSessions.id, sessionId));
@@ -557,7 +557,7 @@ export async function deleteExpiredGroupSessions(profile: Profile): Promise<numb
 }
 
 export function assertSessionPlayable(session: GroupSession) {
-  if (session.status === "expired" || isSessionExpired(session)) {
+  if (session.status === "expired" || (shouldAutoExpire(session) && isSessionExpired(session))) {
     throw new Error("This session has expired. Ask the professor for a new link.");
   }
 }
@@ -1630,12 +1630,12 @@ export async function listSessionsForBatch(
 }
 
 export async function listBatchesForProfessor(
-  profileId: string,
+  profileId?: string,
 ): Promise<GroupBatch[]> {
   return db
     .select()
     .from(groupBatches)
-    .where(eq(groupBatches.createdBy, profileId))
+    .where(profileId ? eq(groupBatches.createdBy, profileId) : undefined)
     .orderBy(desc(groupBatches.createdAt));
 }
 

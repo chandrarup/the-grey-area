@@ -16,11 +16,10 @@ export default async function LeadershipTeamPage() {
         Stage 1
       </p>
       <h1 className="mt-2 font-serif text-3xl leading-tight text-foreground md:text-4xl">
-        Meet Your Leadership Team
+        Meet the people in the room
       </h1>
       <p className="mt-4 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
-        These executives will press you across three decisions. Learn who they
-        are before you open the case packet.
+        Each colleague sees a different risk. Listen for what they are trying to protect, and what they may not be seeing. You will make the final call.
       </p>
 
       <ul className="mt-10 divide-y divide-border border border-border">

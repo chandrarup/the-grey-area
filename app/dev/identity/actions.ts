@@ -1,5 +1,6 @@
 "use server";
 
+import { localPreviewEnabled } from "@/lib/auth/policy";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -8,7 +9,7 @@ import { db } from "@/lib/db";
 import { profiles, type ProfileRole } from "@/lib/db/schema";
 
 function assertDevIdentityEnabled() {
-  if (process.env.DEV_IDENTITY !== "true") {
+  if (!localPreviewEnabled()) {
     throw new Error("dev identity disabled");
   }
 }

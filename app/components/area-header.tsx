@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/app/components/theme-toggle";
-import { DevRoleSwitch } from "@/app/components/dev-role-switch";
-import { BrandLockup } from "@/app/components/brand-mark";
+import { logout } from "@/app/login/actions";
 
 /**
  * Shared product chrome for area layouts.
@@ -16,12 +15,12 @@ export function AreaHeader({
 }) {
   return (
     <header className="border-b border-border">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-6 md:px-8">
+      <div className="mx-auto flex min-h-16 py-3 max-w-6xl items-center justify-between gap-4 px-6 md:px-8">
         <div className="flex min-w-0 items-center gap-6">
           <Link href="/" className="shrink-0">
-            <BrandLockup size="sm" />
+            <span className="font-serif text-lg">Ethics Experience</span>
           </Link>
-          <nav className="hidden items-center gap-4 sm:flex">
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {links.map((l) => (
               <Link
                 key={l.href}
@@ -35,9 +34,9 @@ export function AreaHeader({
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="hidden font-mono text-[10px] uppercase tracking-wider text-muted-foreground sm:inline">
-            {area === "student" ? "Student" : "Instructor"}
+            {area === "student" ? "Student preview" : "Instructor"}
           </span>
-          <DevRoleSwitch />
+          <form action={logout}><button className="text-xs text-muted-foreground hover:text-foreground">Sign out</button></form>
           <ThemeToggle />
         </div>
       </div>

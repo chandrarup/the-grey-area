@@ -1,3 +1,4 @@
+import { getCurrentProfile } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { complete } from "@/lib/llm/complete";
@@ -23,6 +24,7 @@ const NESTED_SCHEMA = z.object({
 });
 
 export async function GET(request: Request) {
+  if (!await getCurrentProfile()) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL(request.url);
   const model = url.searchParams.get("model");
   const nested = url.searchParams.get("nested") === "1";

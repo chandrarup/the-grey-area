@@ -13,9 +13,10 @@ export default async function ProfessorLayout({
       <AreaHeader
         area="instructor"
         links={[
+          { href: "/professor/simulations", label: "Simulations" },
           { href: "/professor", label: "Sessions" },
           { href: "/professor/groups/new-batch", label: "Roster batch" },
-          { href: "/professor/runs", label: "Solo runs" },
+          { href: "/professor/runs", label: "Preview runs" },
           { href: "/settings", label: "Settings" },
         ]}
       />

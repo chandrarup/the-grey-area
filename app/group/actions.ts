@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { getProfessorActor, getStudentActor } from "@/lib/mode";
+import { getProfessorActor } from "@/lib/mode";
 import {
+  requireParticipant,
   setSeatCookie,
   resolveSeatFromCookie,
 } from "@/lib/group/seat-auth";
@@ -18,32 +19,22 @@ import { profiles } from "@/lib/db/schema";
 import {
   createGroupSession,
   joinByToken,
-  joinGroupSeat,
   setParticipantReady,
   startGroupSession,
-  commitGroupDecision,
-  appendGroupMessage,
   getGroupSession,
   listGroupDecisions,
   getGroupMessages,
   upsertGroupAssessment,
   listParticipants,
   getParticipantByToken,
-  listPressureStances,
-  claimAiTurn,
-  claimPendingAi,
-  finishAiJob,
   deleteExpiredGroupSessions,
   deleteGroupSession,
   markSessionGraded,
   saveParticipantReflections,
 } from "@/lib/db/group-queries";
-import { formatPressureStancePrompt } from "@/lib/group/stance-prompt";
-import { GROUP_ROLES, seatDisplayName, type SeatKey } from "@/lib/case/group-roles";
-import { getCase, getOption, getScene } from "@/lib/case/registry";
+import { seatDisplayName, type SeatKey } from "@/lib/case/group-roles";
+import { getCase } from "@/lib/case/registry";
 import { gradeGroupSession } from "@/lib/engine/grader";
-import { complete } from "@/lib/llm/complete";
-import { z } from "zod";
 
 export async function createSessionAction(formData: FormData) {
   const profile = await getProfessorActor();
@@ -128,259 +119,38 @@ export async function getSeatParticipantId(): Promise<string | null> {
   return seat?.id ?? null;
 }
 
-export async function joinWithTokenAction(token: string, displayName: string) {
-  const profile = await getStudentActor();
-  const participant = await joinByToken({ profile, token, displayName });
-  if (!participant.joinToken) throw new Error("Seat has no join token");
-  await setSeatCookie(participant.joinToken);
-  revalidatePath("/group");
-  return { sessionId: participant.sessionId, token: participant.joinToken };
+export async function joinWithTokenAction(token: string, _displayName: string) {
+  void _displayName;
+  return openSeatWindowAction(token);
 }
 
-export async function joinWithCodeAction(
-  code: string,
-  roleKey: SeatKey,
-  displayName: string,
-) {
-  const profile = await getStudentActor();
-  const { getGroupSessionByCode } = await import("@/lib/db/group-queries");
-  const session = await getGroupSessionByCode(code);
-  if (!session) throw new Error("Invalid session code");
-  const participant = await joinGroupSeat({
-    profile,
-    sessionId: session.id,
-    roleKey,
-    displayName,
-  });
-  if (!participant.joinToken) throw new Error("Seat has no join token");
-  await setSeatCookie(participant.joinToken);
-  return { sessionId: session.id, token: participant.joinToken };
+export async function joinWithCodeAction(_code: string, _roleKey: SeatKey, _displayName: string): Promise<{ sessionId: string; token: string }> {
+  void _code; void _roleKey; void _displayName;
+  throw new Error("Use the personal invitation link from your instructor.");
 }
 
-export async function toggleReadyAction(participantId: string, ready: boolean) {
-  const { groupParticipants } = await import("@/lib/db/schema");
-  const [row] = await db
-    .select()
-    .from(groupParticipants)
-    .where(eq(groupParticipants.id, participantId))
-    .limit(1);
-  if (!row?.profileId) throw new Error("Seat not claimed");
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.id, row.profileId))
-    .limit(1);
+export async function toggleReadyAction(participantId: string, ready: boolean, token?: string) {
+  const seat = await requireParticipant(participantId, token);
+  const [profile] = await db.select().from(profiles).where(eq(profiles.id, seat.profileId!)).limit(1);
   if (!profile) throw new Error("Profile missing");
   await setParticipantReady(participantId, profile, ready);
-  revalidatePath(`/group/${row.sessionId}`);
+  revalidatePath(`/group/${seat.sessionId}`);
 }
 
-export async function startMeetingAction(
-  sessionId: string,
-  force = false,
-  participantId?: string,
-) {
-  let profile = await getProfessorActor();
-  if (!force && participantId) {
-    const { groupParticipants } = await import("@/lib/db/schema");
-    const [me] = await db
-      .select()
-      .from(groupParticipants)
-      .where(eq(groupParticipants.id, participantId))
-      .limit(1);
-    if (me?.profileId) {
-      const [p] = await db
-        .select()
-        .from(profiles)
-        .where(eq(profiles.id, me.profileId))
-        .limit(1);
-      if (p) profile = p;
-    }
+export async function startMeetingAction(sessionId: string, force = false, participantId?: string, token?: string) {
+  let profile;
+  if (force) {
+    profile = await getProfessorActor();
+  } else {
+    if (!participantId) throw new Error("Open your invitation first");
+    const seat = await requireParticipant(participantId, token);
+    if (seat.sessionId !== sessionId || seat.roleKey !== "ceo") throw new Error("Only the CEO can start");
+    [profile] = await db.select().from(profiles).where(eq(profiles.id, seat.profileId!)).limit(1);
+    if (!profile) throw new Error("Profile missing");
   }
   await startGroupSession(sessionId, { profile, force });
   revalidatePath(`/group/${sessionId}`);
   revalidatePath(`/professor/groups/${sessionId}`);
-}
-
-export async function sendGroupMessageAction(
-  sessionId: string,
-  roleKey: string,
-  content: string,
-  participantId: string,
-) {
-  const { groupParticipants } = await import("@/lib/db/schema");
-  const [me] = await db
-    .select()
-    .from(groupParticipants)
-    .where(eq(groupParticipants.id, participantId))
-    .limit(1);
-  if (!me || me.sessionId !== sessionId || me.roleKey !== roleKey) {
-    throw new Error("Not your seat");
-  }
-
-  const session = await getGroupSession(sessionId);
-  if (!session?.currentSceneId) throw new Error("No active scene");
-  if (session.status !== "active") throw new Error("Session is not active");
-
-  const msg = await appendGroupMessage(
-    sessionId,
-    session.currentSceneId,
-    roleKey,
-    "human",
-    content,
-  );
-
-  const participants = await listParticipants(sessionId);
-  const caseConfig = getCase(session.caseSlug);
-  const scene = getScene(caseConfig, session.currentSceneId);
-  const lower = content.toLowerCase();
-
-  for (const p of participants) {
-    if (!p.isAi) continue;
-    if (p.roleKey === "ceo") continue;
-    if (!scene.cast.includes(p.roleKey)) continue;
-    const mentioned = lower.includes(p.roleKey) ||
-      lower.includes((GROUP_ROLES[p.roleKey as SeatKey]?.name ?? "").split(" ")[0]?.toLowerCase() ?? "___");
-    // Enqueue mentioned seats first; always enqueue all AI in cast (Crucible-like coverage)
-    void mentioned;
-    await claimAiTurn(sessionId, msg.id, p.roleKey);
-  }
-
-  return { messageId: msg.id };
-}
-
-export async function processGroupAiQueueAction(sessionId: string) {
-  const session = await getGroupSession(sessionId);
-  if (!session?.currentSceneId || session.status !== "active") {
-    return { processed: 0 };
-  }
-
-  const jobs = await claimPendingAi(sessionId, 4);
-  let processed = 0;
-  for (const job of jobs) {
-    try {
-      await generateAiSeatReply(
-        sessionId,
-        job.roleKey,
-        session.currentSceneId,
-        session.roleplayModel || DEFAULT_ROLEPLAY_MODEL,
-      );
-      await finishAiJob(job.id, "done");
-      processed += 1;
-    } catch (err) {
-      console.error("[group-ai]", sessionId, job.roleKey, err);
-      await finishAiJob(job.id, "failed");
-    }
-  }
-  return { processed };
-}
-
-async function generateAiSeatReply(
-  sessionId: string,
-  roleKey: string,
-  sceneId: string,
-  model: string,
-) {
-  const session = await getGroupSession(sessionId);
-  if (!session) return;
-  const caseConfig = getCase(session.caseSlug);
-  const member = caseConfig.cast.find((c) => c.id === roleKey);
-  if (!member) throw new Error(`Unknown cast ${roleKey}`);
-
-  const messages = await getGroupMessages(sessionId);
-  const recent = messages
-    .slice(-12)
-    .map((m) => `${m.roleKey}: ${m.content}`)
-    .join("\n");
-  const stanceRows = await listPressureStances(sessionId, sceneId);
-  const stancePrompt = formatPressureStancePrompt(
-    stanceRows.map((r) => ({
-      roleKey: r.roleKey,
-      displayName:
-        caseConfig.cast.find((c) => c.id === r.roleKey)?.name ?? r.roleKey,
-      status: r.status === "abstain" ? "abstain" : "locked",
-      chipLabel: r.chipLabel,
-      note: r.note,
-    })),
-  );
-
-  const schema = z.object({ text: z.string() });
-  const result = await complete({
-    model,
-    schemaName: "group_ai_reply",
-    system: [
-      member.persona,
-      "",
-      stancePrompt,
-      "",
-      "You are in a live executive meeting. Reply in 1-3 short sentences as yourself. Never break character.",
-    ].join("\n"),
-    messages: [
-      {
-        role: "user",
-        content: `Recent transcript:\n${recent}\n\nYour turn.`,
-      },
-    ],
-    schema,
-    temperature: 0.7,
-    maxTokens: 300,
-  });
-  await appendGroupMessage(sessionId, sceneId, roleKey, "ai", result.data.text);
-}
-
-export async function commitGroupDecisionAction(input: {
-  sessionId: string;
-  optionKey: string;
-  reasoning: string;
-  participantId: string;
-}) {
-  const { groupParticipants } = await import("@/lib/db/schema");
-  const [me] = await db
-    .select()
-    .from(groupParticipants)
-    .where(eq(groupParticipants.id, input.participantId))
-    .limit(1);
-  if (!me || me.sessionId !== input.sessionId || me.roleKey !== "ceo") {
-    throw new Error("Only the CEO can commit");
-  }
-  if (!me.profileId) throw new Error("Seat not claimed");
-
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.id, me.profileId))
-    .limit(1);
-  if (!profile) throw new Error("Profile missing");
-
-  const session = await getGroupSession(input.sessionId);
-  if (!session?.currentSceneId) throw new Error("No scene");
-  const caseConfig = getCase(session.caseSlug);
-  const scene = getScene(caseConfig, session.currentSceneId);
-  const option = getOption(scene, input.optionKey);
-  if (!option) throw new Error("Unknown option");
-
-  await commitGroupDecision({
-    sessionId: input.sessionId,
-    sceneId: scene.id,
-    optionKey: option.key,
-    decision: option.label,
-    reasoning: input.reasoning,
-    nextSceneId: option.next,
-    isCompromise: option.isCompromise,
-    profile,
-  });
-
-  const updated = await getGroupSession(input.sessionId);
-  if (updated?.status === "committed") {
-    try {
-      await gradeGroupAction(input.sessionId);
-    } catch (err) {
-      console.error("[group-grade]", input.sessionId, err);
-    }
-  }
-
-  revalidatePath(`/group/${input.sessionId}`);
-  revalidatePath(`/professor/groups/${input.sessionId}`);
 }
 
 export async function saveGroupReflectionsAction(input: {

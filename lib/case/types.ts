@@ -190,5 +190,6 @@ export type CaseConfig = {
   cast: CastMember[];
   scenes: Record<string, Scene>;
   reflectionQuestions: string[];
+  debriefValues?: { name: string; description: string; scoringKey: string }[];
   rubric: { instructions: string; scoringAreas: ScoringArea[] };
 };

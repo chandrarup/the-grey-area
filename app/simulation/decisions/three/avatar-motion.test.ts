@@ -25,10 +25,10 @@ describe("resolveAvatarIntent", () => {
     );
   });
 
-  it("uses speak when this seat is speaking or holds the floor", () => {
+  it("uses speak only while audio is active — holding the floor stays still", () => {
     assert.equal(
       resolveAvatarIntent({ isSpeaker: true, speaking: false, listening: false, action: null }),
-      "speak",
+      "idle",
     );
     assert.equal(
       resolveAvatarIntent({ isSpeaker: false, speaking: true, listening: true, action: null }),
@@ -73,9 +73,9 @@ describe("clipLayerFor", () => {
 });
 
 describe("clipsForIntent", () => {
-  it("maps speak to the cast talk pool and listen to the listen clip", () => {
+  it("maps speak to the cast talk pool; listen/idle stay still (no looping clips)", () => {
     assert.deepEqual(clipsForIntent("speak", ["talk1", "talk2"]), ["talk1", "talk2"]);
-    assert.deepEqual(clipsForIntent("listen", ["talk1"]), ["listen"]);
+    assert.deepEqual(clipsForIntent("listen", ["talk1"]), []);
     assert.deepEqual(clipsForIntent("idle", ["talk1"]), []);
   });
 });

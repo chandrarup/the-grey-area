@@ -228,7 +228,8 @@ export default function GroupStage(props: {
     if (currentRole === "ceo") {
       timer = window.setTimeout(done, Math.max(1800, currentText.length * 55));
     } else {
-      void say(currentRole, currentText).then(() => {
+      void say(currentRole, currentText).then((completed) => {
+        if (!completed) return;
         timer = window.setTimeout(done, 450);
       });
     }

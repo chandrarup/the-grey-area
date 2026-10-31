@@ -1,9 +1,7 @@
 import { cookies } from "next/headers";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { groupParticipants, type GroupParticipant, type GroupSession } from "@/lib/db/schema";
+import type { GroupParticipant, GroupSession } from "@/lib/db/schema";
+import { isSessionExpired, shouldAutoExpire } from "@/lib/group-session-lifetime";
 import {
-  getGroupSession,
   getGroupSessionByCode,
   getParticipantByToken,
 } from "@/lib/db/group-queries";
@@ -17,20 +15,10 @@ async function resolveToken(raw: string | null | undefined): Promise<SeatCaller 
   if (!raw?.trim()) return null;
   const value = raw.trim();
 
-  // Legacy: cookie stored participant UUID
-  if (value.includes("-") && value.length >= 36) {
-    const [row] = await db
-      .select()
-      .from(groupParticipants)
-      .where(eq(groupParticipants.id, value))
-      .limit(1);
-    if (!row) return null;
-    const session = await getGroupSession(row.sessionId);
-    if (!session) return null;
-    return { ...row, session };
-  }
-
-  return getParticipantByToken(value);
+  const seat = await getParticipantByToken(value);
+  if (!seat || seat.isAi) return null;
+  if (seat.session.status === "expired" || (shouldAutoExpire(seat.session) && isSessionExpired(seat.session))) return null;
+  return seat;
 }
 
 /** Resolve the caller's seat from the httpOnly join-token cookie. */
@@ -49,7 +37,7 @@ export async function resolveSeatFromRequest(
   const headerToken = request.headers.get(SEAT_TOKEN_HEADER);
   if (headerToken) {
     const fromHeader = await resolveToken(headerToken);
-    if (fromHeader) return fromHeader;
+    return fromHeader;
   }
   return resolveSeatFromCookie();
 }
@@ -88,5 +76,13 @@ export async function setSeatCookie(joinToken: string) {
     path: "/",
     sameSite: "lax",
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
   });
+}
+
+/** Explicit tokens preserve seat identity when several seats use different tabs. */
+export async function requireParticipant(participantId: string, token?: string) {
+  const seat = token ? await resolveToken(token) : await resolveSeatFromCookie();
+  if (!seat || seat.id !== participantId || !seat.profileId) throw new Error("Not your seat");
+  return seat;
 }

@@ -1,9 +1,3 @@
-"use client";
-
-import dynamic from "next/dynamic";
-
-const Lab = dynamic(() => import("./lab"), { ssr: false });
-
-export default function Page() {
-  return <Lab />;
-}
+import { requireStaff } from "@/lib/auth";
+import LabEntry from "./lab-entry";
+export default async function Page() { await requireStaff(); return <LabEntry />; }

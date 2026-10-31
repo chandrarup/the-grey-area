@@ -14,11 +14,10 @@ export default async function ReadCasePage() {
         Stage 2
       </p>
       <h1 className="mt-2 font-serif text-3xl leading-tight text-foreground md:text-4xl">
-        Read the Case
+        Before the call
       </h1>
       <p className="mt-4 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
-        This briefing packet is everything you need before you take the chair.
-        Read each page carefully — later scenes assume you know it.
+        Four short briefings put you inside the opportunity, the pressure, and the unanswered questions. Then the story begins.
       </p>
 
       <div className="mt-10">

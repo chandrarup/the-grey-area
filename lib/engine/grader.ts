@@ -76,11 +76,11 @@ const groupAssessmentSchema = z.object({
 
 export type GroupAssessmentPayload = z.infer<typeof groupAssessmentSchema>;
 
-const GRADING_SYSTEM = `You are an Executive Ethics and Responsible Leadership Coach preparing a confidential assessment for a Board of Directors.
+const GRADING_SYSTEM = `You are an Executive Ethics and Responsible Leadership Coach supporting a learner after a fictional workplace simulation.
 
 Evaluate the QUALITY of ethical reasoning, leadership judgment, and decision-making process from the transcript. Do NOT grade whether decisions were "correct." Where evidence is missing, say so.
 
-Return JSON matching the schema. Assess all readiness dimensions with scores 1-10. Keep each prose field concise (2-5 sentences). The coaching_letter should be a short board-facing letter.`;
+Return JSON matching the schema. Assess all readiness dimensions with scores 1-10. Keep each prose field concise (2-5 sentences). The coaching_letter should be a short, empathetic learner-facing note with one next step; never an employment recommendation.`;
 
 const GROUP_GRADING_SYSTEM = `You are grading a group leadership ethics simulation debrief. Focus on collective process, not individuals. Never name participants. Return JSON matching the schema. Include readiness_scores (1-10) for each scoring area listed in the prompt.
 
@@ -90,6 +90,11 @@ Exact list lengths (responses with other lengths are rejected):
 - better_decisions: exactly 3 items
 - evidence: at most 4 short quotes or paraphrases
 Keep epilogue and summary to 2-4 sentences, and each list item to one sentence.`;
+
+function valuesForDebrief(caseConfig: CaseConfig): string {
+  if (!caseConfig.debriefValues?.length) return "";
+  return ["CASE VALUES — connect each matching readiness rationale to a specific decision and its pressure. Explain alignment or tension; do not infer character from a choice or invent missing evidence.", ...caseConfig.debriefValues.map((v) => `${v.name} (${v.scoringKey}): ${v.description}`)].join("\n");
+}
 
 function buildSoloPayload(params: {
   caseConfig: CaseConfig;
@@ -138,6 +143,7 @@ function buildSoloPayload(params: {
     ...caseConfig.rubric.scoringAreas.map((a) => `- ${a.key}: ${a.label}`),
     "",
     caseConfig.rubric.instructions,
+    valuesForDebrief(caseConfig),
   );
 
   return parts.join("\n");
@@ -212,6 +218,7 @@ export async function gradeGroupSession(params: {
     "",
     "SCORING AREAS (use these exact keys in readiness_scores):",
     ...scoringLines,
+    valuesForDebrief(params.caseConfig),
   ].join("\n");
 
   const model = params.model ?? DEFAULT_GRADER_MODEL;

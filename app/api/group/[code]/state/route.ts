@@ -1,3 +1,5 @@
+import { getCurrentProfile } from "@/lib/auth";
+import { resolveSeatFromRequest } from "@/lib/group/seat-auth";
 import { NextResponse } from "next/server";
 import {
   getGroupSessionByCode,
@@ -29,6 +31,11 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const staff = await getCurrentProfile();
+  if (!staff) {
+    const seat = await resolveSeatFromRequest(request);
+    if (!seat || seat.sessionId !== sessionId) return NextResponse.json({ error: "unauthorized" }, { status: 403 });
+  }
   const state = await getGroupSessionState(sessionId, afterId);
   if (!state) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -95,5 +102,5 @@ export async function GET(
     updatedAt: new Date().toISOString(),
   };
 
-  return NextResponse.json(payload);
+  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
 }

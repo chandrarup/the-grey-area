@@ -5,7 +5,7 @@ import { ensureHomeCase } from "@/lib/simulation/ensure-case";
 
 export const CASE_SLUG = "cost-of-winning";
 
-/** Solo student run — always uses seeded Student A. No login. */
+/** Staff-only solo preview, owned by the signed-in instructor. */
 export async function requireStudentRun() {
   const profile = await getStudentActor();
   const published = await ensureHomeCase();

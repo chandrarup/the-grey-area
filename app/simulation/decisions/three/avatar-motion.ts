@@ -35,17 +35,18 @@ export type AvatarMotionInput = {
 
 /**
  * Resolve a single professional intent. Explicit beat actions win; otherwise
- * speak > listen > idle. Never invents standing “full body talk”.
+ * speak (audio only) > listen > idle. Holding the floor without audio stays
+ * still — looping talk while silent reads as undead fidget.
  */
 export function resolveAvatarIntent(input: AvatarMotionInput): AvatarIntent {
-  const { action, speaking, isSpeaker, listening } = input;
+  const { action, speaking, listening } = input;
   if (action === "nod") return "nod";
   if (action === "shake") return "shake";
   if (action === "phone") return "phone";
   if (action === "write") return "write";
   if (action === "lean") return "lean";
   if (action === "lookDown") return "lookDown";
-  if (speaking || isSpeaker) return "speak";
+  if (speaking) return "speak";
   if (listening) return "listen";
   return "idle";
 }
@@ -77,8 +78,8 @@ export type ClipLayer = {
   additive: boolean;
 };
 
-const ARMS: ClipLayer = { bones: "arms", weight: 0.4, additive: true };
-const HEAD: ClipLayer = { bones: "head", weight: 0.7, additive: true };
+const ARMS: ClipLayer = { bones: "arms", weight: 0.28, additive: true };
+const HEAD: ClipLayer = { bones: "head", weight: 0.45, additive: true };
 const ARMS_POSE: ClipLayer = { bones: "arms-pose", weight: 1, additive: false };
 const SEATED: ClipLayer = { bones: "seated-full", weight: 1, additive: false };
 
@@ -103,19 +104,21 @@ export function boneFilterFor(layer: ClipLayer): RegExp | null {
   return null; // seated-full: keep normalized clip as authored (sit_chair)
 }
 
-/** Intent → primary clip family for the additive / reaction layer. */
+/**
+ * Intent → overlay clips. Idle and listen intentionally return none — calm
+ * stillness + lookAt reads better than looping listen/idle mocap.
+ */
 export function clipsForIntent(intent: AvatarIntent, talkPool: string[]): string[] {
   switch (intent) {
     case "speak":
       return talkPool;
-    case "listen":
-      return ["listen"];
     case "nod":
       return ["nod"];
     case "shake":
       return ["shake"];
     case "phone":
       return ["phone"];
+    case "listen":
     case "idle":
     case "write":
     case "lean":

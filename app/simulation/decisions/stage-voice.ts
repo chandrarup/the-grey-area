@@ -50,7 +50,7 @@ export function voicesSupported() {
 }
 
 export function voicesEnabled() {
-  if (!voicesSupported()) return false;
+  if (typeof window === "undefined") return false;
   return window.localStorage.getItem(VOICES_KEY) !== "0";
 }
 
@@ -84,7 +84,7 @@ export function speak(
     onBoundary?: (charIndex: number) => void;
   },
 ) {
-  if (!voicesEnabled() || isMuted()) {
+  if (!voicesSupported() || !voicesEnabled() || isMuted()) {
     handlers?.onEnd?.();
     return;
   }

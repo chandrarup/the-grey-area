@@ -7,7 +7,8 @@
  * Solo MeetingStage and group MeetingStage both render through Boardroom → Avatar.
  */
 import { useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { StageCanvas } from "@/app/simulation/decisions/three/stage-canvas";
+import Link from "next/link";
 import { Boardroom, type Direction, type Shot } from "@/app/simulation/decisions/three/boardroom";
 
 const SHOTS: Record<string, Shot> = {
@@ -16,15 +17,17 @@ const SHOTS: Record<string, Shot> = {
   davidSide: { from: [0.98, 1.1, 1.9], to: [0.98, 1.1, 1.9], look: [0.98, 0.75, 0.45], seconds: 1 },
   tomSide: { from: [-0.98, 1.2, 2.0], to: [-0.98, 1.2, 2.0], look: [-0.98, 0.8, 0.45], seconds: 1 },
 };
-import { prepareVoices, say } from "@/app/simulation/decisions/three/speech";
+import { prepareVoices, say, enableDialogue } from "@/app/simulation/decisions/three/speech";
 import type { AvatarAction } from "@/app/simulation/decisions/three/avatar";
 
 const LINE = "We have the best technical proposal in the field, but this award will not be decided on engineering alone.";
 
 export default function Lab() {
+  const [roomCast, setRoomCast] = useState("david");
   const [shot, setShot] = useState<string | null>(null);
   const [dir, setDir] = useState<Direction>({ speakerId: null, attention: "you", actions: {} });
   const talk = async (id: string) => {
+    enableDialogue();
     prepareVoices();
     // speak intent via isSpeaker + TTS visemes
     setDir({ speakerId: id, attention: "speaker", actions: {} });
@@ -39,8 +42,11 @@ export default function Lab() {
     setDir({ speakerId: null, attention: "you", actions: { david: action, tom: action } });
   };
   return (
-    <div style={{ height: "100vh", background: "#111" }}>
+    <div style={{ height: "100vh", background: "#111", color: "#171e24" }}>
       <div style={{ position: "absolute", zIndex: 10, top: 8, left: 8, display: "flex", flexWrap: "wrap", gap: 6, maxWidth: "90vw" }}>
+        <Link href="/professor/simulations" style={{ background: "#f0e6d5", padding: 4 }}>← Simulations</Link>
+        <Link href="/stage-lab/debrief" style={{ background: "#f0e6d5", padding: 4 }}>Debrief preview</Link>
+        <button onClick={() => { setRoomCast(roomCast === "priya" ? "david" : "priya"); setShot("davidClose"); }} style={{ background: "#f0e6d5", padding: 4 }}>Inspect Priya / David</button>
         {["marcus", "david", "tom", "priya", "eleanor"].map((id) => (
           <button key={id} id={`say-${id}`} style={{ background: "#fff", padding: 4 }} onClick={() => void talk(id)}>
             speak:{id}
@@ -63,19 +69,19 @@ export default function Lab() {
           </button>
         ))}
       </div>
-      <Canvas shadows dpr={[1, 2]}>
+      <StageCanvas>
         <Boardroom
-          present={["david", "tom"]}
+          present={[roomCast, "tom"]}
           remote={[
             { id: "marcus", location: "Ardania · 3:12 AM" },
-            { id: "priya", location: "Regional site · 1:45 PM" },
+            { id: roomCast === "priya" ? "david" : "priya", location: "Regional site · 1:45 PM" },
             { id: "eleanor", location: "Board office · 8:30 AM" },
           ]}
           mood="morning"
           direction={dir}
           shot={shot ? SHOTS[shot] : null}
         />
-      </Canvas>
+      </StageCanvas>
     </div>
   );
 }

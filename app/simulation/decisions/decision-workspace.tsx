@@ -236,6 +236,7 @@ export function DecisionWorkspace(props: Props) {
 
   const advance = useCallback(() => {
     if (busy) return;
+    stopSpeech();
     if (beat?.kind === "desk" && needsProps) {
       void acknowledgeProps(runId).catch(() => {});
     }
@@ -421,9 +422,11 @@ export function DecisionWorkspace(props: Props) {
   const voiceStatus =
     voicePhase === "loading"
       ? `Preparing voices ${voiceProgress}%`
-      : voicePhase === "unavailable"
-        ? "Using browser voices"
-        : null;
+      : voicePhase === "cloud"
+        ? "Voices ready"
+        : voicePhase === "unavailable"
+          ? "Using browser voices"
+          : null;
 
   const photo = useStudentPhoto();
   const advanceRef = useRef(advance);
@@ -453,7 +456,7 @@ export function DecisionWorkspace(props: Props) {
         if (beat.kind === "line" && t && t.castId === beat.castId) {
           ratio = (performance.now() / 1000 - t.start) / t.duration;
         } else {
-          ratio = (performance.now() / 1000 - startedAt) / Math.max(1.2, text.length * 0.062);
+          ratio = beat.kind === "line" && ["loading", "blocked"].includes(speechBus.playback) ? 0 : (performance.now() / 1000 - startedAt) / Math.max(1.2, text.length * 0.062);
         }
         const at = ratio * text.length;
         let idx = 0;
@@ -467,8 +470,8 @@ export function DecisionWorkspace(props: Props) {
 
     if (beat.kind === "line" || beat.kind === "chat") {
       if (beat.kind === "chat") playChat();
-      void say(beat.castId, beat.text).then(() => {
-        if (callLive) later(() => advanceRef.current(), 650);
+      void say(beat.castId, beat.text).then((completed) => {
+        if (completed && callLive) later(() => advanceRef.current(), 650);
       });
     } else if (beat.kind === "you" && callLive && !busy) {
       later(() => advanceRef.current(), Math.max(1600, beat.text.length * 55));
@@ -481,7 +484,8 @@ export function DecisionWorkspace(props: Props) {
         window.clearTimeout(t);
         window.clearInterval(t);
       });
-      stopSpeech();
+      // Do not stopSpeech here — effect churn / Strict Mode was killing lines mid-word.
+      // `say()` already stops the previous clip when a new beat starts.
     };
     // Re-run per beat; `queue` and `busy` changes for the same beat are handled inside.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -504,6 +508,7 @@ export function DecisionWorkspace(props: Props) {
 
   const toggles = mounted ? (
     <>
+      <a href="/professor/simulations" className="underline-offset-4 hover:underline">Exit preview</a>
       {phase === "scene" ? (
         <button
           type="button"
@@ -721,7 +726,7 @@ export function DecisionWorkspace(props: Props) {
       }}
     >
       <div
-        className={`flex items-center gap-4 px-5 pt-4 pr-36 text-[11px] sm:px-8 sm:pr-40 ${
+        className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-5 pt-4 pr-36 text-[11px] sm:px-8 sm:pr-40 ${
           dark ? "text-[#f3efe6]/50" : "text-muted-foreground"
         }`}
       >

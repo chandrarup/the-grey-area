@@ -1,3 +1,5 @@
+import { LearningDebrief } from "@/app/components/learning-debrief";
+import type { GroupAssessmentPayload } from "@/lib/engine/grader";
 import { getSeatParticipantId } from "@/app/group/actions";
 import {
   getGroupAssessment,
@@ -13,7 +15,7 @@ import {
   GROUP_ROLES,
   type SeatKey,
 } from "@/lib/case/group-roles";
-import { isSessionExpired } from "@/lib/group-session-lifetime";
+import { isSessionExpired, shouldAutoExpire } from "@/lib/group-session-lifetime";
 import { LobbyBriefingGate } from "@/app/components/group/lobby-briefing-gate";
 import { groupCastForScene, toPublicRoster } from "@/lib/group/public-roster";
 import { evaluateRoomStanceClimate } from "@/lib/group/meeting-runtime";
@@ -65,6 +67,19 @@ export default async function GroupSessionPage({
     me = participants.find((p) => p.id === seatParticipantId) ?? null;
   }
 
+  if (!me) {
+    return (
+      <div className="mx-auto max-w-lg px-6 py-16">
+        <h1 className="font-serif text-2xl text-foreground">
+          Open a seat first
+        </h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Use the personal invitation link sent by your instructor.
+        </p>
+      </div>
+    );
+  }
+
   const caseConfig = getCase(session.caseSlug);
   const roleKey = (me?.roleKey ?? "ceo") as SeatKey;
   const brief = GROUP_ROLES[roleKey];
@@ -81,20 +96,8 @@ export default async function GroupSessionPage({
     persona: "",
   }));
 
-  if (!me) {
-    return (
-      <div className="mx-auto max-w-lg px-6 py-16">
-        <h1 className="font-serif text-2xl text-foreground">
-          Open a seat first
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          From the professor session page, copy your join link for this role.
-        </p>
-      </div>
-    );
-  }
 
-  if (session.status === "expired" || isSessionExpired(session)) {
+  if (session.status === "expired" || (shouldAutoExpire(session) && isSessionExpired(session))) {
     return (
       <div className="mx-auto max-w-lg px-6 py-16">
         <h1 className="font-serif text-2xl text-foreground">Session expired</h1>
@@ -308,85 +311,14 @@ export default async function GroupSessionPage({
     assessment?.status === "released" &&
     assessment.assessment
   ) {
-    const a = assessment.assessment as {
-      epilogue?: string;
-      summary?: string;
-      what_went_well?: string[];
-      what_to_improve?: string[];
-      better_decisions?: string[];
-      evidence?: string[];
-    };
-    return (
-      <div className="mx-auto max-w-3xl px-6 py-12 md:px-8">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
-          Released debrief · {session.displayName?.trim() || session.code}
-        </p>
-        <h1 className="mt-2 font-serif text-3xl text-foreground">
-          Group debrief
-        </h1>
-        {a.epilogue ? (
-          <p className="mt-8 font-serif text-xl leading-relaxed text-foreground md:text-2xl">
-            {a.epilogue}
-          </p>
-        ) : null}
-        {a.summary ? (
-          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
-            {a.summary}
-          </p>
-        ) : null}
-        {a.what_went_well?.length ? (
-          <section className="mt-10">
-            <h2 className="text-sm font-medium text-foreground">
-              What went well
-            </h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-              {a.what_went_well.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {a.what_to_improve?.length ? (
-          <section className="mt-8">
-            <h2 className="text-sm font-medium text-foreground">
-              What to improve
-            </h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-              {a.what_to_improve.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {a.better_decisions?.length ? (
-          <section className="mt-8">
-            <h2 className="text-sm font-medium text-foreground">
-              Better decisions next time
-            </h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-              {a.better_decisions.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {a.evidence?.length ? (
-          <section className="mt-8">
-            <h2 className="text-sm font-medium text-foreground">Evidence</h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted-foreground">
-              {a.evidence.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        {assessment.professorNotes ? (
-          <p className="mt-10 border-l-2 border-accent pl-4 text-sm italic text-muted-foreground">
-            {assessment.professorNotes}
-          </p>
-        ) : null}
-      </div>
-    );
+    const a = assessment.assessment as GroupAssessmentPayload;
+    return <div className="mx-auto max-w-6xl px-6 py-12 md:px-8">
+      <LearningDebrief group caseConfig={caseConfig}
+        decisions={decisions.map(d => ({ ...d, choice: d.decision }))}
+        notes={assessment.professorNotes}
+        feedback={{ summary: a.epilogue, letter: a.summary, strengths: a.what_went_well,
+          growth: a.what_to_improve, practices: a.better_decisions, evidence: a.evidence, scores: a.readiness_scores }} />
+    </div>;
   }
 
   if (session.status === "committed" || session.status === "graded") {

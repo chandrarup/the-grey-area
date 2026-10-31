@@ -568,7 +568,7 @@ export function GroupMeetingClient(props: {
               startTransition(async () => {
                 try {
                   await withBusyBar(async () => {
-                    await toggleReadyAction(props.participantId, next);
+                    await toggleReadyAction(props.participantId, next, seatToken);
                   });
                 } catch (err) {
                   setIsReady(!next);
@@ -616,6 +616,7 @@ export function GroupMeetingClient(props: {
                         props.sessionId,
                         false,
                         props.participantId,
+                        seatToken,
                       );
                       router.refresh();
                     });

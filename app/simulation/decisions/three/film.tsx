@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { StageCanvas, useReducedStageMotion } from "./stage-canvas";
 import { PerspectiveCamera } from "@react-three/drei";
 import type { CastMember, StageMood, StoryArt } from "@/lib/case/types";
 import { LOCAL_FIRM_INVOICE } from "@/lib/case/cost-of-winning-scripts";
@@ -82,12 +83,13 @@ function DocProp({ beat }: { beat: Extract<FilmBeat, { kind: "story" }> }) {
 function PortraitCamera() {
   const { camera } = useThree();
   const start = useRef<number | null>(null);
+  const reducedMotion = useReducedStageMotion();
   useFrame(() => {
     const now = performance.now() / 1000;
     if (start.current === null) start.current = now;
     const k = Math.min(1, (now - start.current) / 10);
-    const e = k * k * (3 - 2 * k);
-    camera.position.set(THREE.MathUtils.lerp(0.32, 0.16, e), THREE.MathUtils.lerp(1.34, 1.31, e), THREE.MathUtils.lerp(1.3, 0.92, e));
+    const e = reducedMotion ? 0.5 : k * k * (3 - 2 * k);
+    camera.position.set(THREE.MathUtils.lerp(0.32, 0.16, e), THREE.MathUtils.lerp(1.34, 1.31, e), THREE.MathUtils.lerp(1.85, 1.75, e));
     camera.lookAt(0.02, 1.22, 0);
   });
   return null;
@@ -108,7 +110,7 @@ function PortraitSet({
   const gaze = useMemo(() => new THREE.Vector3(0.75, 1.28, 1.2), []);
   return (
     <>
-      <PerspectiveCamera makeDefault fov={30} position={[0.3, 1.34, 1.3]} />
+      <PerspectiveCamera makeDefault fov={38} position={[0.3, 1.34, 1.85]} />
       <PortraitCamera />
       <color attach="background" args={[b.wall]} />
       <ambientLight intensity={0.35} />
@@ -183,8 +185,8 @@ export default function Film({
           : beat.text;
     const voice = beat.kind === "message" ? (beat.castId ?? "narrator") : "narrator";
     const startDelay = window.setTimeout(() => {
-      void say(voice, line).then(() => {
-        if (!cancelled && !isLast) timer = window.setTimeout(() => advanceRef.current(), 900);
+      void say(voice, line).then((completed) => {
+        if (completed && !cancelled && !isLast) timer = window.setTimeout(() => advanceRef.current(), 900);
       });
     }, beat.kind === "setting" ? 600 : 350);
     return () => {
@@ -207,8 +209,7 @@ export default function Film({
             plan.kind === "doc" ? "blur-[6px] brightness-[0.45]" : ""
           }`}
         >
-          <Canvas shadows dpr={[1, 1.75]}>
-            <Suspense fallback={null}>
+          <StageCanvas>
               {plan.kind === "portrait" ? (
                 <PortraitSet
                   key={`p-${pos}`}
@@ -228,8 +229,7 @@ export default function Film({
                   showScreen={false}
                 />
               )}
-            </Suspense>
-          </Canvas>
+          </StageCanvas>
         </div>
       ) : null}
 
@@ -242,19 +242,19 @@ export default function Film({
       {beat.kind === "setting" ? (
         <div key={`t-${pos}`} className="film-title absolute inset-0 flex flex-col items-center justify-center">
           <p className="text-[11px] uppercase tracking-[0.3em] text-white/45">{beat.place}</p>
-          <p className="mt-4 font-serif text-6xl md:text-7xl">{beat.time}</p>
+          <p className="mt-4 px-6 text-center font-serif text-4xl md:text-7xl">{beat.time}</p>
           {beat.text ? <p className="mt-6 max-w-lg text-center font-serif text-lg text-white/70">{beat.text}</p> : null}
         </div>
       ) : null}
 
       {/* Letterbox */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[11vh] bg-black" />
-      <div className="absolute inset-x-0 bottom-0 flex h-[15vh] flex-col items-center justify-center gap-3 bg-black px-6">
+      <div className="absolute inset-x-0 bottom-0 flex min-h-[15dvh] max-h-[38dvh] overflow-y-auto py-5 flex-col items-center justify-center gap-3 bg-black px-6">
         {beat.kind !== "setting" ? (
-          <p key={`c-${pos}`} className="film-caption max-w-3xl text-center font-serif text-xl leading-snug text-white/90 md:text-2xl">
+          <p key={`c-${pos}`} className="film-caption max-w-3xl text-center font-serif text-base leading-relaxed text-white/90 md:text-xl">
             {beat.kind === "message" ? (
               <>
-                <span className="text-[#8ec5ff]">{beat.from}</span> {beat.text}
+                <span className="text-[#e7c898]">{beat.from}</span> {beat.text}
               </>
             ) : (
               beat.text
@@ -271,7 +271,7 @@ export default function Film({
           </button>
         ) : (
           <button type="button" onClick={onAdvance} className="text-[11px] uppercase tracking-widest text-white/40 hover:text-white">
-            Skip ›
+            Continue →
           </button>
         )}
       </div>

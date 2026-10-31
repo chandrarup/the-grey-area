@@ -1,4 +1,4 @@
-import { requireStudentArea, isDevIdentityEnabled } from "@/lib/auth/role-guard";
+import { requireStudentArea } from "@/lib/auth/role-guard";
 import { AreaHeader } from "@/app/components/area-header";
 import { SimulationShell } from "./simulation-shell";
 
@@ -8,15 +8,15 @@ export default async function SimulationLayout({
   children: React.ReactNode;
 }) {
   await requireStudentArea();
-  const showReset = isDevIdentityEnabled();
+  const showReset = true;
 
   return (
     <>
       <AreaHeader
         area="student"
         links={[
-          { href: "/student", label: "Home" },
-          { href: "/simulation/leadership-team", label: "Solo play" },
+          { href: "/professor/simulations", label: "← Simulations" },
+          { href: "/simulation/leadership-team", label: "Student preview" },
         ]}
       />
       <SimulationShell showReset={showReset}>{children}</SimulationShell>

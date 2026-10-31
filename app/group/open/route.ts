@@ -65,7 +65,10 @@ export async function GET(request: NextRequest) {
       path: "/",
       sameSite: "lax",
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
     });
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
     return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Open failed";

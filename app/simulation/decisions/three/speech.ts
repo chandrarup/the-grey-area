@@ -1,279 +1,213 @@
 "use client";
 
-import { isMuted } from "../stage-sound";
-import { speak as systemSpeak, stopSpeaking, voicesEnabled } from "../stage-voice";
-import { paceSpeechDelivery, speechSpeedMultiplier } from "./speech-pacing";
-
-/**
- * Character speech. Uses HeadTTS (Kokoro neural voices, in-browser via
- * WebGPU/WASM) for audio + Oculus viseme timings; until that model has
- * loaded, falls back to the browser's speech synthesis with estimated
- * mouth movement. Avatars read `speechBus.current` every frame.
- *
- * Fee/reveal lines get ellipsis pacing via `paceSpeechDelivery` before synth.
- */
-
-const HEADTTS = "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3";
-
-export const VOICES: Record<string, { voice: string; speed: number }> = {
-  marcus: { voice: "am_michael", speed: 1.05 },
-  david: { voice: "am_onyx", speed: 0.98 },
-  tom: { voice: "bm_george", speed: 0.95 },
-  priya: { voice: "bf_isabella", speed: 1.02 },
-  eleanor: { voice: "bf_emma", speed: 0.94 },
-  narrator: { voice: "af_heart", speed: 1 },
-};
+import { getStageAudioContext, isMuted, setMuted, unlockAudio } from "../stage-sound";
+import { speak as systemSpeak, stopSpeaking, voicesEnabled, voicesSupported, setVoicesEnabled } from "../stage-voice";
+import { readSeatToken } from "@/lib/group/seat-token-client";
+import { paceSpeechDelivery } from "./speech-pacing";
 
 export type SpeechTimeline = {
-  castId: string;
-  start: number; // seconds, performance clock
-  duration: number; // seconds
-  visemes: string[];
-  vtimes: number[]; // ms
-  vdurations: number[]; // ms
-  estimated: boolean;
+  castId: string; start: number; duration: number;
+  visemes: string[]; vtimes: number[]; vdurations: number[]; estimated: boolean;
 };
-
-type Clip = {
-  buffer: AudioBuffer;
-  visemes: string[];
-  vtimes: number[];
-  vdurations: number[];
-};
-
-type HeadTTSInstance = {
-  connect: (settings?: unknown, onprogress?: (e: ProgressEvent) => void) => Promise<void>;
-  setup: (data: Record<string, unknown>) => Promise<void>;
-  synthesize: (data: { input: string }) => Promise<
-    { type: string; data: { audio?: AudioBuffer | ArrayBuffer; visemes: string[]; vtimes: number[]; vdurations: number[] } }[]
-  >;
-};
-
-type Listener = () => void;
-
+type Playback = "idle" | "loading" | "blocked" | "playing" | "ended" | "error" | "muted";
 export const speechBus = {
   current: null as SpeechTimeline | null,
-  status: "idle" as "idle" | "loading" | "ready" | "unavailable",
+  status: "idle" as "idle" | "loading" | "ready" | "cloud" | "unavailable",
+  playback: "idle" as Playback,
   progress: 0,
-  listeners: new Set<Listener>(),
+  issue: null as "session" | "service" | null,
+  listeners: new Set<() => void>(),
 };
-
-function emit() {
-  speechBus.listeners.forEach((l) => l());
+function emit() { speechBus.listeners.forEach((l) => l()); }
+export function subscribeSpeech(listener: () => void) {
+  speechBus.listeners.add(listener);
+  return () => { speechBus.listeners.delete(listener); };
 }
-
-export function subscribeSpeech(l: Listener) {
-  speechBus.listeners.add(l);
-  return () => speechBus.listeners.delete(l);
-}
-
-let ctx: AudioContext | null = null;
-let tts: HeadTTSInstance | null = null;
-let loading: Promise<void> | null = null;
-const cache = new Map<string, Promise<Clip>>();
-let activeSource: AudioBufferSourceNode | null = null;
+function state(playback: Playback) { speechBus.playback = playback; emit(); }
+class SpeechAccessError extends Error {}
+const cache = new Map<string, Promise<AudioBuffer>>();
 let activeToken = 0;
-
-function audioCtx() {
-  if (!ctx) ctx = new AudioContext();
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
+let cancelPlayback: (() => void) | null = null;
+let gain: GainNode | null = null;
+let lastLine: { castId: string; text: string } | null = null;
+let activeBuffer: AudioBuffer | null = null;
+let analyser: AnalyserNode | null = null;
+const meterSamples = new Float32Array(256);
+export function dialogueLevel() {
+  if (!analyser || speechBus.playback !== "playing") return 0;
+  analyser.getFloatTimeDomainData(meterSamples);
+  return Math.min(1, Math.sqrt(meterSamples.reduce((s,v) => s+v*v,0)/meterSamples.length)*4);
 }
 
-/** Start loading the neural voice model in the background. Safe to call repeatedly. */
-export function prepareVoices() {
-  if (loading || typeof window === "undefined") return loading;
-  if (!("gpu" in navigator) && !("WebAssembly" in window)) {
-    speechBus.status = "unavailable";
-    emit();
-    return null;
-  }
-  speechBus.status = "loading";
+export function dialogueVolume() {
+  if (typeof window === "undefined") return 1;
+  const stored = window.localStorage.getItem("stage:dialogue-volume");
+  const n = stored === null ? 1 : Number(stored);
+  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
+}
+export function setDialogueVolume(value: number) {
+  const n = Math.max(0, Math.min(1, value));
+  window.localStorage.setItem("stage:dialogue-volume", String(n));
+  if (gain) gain.gain.value = n;
   emit();
-  loading = (async () => {
-    try {
-      const importer = new Function("u", "return import(u)") as (u: string) => Promise<{ HeadTTS: new (o: unknown) => HeadTTSInstance }>;
-      const { HeadTTS } = await importer(`${HEADTTS}/+esm`);
-      tts = new HeadTTS({
-        endpoints: ["webgpu", "wasm"],
-        languages: ["en-us"],
-        voices: Array.from(new Set(Object.values(VOICES).map((v) => v.voice))),
-        dtypeWebgpu: "fp16",
-        dtypeWasm: "q8",
-        workerModule: `${HEADTTS}/modules/worker-tts.mjs`,
-        dictionaryURL: `${HEADTTS}/dictionaries/`,
-        audioCtx: audioCtx(),
-      });
-      await tts.connect(null, (e: ProgressEvent) => {
-        if (e.lengthComputable && e.total) {
-          speechBus.progress = Math.round((e.loaded / e.total) * 100);
-          emit();
-        }
-      });
-      speechBus.status = "ready";
-      speechBus.progress = 100;
-    } catch (err) {
-      console.warn("Neural voices unavailable, using browser voices.", err);
-      speechBus.status = "unavailable";
-      tts = null;
-    }
-    emit();
-  })();
-  return loading;
 }
-
-function synth(castId: string, text: string): Promise<Clip> {
-  const paced = paceSpeechDelivery(text);
-  const v = VOICES[castId] ?? VOICES.narrator;
-  const speed = v.speed * speechSpeedMultiplier(paced);
-  const key = `${v.voice}|${speed.toFixed(3)}|${paced}`;
-  const hit = cache.get(key);
-  if (hit) return hit;
+/** Warm actual dialogue, not a disposable probe or a second downloadable voice model. */
+export function prepareVoices() { return Promise.resolve(); }
+export function awaitVoicesSettled() { return Promise.resolve(); }
+async function synth(castId: string, text: string): Promise<AudioBuffer> {
+  const key = `${castId}|${text}`;
+  const found = cache.get(key);
+  if (found) return found;
   const job = (async () => {
-    if (!tts) throw new Error("tts not ready");
-    void tts.setup({
-      voice: v.voice,
-      language: "en-us",
-      speed,
-      audioEncoding: "wav",
+    const sessionId = typeof window !== "undefined" ? window.location?.pathname.match(/^\/group\/([^/]+)/)?.[1] : undefined;
+    const seat = sessionId ? readSeatToken(sessionId) : null;
+    const headers: Record<string,string> = { "Content-Type": "application/json" };
+    if (seat) headers["x-seat-token"] = seat;
+    const res = await fetch("/api/speech", {
+      method: "POST", headers,
+      body: JSON.stringify({ castId, text }), signal: AbortSignal.timeout(15000),
     });
-    const messages = await tts.synthesize({ input: paced });
-    const ac = audioCtx();
-    const parts: Clip[] = [];
-    for (const m of messages) {
-      if (m.type !== "audio" || !m.data.audio) continue;
-      const audio = m.data.audio;
-      const buffer = audio instanceof AudioBuffer ? audio : await ac.decodeAudioData(audio.slice(0));
-      parts.push({ buffer, visemes: m.data.visemes, vtimes: m.data.vtimes, vdurations: m.data.vdurations });
-    }
-    if (!parts.length) throw new Error("no audio");
-    if (parts.length === 1) return parts[0];
-    // Concatenate sentence chunks and shift their viseme times.
-    const total = parts.reduce((n, p) => n + p.buffer.length, 0);
-    const out = ac.createBuffer(1, total, parts[0].buffer.sampleRate);
-    const data = out.getChannelData(0);
-    const merged: Clip = { buffer: out, visemes: [], vtimes: [], vdurations: [] };
-    let offset = 0;
-    for (const p of parts) {
-      data.set(p.buffer.getChannelData(0), offset);
-      const ms = (offset / p.buffer.sampleRate) * 1000;
-      merged.visemes.push(...p.visemes);
-      merged.vtimes.push(...p.vtimes.map((t) => t + ms));
-      merged.vdurations.push(...p.vdurations);
-      offset += p.buffer.length;
-    }
-    return merged;
+    if (res.status === 401 || res.status === 403) throw new SpeechAccessError("Session expired");
+    if (!res.ok) throw new Error(`Speech request failed (${res.status})`);
+    const ac = getStageAudioContext();
+    if (!ac) throw new Error("Web Audio unavailable");
+    const buffer = await ac.decodeAudioData(await res.arrayBuffer());
+    if (!buffer.length || !Number.isFinite(buffer.duration)) throw new Error("Empty speech audio");
+    return buffer;
   })();
+  if (cache.size >= 32) cache.delete(cache.keys().next().value!);
   cache.set(key, job);
-  job.catch(() => cache.delete(key));
+  void job.catch(() => cache.delete(key));
   return job;
 }
-
-/** Warm the cache for a line that is about to be spoken. */
 export function prefetch(castId: string, text: string) {
-  if (speechBus.status === "ready") void synth(castId, text).catch(() => {});
+  if (!isMuted() && voicesEnabled()) void synth(castId, paceSpeechDelivery(text)).catch(() => {});
 }
-
 export function stopSpeech() {
   activeToken++;
-  try {
-    activeSource?.stop();
-  } catch {
-    /* already stopped */
-  }
-  activeSource = null;
+  cancelPlayback?.(); cancelPlayback = null;
   stopSpeaking();
-  speechBus.current = null;
+  speechBus.current = null; activeBuffer = null;
+  gain = null;
+  state("idle");
 }
-
-/** Speak a line in the character's voice. Resolves when it ends (or is stopped). */
-export async function say(castId: string, text: string): Promise<void> {
+/** Called synchronously by a user click. Resumes the SAME context used by dialogue. */
+export function enableDialogue() {
+  setMuted(false); setVoicesEnabled(true); unlockAudio(); emit();
+}
+export function replayDialogue() {
+  enableDialogue();
+  if (["blocked", "loading", "playing"].includes(speechBus.playback)) return; // resume the waiting line, don't restart its caller
+  if (lastLine) void say(lastLine.castId, lastLine.text);
+  else void say("narrator", "Audio check. You should hear this voice clearly. Adjust the dialogue volume if needed.");
+}
+async function waitUntilRunning(ac: AudioContext, token: number) {
+  if (ac.state === "running") return;
+  state("blocked");
+  await new Promise<void>((resolve) => {
+    const finish = () => { ac.removeEventListener("statechange", changed); resolve(); };
+    const changed = () => { if (ac.state === "running" || token !== activeToken) finish(); };
+    cancelPlayback = finish;
+    ac.addEventListener("statechange", changed);
+    changed();
+  });
+}
+function timeline(castId: string, duration: number) {
+  speechBus.current = { castId, start: performance.now()/1000, duration,
+    visemes: [], vtimes: [], vdurations: [], estimated: true };
+  state("playing");
+}
+export async function say(castId: string, text: string): Promise<boolean> {
   stopSpeech();
   const token = activeToken;
-  const silent = isMuted() || !voicesEnabled();
+  lastLine = { castId, text };
   const paced = paceSpeechDelivery(text);
-
-  if (!silent && speechBus.status === "ready") {
-    try {
-      const clip = await synth(castId, paced);
-      if (token !== activeToken) return;
-      const ac = audioCtx();
-      const src = ac.createBufferSource();
-      src.buffer = clip.buffer;
-      src.connect(ac.destination);
-      const lead = 0.05;
-      src.start(ac.currentTime + lead);
-      activeSource = src;
-      speechBus.current = {
-        castId,
-        start: performance.now() / 1000 + lead,
-        duration: clip.buffer.duration,
-        visemes: clip.visemes,
-        vtimes: clip.vtimes,
-        vdurations: clip.vdurations,
-        estimated: false,
-      };
+  if (isMuted() || !voicesEnabled()) {
+    state("muted");
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(resolve, Math.max(1800, text.length * 55));
+      cancelPlayback = () => { window.clearTimeout(timer); resolve(); };
+    });
+    return token === activeToken;
+  }
+  speechBus.issue = null;
+  state("loading");
+  try {
+    const buffer = await synth(castId, paced);
+    if (token !== activeToken) return false;
+    const ac = getStageAudioContext()!;
+    await waitUntilRunning(ac, token);
+    if (token !== activeToken) return false;
+    const src = ac.createBufferSource();
+    src.buffer = buffer;
+    const lineGain = ac.createGain(); lineGain.gain.value = dialogueVolume();
+    gain = lineGain;
+    const lineAnalyser = ac.createAnalyser?.() ?? null;
+    analyser = lineAnalyser;
+    src.connect(lineGain);
+    if (lineAnalyser) { lineAnalyser.fftSize=256; lineGain.connect(lineAnalyser); lineAnalyser.connect(ac.destination); }
+    else lineGain.connect(ac.destination);
+    speechBus.status = "cloud"; speechBus.progress = 100;
+    activeBuffer = buffer;
+    await new Promise<void>((resolve) => {
+      src.onended = () => resolve();
+      cancelPlayback = () => { try { src.stop(); } catch {} resolve(); };
+      timeline(castId, buffer.duration);
+      src.start();
+    }).finally(() => {
+      src.disconnect();
+      lineGain.disconnect();
+      lineAnalyser?.disconnect();
+      if (analyser === lineAnalyser) analyser = null;
+    });
+  } catch (error) {
+    if (token !== activeToken) return false;
+    speechBus.status = "unavailable";
+    if (error instanceof SpeechAccessError) {
+      speechBus.issue = "session";
+      state("error");
+      await new Promise<void>((resolve) => { cancelPlayback = resolve; });
+      return false;
+    }
+    speechBus.issue = "service";
+    if (voicesSupported()) {
+      let started = false;
       await new Promise<void>((resolve) => {
-        src.onended = () => resolve();
+        const timer = window.setTimeout(resolve, Math.max(6000, text.length * 95));
+        const finish = () => { window.clearTimeout(timer); resolve(); };
+        cancelPlayback = finish;
+        systemSpeak(castId, paced, { onStart: () => { started = true; timeline(castId, Math.max(1.2,text.length*.062)); }, onEnd: finish });
       });
-      if (token === activeToken) speechBus.current = null;
-      return;
-    } catch {
-      /* fall through to browser voice */
+      if (!started && token === activeToken) { state("error"); await new Promise<void>((resolve) => { cancelPlayback = resolve; }); return false; }
+    } else {
+      state("error");
+      // Leave the line on screen until the learner retries or explicitly continues.
+      await new Promise<void>((resolve) => { cancelPlayback = resolve; });
     }
   }
-
-  const duration = Math.max(1.2, paced.length * 0.062);
-  speechBus.current = {
-    castId,
-    start: performance.now() / 1000,
-    duration,
-    visemes: [],
-    vtimes: [],
-    vdurations: [],
-    estimated: true,
-  };
-  await new Promise<void>((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      resolve();
-    };
-    if (silent) {
-      window.setTimeout(finish, duration * 1000);
-    } else {
-      systemSpeak(castId, paced, { onEnd: finish });
-      window.setTimeout(finish, duration * 1000 + 4000);
-    }
-  });
-  if (token === activeToken) speechBus.current = null;
-}
-
-/** Viseme weights for `castId` right now. */
-export function visemeWeightsNow(castId: string, out: Record<string, number>) {
-  for (const k in out) out[k] = 0;
-  const t = speechBus.current;
-  if (!t || t.castId !== castId) return false;
-  const now = performance.now() / 1000;
-  const ms = (now - t.start) * 1000;
-  if (ms < 0 || ms > t.duration * 1000 + 150) return false;
-  if (t.estimated) {
-    const open = 0.5 + 0.5 * Math.sin(ms / 85) * Math.sin(ms / 223 + 1.3);
-    out.viseme_aa = Math.max(0, open) * 0.7;
-    out.viseme_O = Math.max(0, Math.sin(ms / 140)) * 0.25;
+  if (token === activeToken) {
+    speechBus.current = null; activeBuffer = null; cancelPlayback = null; gain = null;
+    state("ended");
     return true;
   }
-  for (let i = 0; i < t.visemes.length; i++) {
-    const s = t.vtimes[i];
-    const d = t.vdurations[i];
-    const ramp = Math.min(60, d * 0.6);
-    if (ms < s - ramp || ms > s + d + ramp) continue;
-    let w = 1;
-    if (ms < s) w = 1 - (s - ms) / ramp;
-    else if (ms > s + d) w = 1 - (ms - s - d) / ramp;
-    const key = `viseme_${t.visemes[i]}`;
-    out[key] = Math.max(out[key] ?? 0, Math.min(1, w));
+  return false;
+}
+/** Mouth movement follows the audio envelope, including its real pauses. */
+export function visemeWeightsNow(castId: string, out: Record<string, number>) {
+  for (const key in out) out[key] = 0;
+  const line = speechBus.current;
+  if (!line || line.castId !== castId || speechBus.playback !== "playing") return false;
+  const elapsed = performance.now()/1000-line.start;
+  if (elapsed < 0 || elapsed > line.duration) return false;
+  let level = .2;
+  if (activeBuffer) {
+    const samples = activeBuffer.getChannelData(0);
+    const start = Math.floor(elapsed * activeBuffer.sampleRate);
+    let sum=0, count=0;
+    for(let i=start;i<Math.min(samples.length,start+480);i+=8){sum+=samples[i]*samples[i];count++;}
+    level = Math.min(.8, Math.sqrt(sum/Math.max(1,count))*4);
   }
+  out.viseme_aa = level;
+  out.viseme_O = level*.25;
   return true;
 }

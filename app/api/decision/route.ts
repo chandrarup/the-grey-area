@@ -35,7 +35,9 @@ function isSceneTurn(value: unknown): value is SceneTurn {
 }
 
 export async function POST(request: Request) {
-  const profile = await getStudentActor();
+  let profile;
+  try { profile = await getStudentActor(); }
+  catch { return NextResponse.json({ error: "unauthorized" }, { status: 401 }); }
   const body = (await request.json()) as Partial<RequestBody>;
   const prefs = await getModelPrefs();
   const DIRECTOR_MODEL = prefs.roleplayModel || DEFAULT_ROLEPLAY_MODEL;

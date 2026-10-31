@@ -362,6 +362,7 @@ export function SceneScriptPlayer(props: {
 
   const advance = useCallback(() => {
     if (busy) return;
+    stopSpeech();
     setPos((p) => p + 1);
   }, [busy]);
 
@@ -449,9 +450,11 @@ export function SceneScriptPlayer(props: {
   const voiceStatus =
     voicePhase === "loading"
       ? `Preparing voices ${voiceProgress}%`
-      : voicePhase === "unavailable"
-        ? "Using browser voices"
-        : null;
+      : voicePhase === "cloud"
+        ? "Voices ready"
+        : voicePhase === "unavailable"
+          ? "Using browser voices"
+          : null;
 
   const advanceRef = useRef(advance);
   useEffect(() => {
@@ -480,7 +483,7 @@ export function SceneScriptPlayer(props: {
         if (beat.kind === "line" && t && t.castId === beat.castId) {
           ratio = (performance.now() / 1000 - t.start) / t.duration;
         } else {
-          ratio = (performance.now() / 1000 - startedAt) / Math.max(1.2, text.length * 0.062);
+          ratio = beat.kind === "line" && ["loading", "blocked"].includes(speechBus.playback) ? 0 : (performance.now() / 1000 - startedAt) / Math.max(1.2, text.length * 0.062);
         }
         const at = ratio * text.length;
         let idx = 0;
@@ -494,8 +497,8 @@ export function SceneScriptPlayer(props: {
 
     if (beat.kind === "line" || beat.kind === "chat") {
       if (beat.kind === "chat") playChat();
-      void say(beat.castId, beat.text).then(() => {
-        if (callLive) later(() => advanceRef.current(), 650);
+      void say(beat.castId, beat.text).then((completed) => {
+        if (completed && callLive) later(() => advanceRef.current(), 650);
       });
     } else if (beat.kind === "you" && callLive && !busy) {
       later(() => advanceRef.current(), Math.max(1600, beat.text.length * 55));
@@ -508,7 +511,8 @@ export function SceneScriptPlayer(props: {
         window.clearTimeout(t);
         window.clearInterval(t);
       });
-      stopSpeech();
+      // Do not stopSpeech here — effect churn was killing lines mid-word.
+      // `say()` stops the previous clip when the next beat starts.
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, beat, pos, callLive, done]);

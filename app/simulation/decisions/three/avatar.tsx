@@ -5,8 +5,10 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { applyPose, collectBones, normalizeClip, restore, rotateWorld, snapshot, type Bones } from "./rig";
+import { applyPose, collectBones, createRigFrame, normalizeClip, restore, rotateWorld, snapshot, type Bones } from "./rig";
 import { visemeWeightsNow } from "./speech";
+import { poseSeatedArms } from "./seated-arms";
+import { applyCoveredWardrobe } from "./wardrobe";
 import {
   boneFilterFor,
   clipLayerFor,
@@ -41,14 +43,13 @@ const TALK: Record<string, string[]> = {
   priya: ["talkRelaxed", "talk1"],
   eleanor: ["talkAssured", "talk2"],
 };
-const IDLE_VARIANTS: Record<string, string[]> = {
-  default: ["waiting", "thoughtful"],
-};
-
 /*
  * Standing Rocketbox talk/listen/nod clips tip a seated body if played whole.
  * clipLayerFor + settle() keep only arms/head additives; pelvis stays on the chair.
  * Visual QA: /stage-lab seat + side shots while cycling idle / listen / speak.
+ *
+ * Idle policy: hold a single seated frame (timeScale 0) — looping idle/waiting
+ * variants read as zombie fidget in a boardroom.
  */
 function layeredClip(clip: THREE.AnimationClip, bones: RegExp, additive: boolean) {
   const tracks = clip.tracks
@@ -71,8 +72,41 @@ type Prepared = {
   headHeight: number;
 };
 
-function prepare(source: THREE.Object3D, height: number, sitting: boolean, animated: boolean): Prepared {
+/** Rocketbox opacity layers (hair / dress hems) shipped with baseColor alpha 0. */
+function fixOpacityMaterials(root: THREE.Object3D) {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(m => m.clone()) : mesh.material.clone();
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      if (!mat) continue;
+      const std = mat as THREE.MeshStandardMaterial;
+      const name = (std.name || "").toLowerCase();
+      if (!/opacity|hair|lash|dress|skirt/.test(name) && !(std.alphaTest > 0)) continue;
+      std.opacity = 1;
+      if ("color" in std && std.color) {
+        /* keep rgb; ensure alpha path is opaque enough for MASK */
+      }
+      std.transparent = std.alphaTest > 0 ? false : std.transparent;
+      if (std.alphaTest > 0) std.alphaTest = Math.min(std.alphaTest, 0.35);
+      std.depthWrite = true;
+      std.side = THREE.DoubleSide;
+      std.needsUpdate = true;
+    }
+  });
+}
+
+export function prepare(
+  source: THREE.Object3D,
+  height: number,
+  sitting: boolean,
+  animated: boolean,
+  castId?: string,
+): Prepared {
   const model = cloneSkinned(source) as THREE.Group;
+  fixOpacityMaterials(model);
+  if (castId === "priya") applyCoveredWardrobe(model);
   const meshes: THREE.SkinnedMesh[] = [];
   model.traverse((o) => {
     const m = o as THREE.SkinnedMesh;
@@ -122,8 +156,11 @@ function prepare(source: THREE.Object3D, height: number, sitting: boolean, anima
 
   if (!animated && sitting && bones.Pelvis) {
     const pelvisY = bones.Pelvis.getWorldPosition(new THREE.Vector3()).y;
-    model.position.y -= pelvisY - 0.52;
-    model.position.z -= 0.08;
+    // Female Rocketbox dresses sit slightly lower; nudge Priya up/back off the seat.
+    const dressLift = castId === "priya" ? 0.04 : 0;
+    const dressBack = castId === "priya" ? 0.04 : 0;
+    model.position.y -= pelvisY - 0.52 - dressLift;
+    model.position.z -= 0.08 + dressBack;
   }
   model.updateWorldMatrix(true, true);
   const headHeight = head ? head.getWorldPosition(new THREE.Vector3()).y : height * 0.92;
@@ -200,7 +237,10 @@ export function Avatar({
   const { scene } = useGLTF(`/avatars/${id}.glb`);
   const { animations } = useGLTF(`/avatars/anims_${GENDER[id] ?? "m"}.glb`);
   const animated = sitting && animations.length > 0;
-  const prepared = useMemo(() => prepare(scene, height, sitting, animated), [scene, height, sitting, animated]);
+  const prepared = useMemo(
+    () => prepare(scene, height, sitting, animated, id),
+    [scene, height, sitting, animated, id],
+  );
   const rig = useMemo(() => {
     const mixer = new THREE.AnimationMixer(prepared.root);
     const root = Object.values(prepared.bones).find((b) => b.name === "Bip01");
@@ -216,7 +256,7 @@ export function Avatar({
       const clip = clips.get(name);
       return clip ? mixer.clipAction(clip) : null;
     };
-    return { mixer, act };
+    return { mixer, act, frame: createRigFrame(prepared.bones, mixer) };
   }, [prepared, animations]);
   const group = useRef<THREE.Group>(null);
   const chairRef = useRef<THREE.Group>(null);
@@ -235,7 +275,6 @@ export function Avatar({
     speakT: 0,
     seed,
     base: null as THREE.AnimationAction | null,
-    variantAt: 15 + (seed % 10),
     overlay: null as THREE.AnimationAction | null,
     talkIdx: 0,
     lift: 0,
@@ -243,7 +282,7 @@ export function Avatar({
     leanFix: 0,
     eyeYaw: 0,
     eyePitch: 0,
-    saccadeAt: 0.5,
+    saccadeAt: 2.5,
     saccade: new THREE.Vector2(),
   });
 
@@ -251,7 +290,13 @@ export function Avatar({
     if (!animated) return;
     const idle = rig.act("idle");
     if (!idle) return;
-    idle.time = (seed * 3.7) % (idle.getClip().duration || 1);
+    // Hold one calm seated frame — do not loop idle mocap.
+    idle.time = Math.min(0.35 + seed * 0.08, Math.max(0.1, idle.getClip().duration * 0.15));
+    idle.setLoop(THREE.LoopOnce, 1);
+    idle.clampWhenFinished = true;
+    idle.timeScale = 0;
+    idle.enabled = true;
+    idle.setEffectiveWeight(1);
     idle.play();
     state.current.base = idle;
     return () => {
@@ -333,76 +378,58 @@ export function Avatar({
       const intentChanged = intent !== s.lastIntent;
       s.lastIntent = intent;
 
-      // Keep the base layer on neutral seated idle while speaking/listening/acting.
+      // Keep a frozen seated idle pose as the base — never cycle waiting/thoughtful.
       const idleBase = rig.act("idle");
-      const busy = intent !== "idle";
-      if (busy && s.base && idleBase && s.base !== idleBase) {
-        idleBase.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.8).play();
-        s.base.fadeOut(0.8);
-        s.base = idleBase;
-        s.variantAt = 20 + ((t * 7) % 14);
-      }
-
-      // Rare seated idle variants only when truly idle (no listen/speak/act).
-      s.variantAt -= dt;
-      if (!busy && s.variantAt <= 0 && s.base) {
-        const pool = IDLE_VARIANTS[id] ?? IDLE_VARIANTS.default;
-        const next = rig.act(pool[Math.floor((t * 13.1) % pool.length)]) ?? rig.act("idle");
-        if (next && idleBase) {
-          const target = s.base === idleBase ? next : idleBase;
-          target.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(1.6).play();
-          s.base.fadeOut(1.6);
-          s.base = target;
-          s.variantAt = target === idleBase ? 20 + ((t * 7) % 14) : Math.min(8, target.getClip().duration - 1.6);
+      if (idleBase) {
+        idleBase.timeScale = 0;
+        idleBase.enabled = true;
+        idleBase.setEffectiveWeight(1);
+        if (s.base !== idleBase) {
+          s.base?.fadeOut(0.4);
+          idleBase.play();
+          s.base = idleBase;
         }
       }
 
-      // Overlay: additive talk / listen / nod / shake / phone — never full-body standing.
+      // Overlay only for speak / one-shot reactions — not looping listen fidget.
       const wantOverlay =
-        intent === "speak" ||
-        intent === "listen" ||
-        intent === "nod" ||
-        intent === "shake" ||
-        intent === "phone";
+        intent === "nod" || intent === "shake";
       if (intentChanged) {
-        s.overlay?.fadeOut(0.45);
+        s.overlay?.fadeOut(0.35);
         s.overlay = null;
       }
       if (wantOverlay && !s.overlay) {
         const talkPool = talkClipsForMood(mood, TALK[id] ?? ["talk1"]);
         const pool = clipsForIntent(intent, talkPool);
-        const clipName = pool[intent === "speak" ? s.talkIdx++ % pool.length : 0];
+        const clipName = pool[0];
         const overlay = clipName ? rig.act(clipName) : null;
         if (overlay) {
           const layer = clipLayerFor(clipName);
           overlay.reset();
-          if (intent === "speak") {
-            overlay.time = (t * 2.3) % Math.max(1, overlay.getClip().duration - 4);
-          }
-          overlay.setLoop(intent === "phone" || intent === "listen" || intent === "speak" ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
-          overlay.clampWhenFinished = false;
-          overlay.setEffectiveWeight(layer.weight).fadeIn(intent === "speak" ? 0.9 : 0.5).play();
+          overlay.timeScale = 1;
+          overlay.setLoop(THREE.LoopOnce, 1);
+          overlay.clampWhenFinished = true;
+          overlay.setEffectiveWeight(layer.weight).fadeIn(0.35).play();
           s.overlay = overlay;
         }
       } else if (!wantOverlay && s.overlay) {
-        s.overlay.fadeOut(1.0);
+        s.overlay.fadeOut(0.6);
         s.overlay = null;
       }
 
-      rig.mixer.update(dt);
+      rig.frame(Math.min(dt, 0.05));
       settle(dt);
     } else {
-      // Breathing.
-      const breath = Math.sin(t * 1.7) * 0.012;
+      // Very light breath only when no seated clips — keep it nearly still.
+      const breath = Math.sin(t * 0.9) * 0.004;
       if (bones.Spine1) rotateWorld(bones.Spine1, tmp.side, breath);
-      if (bones.Spine2) rotateWorld(bones.Spine2, tmp.side, breath * 0.6);
     }
 
     // Lean in.
-    if (action === "lean" && bones.Spine) rotateWorld(bones.Spine, tmp.side, 0.16 * actionIn);
+    if (action === "lean" && bones.Spine) rotateWorld(bones.Spine, tmp.side, 0.055 * actionIn);
 
-    // Gaze: yaw/pitch toward lookAt, in the avatar's own frame.
-    let yawTarget = Math.sin(t * 0.23) * 0.03;
+    // Gaze: hold still unless attending to a lookAt target (no idle sway).
+    let yawTarget = 0;
     let pitchTarget = 0;
     if (lookAt && bones.Head) {
       bones.Head.getWorldPosition(tmp.headPos);
@@ -425,7 +452,7 @@ export function Avatar({
     let shake = 0;
     if (action === "nod" && !animated) nod = Math.sin(s.actionT * 7) * 0.08 * Math.max(0, 1 - s.actionT / 2.2);
     if (action === "shake" && !animated) shake = Math.sin(s.actionT * 8) * 0.1 * Math.max(0, 1 - s.actionT / 2);
-    const talkNod = (animated ? 0.25 : 1) * s.speakT * (Math.sin(t * 1.7) * 0.025 + Math.sin(t * 3.9) * 0.008);
+    const talkNod = s.speakT * (Math.sin(t * 1.4) * 0.012);
     if (bones.Neck) {
       rotateWorld(bones.Neck, tmp.up, s.yaw * 0.4);
       rotateWorld(bones.Neck, tmp.side, -s.pitch * 0.35);
@@ -435,14 +462,24 @@ export function Avatar({
       rotateWorld(bones.Head, tmp.side, -(s.pitch * 0.65) - nod - talkNod);
     }
 
-    // Eyes lead the head to a new target and make small saccades; a fixed stare reads as lifeless.
+    // Sparse, tiny saccades — frequent eye jitter reads as nervous/undead.
     s.saccadeAt -= dt;
     if (s.saccadeAt <= 0) {
-      s.saccade.set(Math.sin(t * 12.9) * 0.05, Math.sin(t * 7.3) * 0.025);
-      s.saccadeAt = 0.7 + ((t * 3.1) % 2.4);
+      s.saccade.set((Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.012);
+      s.saccadeAt = 2.8 + Math.random() * 3.5;
     }
-    s.eyeYaw = THREE.MathUtils.damp(s.eyeYaw, THREE.MathUtils.clamp(yawTarget - s.yaw, -0.3, 0.3) + s.saccade.x, 22, dt);
-    s.eyePitch = THREE.MathUtils.damp(s.eyePitch, THREE.MathUtils.clamp(pitchTarget - s.pitch, -0.2, 0.2) + s.saccade.y, 22, dt);
+    s.eyeYaw = THREE.MathUtils.damp(
+      s.eyeYaw,
+      THREE.MathUtils.clamp(yawTarget - s.yaw, -0.3, 0.3) + s.saccade.x,
+      10,
+      dt,
+    );
+    s.eyePitch = THREE.MathUtils.damp(
+      s.eyePitch,
+      THREE.MathUtils.clamp(pitchTarget - s.pitch, -0.2, 0.2) + s.saccade.y,
+      10,
+      dt,
+    );
     for (const key of ["LEye", "REye"] as const) {
       const eye = bones[key];
       if (!eye || !rest[key]) continue;
@@ -451,24 +488,8 @@ export function Avatar({
       rotateWorld(eye, tmp.side, -s.eyePitch);
     }
 
-    // Arms: talking gesture, writing, phone.
-    const R = { upper: bones.RUpperArm, fore: bones.RForearm, hand: bones.RHand };
-    const L = { upper: bones.LUpperArm, fore: bones.LForearm };
-    if (!animated && s.speakT > 0.01) {
-      const k = s.speakT;
-      if (R.fore) rotateWorld(R.fore, tmp.side, -(0.18 + Math.sin(t * 2.6) * 0.12) * k);
-      if (R.upper) rotateWorld(R.upper, tmp.fwd, Math.sin(t * 1.9) * 0.05 * k);
-      if (L.fore) rotateWorld(L.fore, tmp.side, -(0.08 + Math.sin(t * 2.1 + 1) * 0.07) * k);
-    }
-    if (action === "write") {
-      if (R.upper) rotateWorld(R.upper, tmp.side, 0.12 * actionIn);
-      if (R.hand) rotateWorld(R.hand, tmp.up, Math.sin(t * 9) * 0.25 * actionIn);
-      if (R.fore) rotateWorld(R.fore, tmp.up, Math.sin(t * 4.5) * 0.06 * actionIn);
-    }
-    if (action === "phone" && !animated) {
-      if (R.fore) rotateWorld(R.fore, tmp.side, -0.75 * actionIn);
-      if (R.hand) rotateWorld(R.hand, tmp.side, -0.5 * actionIn);
-    }
+    // Keep forearms and fingers above the tabletop in every shot.
+    if (sitting) poseSeatedArms(g, bones, t, s.speakT, action === "write");
 
     // Face: blink, mood, visemes.
     s.blinkAt -= dt;

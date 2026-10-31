@@ -1,14 +1,15 @@
 "use client";
 
-import { Suspense, useMemo, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Environment, Lightformer, PerspectiveCamera, RenderTexture, Text } from "@react-three/drei";
+import { Environment, Lightformer, PerspectiveCamera, RenderTexture, RoundedBox, Text } from "@react-three/drei";
 import type { StageMood } from "@/lib/case/types";
 import { Avatar, Chair, type AvatarAction, type AvatarMood } from "./avatar";
+import { useReducedStageMotion } from "./stage-canvas";
 import { castMoodForStage } from "./avatar-motion";
 
-export const PLAYER = new THREE.Vector3(0, 1.2, 2.75);
+export const PLAYER = new THREE.Vector3(0, 1.34, 3.05);
 
 export type Direction = {
   speakerId: string | null; // cast id, "you", or null
@@ -37,7 +38,7 @@ function seatMood(id: string, stageMood: StageMood): AvatarMood {
 }
 
 const LIGHT: Record<StageMood, { sun: string; sunI: number; amb: number; sky: [string, string]; ceiling: number }> = {
-  morning: { sun: "#fff1dc", sunI: 2.4, amb: 0.55, sky: ["#bcd3ea", "#f4e6d2"], ceiling: 0.6 },
+  morning: { sun: "#fff1dc", sunI: 2.0, amb: 0.65, sky: ["#bcd3ea", "#f4e6d2"], ceiling: 0.6 },
   evening: { sun: "#ffad6b", sunI: 1.6, amb: 0.38, sky: ["#4b4a7a", "#f2a36b"], ceiling: 0.9 },
   night: { sun: "#8fa3c8", sunI: 0.25, amb: 0.18, sky: ["#05070d", "#1a2236"], ceiling: 1.4 },
 };
@@ -61,6 +62,7 @@ function gradientTexture(top: string, bottom: string) {
 
 function City({ mood }: { mood: StageMood }) {
   const sky = useMemo(() => gradientTexture(LIGHT[mood].sky[0], LIGHT[mood].sky[1]), [mood]);
+  useEffect(() => () => sky.dispose(), [sky]);
   const buildings = useMemo(() => {
     const out: { x: number; z: number; w: number; h: number; d: number }[] = [];
     let seed = 7;
@@ -169,13 +171,13 @@ function RemoteTile({
     <group position={position}>
       <mesh position={[0, 0, -0.004]}>
         <planeGeometry args={[size[0] + 0.03, size[1] + 0.03]} />
-        <meshBasicMaterial color={speaking ? "#23d160" : "#111"} toneMapped={false} />
+        <meshBasicMaterial color={speaking ? "#d6ae70" : "#172127"} toneMapped={false} />
       </mesh>
       <mesh>
         <planeGeometry args={size} />
         <meshBasicMaterial toneMapped={false} color={dim ? "#888" : "#fff"}>
           <RenderTexture attach="map" anisotropy={8} width={640} height={360}>
-            <PerspectiveCamera makeDefault position={camPos.toArray()} fov={30} onUpdate={(c) => c.lookAt(0, 1.16, 0)} />
+            <PerspectiveCamera makeDefault manual aspect={size[0] / size[1]} position={camPos.toArray()} fov={34} onUpdate={(c) => c.lookAt(0, 1.16, 0)} />
             <color attach="background" args={[b.wall]} />
             <ambientLight intensity={0.5} />
             <directionalLight position={[1.5, 2.5, 2]} intensity={1.2} />
@@ -239,11 +241,12 @@ function YouTile({
     t.colorSpace = THREE.SRGBColorSpace;
     return t;
   }, [photo]);
+  useEffect(() => () => tex?.dispose(), [tex]);
   return (
     <group position={position}>
       <mesh position={[0, 0, -0.004]}>
         <planeGeometry args={[size[0] + 0.03, size[1] + 0.03]} />
-        <meshBasicMaterial color={speaking ? "#23d160" : "#111"} toneMapped={false} />
+        <meshBasicMaterial color={speaking ? "#d6ae70" : "#172127"} toneMapped={false} />
       </mesh>
       <mesh>
         <planeGeometry args={size} />
@@ -282,8 +285,18 @@ function tileLayout(count: number) {
 
 export type Shot = { from: [number, number, number]; to: [number, number, number]; look: [number, number, number]; seconds: number };
 
-function CameraRig({ focus, shot }: { focus: THREE.Vector3; shot?: Shot | null }) {
-  const { camera, pointer } = useThree();
+function CameraRig({
+  focus,
+  shot,
+  locked,
+}: {
+  focus: THREE.Vector3;
+  shot?: Shot | null;
+  /** Speaker-locked: no micro-jitter / pointer sway that fights the cut. */
+  locked?: boolean;
+}) {
+  const { camera } = useThree();
+  const reducedMotion = useReducedStageMotion();
   const look = useRef(new THREE.Vector3(0, 1.15, -2));
   const shotStart = useRef({ shot: null as Shot | null | undefined, t: 0 });
   useFrame((_, dt) => {
@@ -291,7 +304,7 @@ function CameraRig({ focus, shot }: { focus: THREE.Vector3; shot?: Shot | null }
     if (shot) {
       if (shotStart.current.shot !== shot) shotStart.current = { shot, t };
       const k = Math.min(1, (t - shotStart.current.t) / shot.seconds);
-      const e = k * k * (3 - 2 * k);
+      const e = reducedMotion ? 1 : k * k * (3 - 2 * k);
       camera.position.set(
         THREE.MathUtils.lerp(shot.from[0], shot.to[0], e),
         THREE.MathUtils.lerp(shot.from[1], shot.to[1], e),
@@ -300,11 +313,15 @@ function CameraRig({ focus, shot }: { focus: THREE.Vector3; shot?: Shot | null }
       camera.lookAt(shot.look[0], shot.look[1], shot.look[2]);
       return;
     }
-    camera.position.set(PLAYER.x + Math.sin(t * 0.4) * 0.008, PLAYER.y + Math.sin(t * 1.1) * 0.006, PLAYER.z);
-    const target = focus.clone().add(new THREE.Vector3(pointer.x * 0.9, pointer.y * 0.35, 0));
-    look.current.x = THREE.MathUtils.damp(look.current.x, target.x, 2.2, dt);
-    look.current.y = THREE.MathUtils.damp(look.current.y, target.y, 2.2, dt);
-    look.current.z = THREE.MathUtils.damp(look.current.z, target.z, 2.2, dt);
+    // The viewer is seated. Pointer-following and idle bob made the room
+    // swim while reading; only the director moves attention to a speaker.
+    camera.position.copy(PLAYER);
+    const target = focus;
+    const damp = locked ? 3.4 : 2.2;
+    if (reducedMotion) look.current.copy(target);
+    look.current.x = THREE.MathUtils.damp(look.current.x, target.x, damp, dt);
+    look.current.y = THREE.MathUtils.damp(look.current.y, target.y, damp, dt);
+    look.current.z = THREE.MathUtils.damp(look.current.z, target.z, damp, dt);
     camera.lookAt(look.current);
   });
   return null;
@@ -332,6 +349,10 @@ export function Boardroom({
   youPlaceholder?: string;
 }) {
   const light = LIGHT[mood];
+  const { size } = useThree();
+  // Keep both nearby seats in view on tall windows as well as wide screens.
+  const aspect = size.width / size.height;
+  const fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(48) / 2) * Math.max(1, 1.45 / aspect)));
 
   const seated = present.slice(0, SEATS.length).map((id, i) => ({ id, ...SEATS[i] }));
   const tiles = tileLayout(remote.length + 1);
@@ -349,16 +370,21 @@ export function Boardroom({
 
   const speaker = direction.speakerId;
   const speakerHead = speaker && speaker !== "you" ? headOf(speaker) : null;
+  const speakerLocked =
+    Boolean(speakerHead) &&
+    (direction.attention === "speaker" || Boolean(direction.actions[speaker ?? ""]));
   const focus =
-    direction.attention === "speaker" && speakerHead
-      ? speakerHead.clone().lerp(new THREE.Vector3(0, 1.2, -2), 0.25)
-      : new THREE.Vector3(0, 1.18, -2);
+    speakerLocked && speakerHead
+      ? speakerHead.clone()
+      : speaker === "you"
+        ? new THREE.Vector3(SCREEN.pos.x, SCREEN.pos.y - 0.1, SCREEN.pos.z)
+        : new THREE.Vector3(0, 1.30, -2);
 
   return (
     <>
       <fog attach="fog" args={[mood === "night" ? "#06080d" : "#dfe6ee", 30, 95]} />
-      <PerspectiveCamera makeDefault fov={52} position={PLAYER.toArray()} near={0.05} far={120} />
-      <CameraRig focus={focus} shot={shot} />
+      <PerspectiveCamera makeDefault fov={Math.min(85, fov)} position={PLAYER.toArray()} near={0.05} far={120} />
+      <CameraRig focus={focus} shot={shot} locked={speakerLocked || speaker === "you"} />
 
       <ambientLight intensity={light.amb} />
       <directionalLight
@@ -385,11 +411,11 @@ export function Boardroom({
       {/* Room shell */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[12, 9]} />
-        <meshStandardMaterial color="#3d2f25" roughness={0.75} />
+        <meshStandardMaterial color="#333b3e" roughness={0.95} />
       </mesh>
       <mesh position={[0, 3, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <planeGeometry args={[12, 9]} />
-        <meshStandardMaterial color="#e9e6e1" roughness={0.95} />
+        <meshStandardMaterial color="#303c40" roughness={0.95} />
       </mesh>
       {/* Window wall (left) */}
       {[-3, -1.5, 0, 1.5, 3].map((z) => (
@@ -413,12 +439,12 @@ export function Boardroom({
       {/* Wood panel wall (right) */}
       <mesh position={[3.2, 1.5, 0]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[9, 3]} />
-        <meshStandardMaterial color="#6b4a33" roughness={0.7} />
+        <meshStandardMaterial color="#49392e" roughness={0.72} />
       </mesh>
       {/* Screen wall (far) */}
       <mesh position={[0, 1.5, -3.45]} receiveShadow>
         <planeGeometry args={[6.4, 3]} />
-        <meshStandardMaterial color="#d8d3cb" roughness={0.9} />
+        <meshStandardMaterial color="#28363b" roughness={0.88} />
       </mesh>
       <mesh position={[SCREEN.pos.x, SCREEN.pos.y, SCREEN.pos.z - 0.03]}>
         <boxGeometry args={[SCREEN.w + 0.08, SCREEN.h + 0.08, 0.05]} />
@@ -462,11 +488,28 @@ export function Boardroom({
         </mesh>
       ))}
 
-      {/* Table */}
-      <mesh position={[0, 0.72, -0.1]} castShadow receiveShadow>
-        <boxGeometry args={[1.4, 0.05, 4.8]} />
-        <meshStandardMaterial color="#7a5a3e" roughness={0.45} />
+      {/* Quiet architectural detail: wall battens, ceiling lights, table rug. */}
+      {Array.from({ length: 17 }, (_, i) => (
+        <mesh key={`slat-${i}`} position={[3.17, 1.5, -3.5 + i * 0.42]}>
+          <boxGeometry args={[0.055, 3, 0.035]} />
+          <meshStandardMaterial color="#211e1b" roughness={0.85} />
+        </mesh>
+      ))}
+      {[-0.65, 0.65].map((x) => (
+        <mesh key={`ceiling-${x}`} position={[x, 2.97, -0.1]} rotation={[Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.035, 4.7]} />
+          <meshBasicMaterial color="#ffe4bc" toneMapped={false} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[3.7, 6.4]} />
+        <meshStandardMaterial color="#252c2e" roughness={1} />
       </mesh>
+
+      {/* Table */}
+      <RoundedBox args={[1.4, 0.065, 4.8]} radius={0.03} smoothness={4} position={[0, 0.72, -0.1]} castShadow receiveShadow>
+        <meshStandardMaterial color="#59402d" roughness={0.36} metalness={0.08} />
+      </RoundedBox>
       <mesh position={[0, 0.36, -0.1]}>
         <boxGeometry args={[0.5, 0.7, 3.6]} />
         <meshStandardMaterial color="#2a211a" roughness={0.6} />
@@ -486,8 +529,8 @@ export function Boardroom({
       ))}
       {seated.map((p) => (
         <group key={p.id}>
-          <Laptop position={[p.pos[0] * 0.55, 0.75, p.pos[2]]} rotation={p.rot + Math.PI} />
-          <Cup position={[p.pos[0] * 0.5, 0.8, p.pos[2] - 0.32]} />
+          <Laptop position={[p.pos[0] * 0.28, 0.75, p.pos[2]]} rotation={p.rot + Math.PI} />
+          <Cup position={[p.pos[0] * 0.2, 0.8, p.pos[2] - 0.42]} />
         </group>
       ))}
       <Suspense fallback={null}>

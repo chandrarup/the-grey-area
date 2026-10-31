@@ -23,30 +23,22 @@ export const COST_OF_WINNING: CaseConfig = {
 
   briefingPages: [
     {
-      title: "Week 1 — Your office, 47th floor",
-      body: "You have just finished your first week as **Chief Executive Officer of Global Infrastructure Solutions**, one of the world's largest engineering and construction companies.\n\nThe company employs roughly **48,000 people across three continents**. It designs and builds airports, bridges, rail systems, power plants, water-treatment facilities, ports and logistics centres. Governments rely on it. Employees, investors, contractors and entire communities depend on what your executive team decides.\n\nYou were chosen after your predecessor retired unexpectedly. The board wanted someone who could **restore growth, strengthen accountability, and repair the company's reputation** after several uneven years.\n\n**What you are walking into:**\n- The company is still profitable, but margins have tightened and several major projects have run late and over budget.\n- International competitors have turned aggressive, especially in emerging markets.\n- The confirmed project pipeline weakens sharply after the next **eighteen months**.\n- Some years ago the company was investigated over **questionable payments made through an overseas subcontractor**. No senior executive was charged — but it cost millions, delayed projects and damaged the company's name.\n\nYou have not yet built relationships with your senior team. The board expects visible progress — but it has **not** told you to win at any cost.\n\nOn your desk is the first major decision of your tenure.",
+        "title": "Monday, 7:41 a.m. \u2014 your first major call",
+        "body": "You are the new **CEO of Global Infrastructure Solutions (GIS)**, a 48,000-person engineering company. Four minutes from now, your executive team will join a call.\n\nGIS has the strongest technical proposal for an **$8.4 billion infrastructure programme in Ardania**. Winning would keep teams employed for years. Losing would leave a serious gap in the project pipeline after eighteen months.\n\nYour international director has found someone who may open the right doors. He needs your answer today.\n\n**Your task:** decide what the company will do, explain why, and follow what happens to the people who must carry out your decision."
     },
     {
-      title: "The $8.4 billion Ardania contract",
-      body: "The government of **Ardania** has invited Global Infrastructure Solutions to compete for the **Ardania Integrated Transport and Energy Corridor** — an **$8.4 billion** national infrastructure programme delivered over **eight years**. It would be the largest contract in company history.\n\n**The programme includes** a deep-water commercial port, a high-speed freight rail network, expansion of two regional airports, a natural-gas power facility, and supporting roads, utilities and logistics centres.\n\nArdania presents the corridor as the centrepiece of its national economic-development strategy — more than **30,000 local jobs**, expanded access to electricity and transport, foreign investment, isolated regions connected to markets.\n\n**For your company**, winning would generate years of revenue, stabilise the pipeline, strengthen your position in emerging markets, lift the share price, and employ thousands of engineers, project managers and subcontractors.\n\nYour engineers' proposal is **widely considered the strongest in the field** — safer, more efficient and more environmentally sustainable than the competition. It is commercially competitive, though **not the cheapest**.\n\n**The formal bid is due in six weeks.**",
+        "title": "The opportunity \u2014 and the people behind it",
+        "body": "The Ardania corridor combines a port, freight rail, airports, power and supporting infrastructure over **eight years**. The formal bid is due in **six weeks**. GIS is competitive, but not the cheapest.\n\n**Employees** want stable work. **Local communities** want jobs, reliable transport and electricity, and a fair say over land and relocation. **The client** wants delivery it can defend publicly. **The board** wants growth without another reputational crisis.\n\nYears ago, GIS endured an investigation into questionable subcontractor payments. No executive was charged, but the cost and disruption were real.\n\nPeople outside this meeting will live with what you decide inside it."
     },
     {
-      title: "What could go wrong",
-      body: "Ardania is modernising rapidly, but its regulatory and oversight institutions are still developing. The contract is financially attractive; how major decisions actually get made there is not always clear.\n\n- International watchdogs have raised concerns about **government transparency and procurement practices**.\n- Some villages may need to be **relocated** for the rail corridor and energy facilities.\n- Environmental groups question the impact of the port and power facility on **coastal and agricultural communities**.\n- **Labour protections, land-acquisition procedures and the independence of local regulators** may not be consistently enforced.\n- The formal bid documents **do not explain** how government decision-makers will weigh political, economic and relationship considerations.\n\nYour company's reputation rests on delivering demanding projects safely, on time, on budget — and consistently with the law and its own public commitments.",
+        "title": "The offer nobody can fully explain",
+        "body": "**Victor Salim**, a well-connected local adviser, offers access to people involved in the award. Marcus believes a rival will sign him if GIS waits. Salim wants a retainer and a success fee: **0.1% of the contract \u2014 $8.4 million**.\n\nThe team has not established a clear scope of services, checked all relationships, or completed diligence. A success fee can sound commercially sensible: no win, no fee. It also ties a large payment to a government decision.\n\nYou do not yet know whether the offer is legitimate. You do know that authorising conversations can create expectations before anyone signs a contract.\n\n**Listen for:** what is known, what is assumed, who owns the next check, and what happens while that check is unfinished."
     },
     {
-      title: "A new development: Victor Salim",
-      body: "Late **Sunday evening**, Marcus Reed — your EVP for International Development, calling from Ardania's capital — reported what he called a potentially decisive development.\n\nMarcus has been approached by **Victor Salim**, founder of **Salim Strategic Advisory**, a small but influential consulting firm based in Ardania. Salim advises foreign companies seeking government contracts, regulatory approvals and access to local decision-makers. According to Marcus, Salim understands both Ardania's formal procurement system and the informal networks that shape major decisions.\n\n**Salim claims he can** interpret unstated government expectations, arrange introductions, identify political obstacles, and ensure the company's proposal reaches the people who matter.\n\n**What is known — and not known:**\n- He is widely believed to have close relationships with senior government officials and people connected to the ministry overseeing the corridor.\n- He has worked with several international businesses entering Ardania, but **the precise nature of that work is not publicly clear**.\n- There is **no information proving Salim has done anything unlawful**.\n- His proposed scope is **broad**. It does not say exactly whom he would contact, what he would represent on your behalf, or how his relationships would be used.\n- Compensation is an initial retainer **plus a success fee if you win**. **Marcus has not circulated the amount** — he says he will explain the commercial terms during the meeting.\n\n**The squeeze:** Salim says he will represent **only one bidder**. Marcus believes a leading competitor is also trying to retain him. Salim wants an indication of interest **before the end of today**.\n\nSo the six-week bid deadline is misleading. You have weeks to finish the engineering — and perhaps **hours** to decide whether to pursue a relationship that Marcus believes could decide the outcome.",
-    },
-    {
-      title: "Your executive team",
-      body: "Because the proposal raises strategic, financial, stakeholder, legal and compliance questions, you asked four executives to join.\n\n**Marcus Reed** — EVP, International Development. Nineteen years. The company's 'rainmaker'. Spent two years positioning this bid; joining from a hotel in Ardania's capital. *Wants to move fast and keep Salim.* His reputation and future are bound up in this contract.\n\n**David Okafor** — Chief Financial Officer. Six years, trusted by the board, analytical. Knows the pipeline weakens after eighteen months. *Wants to keep the opportunity alive — with controls, benchmarks and audit rights.*\n\n**Priya Nair** — Chief Strategy and Sustainability Officer. Four years, from emerging-market development work. *Neutral and genuinely persuadable.* Wants evidence on stakeholder impact, community protections and Salim's real role.\n\n**Tom Bradley** — Chief Legal and Compliance Officer and General Counsel. Eight years; former federal prosecutor. **Hired after the company's last investigation.** Reports to you *and* has direct access to the board's Audit and Risk Committee. *Wants enhanced due diligence before any commitment.*\n\nAll four agree Ardania matters. They disagree on how fast to move, how much uncertainty is acceptable, and what safeguards are required.",
-    },
-    {
-      title: "Three decisions — your call",
-      body: "It is **7:45 a.m. on Monday**, the beginning of your second week. You have **thirty minutes** for the first call.\n\nYour assistant has sent short pre-reads from Marcus, David, Priya and Tom. **They do not point to one obvious answer.** Salim has offered to meet Marcus tonight — but only if the company confirms it is seriously considering the engagement.\n\nYou will face **three decisions**. Each will look reasonable on its own. Together, they decide how this company competes — and what the record will show when someone asks.\n\nTalk with the people in the room, then commit. *Your choices carry forward and change what happens next. There is no undo.*",
-    },
-  ],
+        "title": "How to take part",
+        "body": "You will face **three connected decisions**: access, payment, and accountability. The story changes with your choices. A later attempt to repair the situation does not erase earlier commitments.\n\nAsk questions, listen to conflicting advice, and state your decision in your own words. Silence and delegation also affect what colleagues believe they have permission to do.\n\nEach route has consequences. A careful decision may lose time or upset a colleague; a convenient decision may move the project forward before its cost becomes visible.\n\nAfter the final scene, you will reflect on the pressure you felt. Your instructor will review and release a debrief that connects your reasoning, the consequences and one action to practise at work.\n\nThis is a safe place to try, notice, and learn. It is not a test of whether you are a good person."
+    }
+] ,
 
   cast: [
     {
@@ -159,7 +151,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s1_introduction/refuse"],
             headline: "Nine days later",
             narrative:
-              "You closed the door. Marcus went quiet on the call and has been professional — and distant — ever since. On Wednesday, Meridian Infrastructure Group announced an 'in-country advisory partnership' in Ardania. Since then, the ministry has stopped answering your team's clarification requests.",
+              STORIES["s1_introduction/refuse"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Marcus Reed",
@@ -183,7 +175,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s1_introduction/conditions"],
             headline: "Six weeks later",
             narrative:
-              "Tom's expedited review is still open. Marcus met Salim once under a written 'no agency' script. An invoice has arrived from a local firm you did not select — for 'coordination services' no one can itemise. Marcus says the partner came recommended through Salim's network. David cannot find a deliverable list. Tom wants the invoice held.",
+              STORIES["s1_introduction/conditions"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -207,7 +199,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s1_introduction/authorise"],
             headline: "Five weeks later",
             narrative:
-              "Marcus closed the retainer. Salim is 'on the file.' An invoice has arrived — services described in three vague lines, amount large enough to notice and small enough to approve under local discretion. Someone you trust says this is normal here. Someone else you trust says it is not.",
+              STORIES["s1_introduction/authorise"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "David Okafor",
@@ -254,7 +246,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_door_closed/stop_disclose"],
             headline: "Four months later",
             narrative:
-              "You put the first decision on the record. The board backed a clean file. Meridian is the preferred technical interlocutor in Ardania. A trade journal is preparing a piece on how GIS 'walked away from the corridor.' Regulators have asked for documents — your file is complete. The headline is not.",
+              STORIES["s2_door_closed/stop_disclose"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Eleanor Voss",
@@ -274,7 +266,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_door_closed/contain"],
             headline: "Four months later",
             narrative:
-              "The second partner is on the books as 'market intelligence.' Emails stop mid-thread. A journalist has a draft alleging GIS used a cut-out after refusing Salim. Regulators want documents. There is a gap where the first decision should be explained.",
+              STORIES["s2_door_closed/contain"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -294,7 +286,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_door_closed/keep_going"],
             headline: "Four months later",
             narrative:
-              "Marcus kept the corridor warm. A ministry aide now returns calls. Journalists have the story; regulators want papers. An executive offers to 'help the file make sense' before the production deadline.",
+              STORIES["s2_door_closed/keep_going"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Marcus Reed",
@@ -336,7 +328,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_diligence/stop_disclose"],
             headline: "Three months later",
             narrative:
-              "You froze the invoice and briefed Audit. Salim's competitor track went quiet. A reporter has a story on GIS 'hesitating' on Ardania while Meridian advances. Regulators have opened a routine inquiry. Your file shows the hold — and the unfinished diligence.",
+              STORIES["s2_invoice_diligence/stop_disclose"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Eleanor Voss",
@@ -356,7 +348,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_diligence/contain"],
             headline: "Three months later",
             narrative:
-              "The invoice cleared under a vendor code that does not name Salim. Diligence memos stop updating. Journalists have a partial ledger. Regulators want the missing reviews. There is a gap between what the board was told and what the books show.",
+              STORIES["s2_invoice_diligence/contain"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "David Okafor",
@@ -376,7 +368,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_diligence/keep_going"],
             headline: "Three months later",
             narrative:
-              "The invoice is paid. More follow. The corridor is warmer. Journalists and regulators arrive together. An executive offers to reconstruct the diligence narrative so the file 'reads cleanly.'",
+              STORIES["s2_invoice_diligence/keep_going"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Marcus Reed",
@@ -418,7 +410,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_authorised/stop_disclose"],
             headline: "Three months later",
             narrative:
-              "You cut the payments and told the board what the first decision had already set in motion. Salim is gone. The file shows a retainer, an invoice, and a stop. Journalists have both. Regulators want everything. There is a gap between 'authorised to negotiate' and what the invoices claim.",
+              STORIES["s2_invoice_authorised/stop_disclose"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -438,7 +430,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_authorised/contain"],
             headline: "Three months later",
             narrative:
-              "Descriptions get shorter. Approvals get faster. A journalist has a bank trail that does not match the board summary. Regulators ask for the missing diligence. The gap is now the story.",
+              STORIES["s2_invoice_authorised/contain"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Priya Nair",
@@ -458,7 +450,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s2_invoice_authorised/keep_going"],
             headline: "Three months later",
             narrative:
-              "Local leadership owns the file. The corridor moves. Then the call comes: journalists, regulators, a production deadline. An executive offers to help the record 'make sense' before anyone else reads it.",
+              STORIES["s2_invoice_authorised/keep_going"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Marcus Reed",
@@ -501,7 +493,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_clean_file/full_coop"],
             headline: "Eight weeks later",
             narrative:
-              "You produce the complete file and flag every open question in the cover note. The board stands by the process. Audit calls the record careful. The press still frames GIS as late to Ardania while Meridian advances. Jobs and pipeline questions remain — owned, not invented.",
+              STORIES["s3_clean_file/full_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Eleanor Voss",
@@ -521,7 +513,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_clean_file/narrow_coop"],
             headline: "Eight weeks later",
             narrative:
-              "You answer what was asked. The rest stays inside the building. A second request arrives — broader, with a forensic hold. Directors ask what else never left the room. Journalists fill the gaps the production left blank.",
+              STORIES["s3_clean_file/narrow_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -541,7 +533,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_clean_file/managed"],
             headline: "Eight weeks later",
             narrative:
-              "The production set is limited. Communications brief the narrative first. Documents conflict with what the cover letter implies. Regulators ask for the withheld set by name. A loyal executive's memo becomes its own exhibit.",
+              STORIES["s3_clean_file/managed"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Priya Nair",
@@ -583,7 +575,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_gap_record/full_coop"],
             headline: "Eight weeks later",
             narrative:
-              "You produce everything that exists — including where the file stops. Self-report opens a formal inquiry. The unfinished diligence is the story. You own it on the record. The board forms a special committee. The corridor award is already gone.",
+              STORIES["s3_gap_record/full_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -603,7 +595,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_gap_record/narrow_coop"],
             headline: "Eight weeks later",
             narrative:
-              "Answers stay careful. Anything not requested stays back. The gap surfaces anyway in a bank trail and an unfinished review. Production expands. Counsel can no longer narrow the ask. Directors lose patience with partial briefings.",
+              STORIES["s3_gap_record/narrow_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "David Okafor",
@@ -623,7 +615,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_gap_record/managed"],
             headline: "Eight weeks later",
             narrative:
-              "The file is brought current before anyone outside reads it. On paper, the timeline looks continuous. Source systems do not match the finished narrative. Outside counsel flags alteration risk in the first week.",
+              STORIES["s3_gap_record/managed"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Eleanor Voss",
@@ -665,7 +657,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_managed/full_coop"],
             headline: "Eight weeks later",
             narrative:
-              "You produce the file as it stands and tell the board what it shows. Fragments go out: retainer, invoices, stops that never quite landed. Directors back disclosure. The inquiry turns to the earlier authorisations. The headline is messy. It is also yours.",
+              STORIES["s3_managed/full_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Marcus Reed",
@@ -685,7 +677,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_managed/narrow_coop"],
             headline: "Eight weeks later",
             narrative:
-              "Controlled production ships with a prepared board message. The message holds for a news cycle. Then a second demand arrives — systems imaging, not summaries. Local leadership goes quiet. HQ owns the next answer.",
+              STORIES["s3_managed/narrow_coop"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Priya Nair",
@@ -705,7 +697,7 @@ export const COST_OF_WINNING: CaseConfig = {
             story: STORIES["s3_managed/managed"],
             headline: "Eight weeks later",
             narrative:
-              "The papers are aligned before the production deadline. The narrative is coherent. The ledgers underneath are not. Half the board wants credit for clarity. Half wants to know who wrote it. The press asks the same question out loud.",
+              STORIES["s3_managed/managed"].map((frame) => frame.text).join(" "),
             beats: [
               {
                 speaker: "Tom Bradley",
@@ -718,6 +710,13 @@ export const COST_OF_WINNING: CaseConfig = {
     },
   },
 
+  debriefValues: [
+    { name: "Integrity", description: "Make commitments you can explain openly, even when access and revenue are at stake.", scoringKey: "integrity_under_pressure" },
+    { name: "Accountability", description: "Own the decision, invite challenge, and keep an honest record of how it was made.", scoringKey: "leadership_courage" },
+    { name: "Care for stakeholders", description: "Consider the people affected by the contract, including those who are not in the room.", scoringKey: "stakeholder_management" },
+    { name: "Long-term responsibility", description: "Consider what today's shortcuts leave for the people who come after you.", scoringKey: "long_term_thinking" },
+  ],
+
   reflectionQuestions: [
     "Which decision was the most difficult, and why?",
     "At what point did the ethical dilemma become apparent to you?",
@@ -726,11 +725,12 @@ export const COST_OF_WINNING: CaseConfig = {
     "What pressures made the shortcut path look appealing — even if you did not take it?",
     "How did loyalty and fear influence your decisions?",
     "If every decision you made became public tomorrow, would you make the same choices? What would you change?",
+    "Which value was hardest to uphold: integrity, accountability, care for stakeholders, or long-term responsibility? Name one action you will take when that pressure appears at work.",
   ],
 
   rubric: {
     instructions:
-      "You are an Executive Ethics and Responsible Leadership Coach with expertise in behavioral ethics, moral psychology, corporate governance, compliance, organizational culture, crisis leadership, stakeholder management, and executive coaching.\n\nYou are preparing a confidential assessment for a Board of Directors that is considering the candidate for a CEO or senior executive position. You are given the transcript of the candidate's decisions and reasoning in an ethical leadership simulation (\"The Cost of Winning\").\n\nYour task is NOT to decide whether the candidate's decisions were \"correct.\" Evaluate the QUALITY of their ethical reasoning, leadership judgment, and decision-making process, grounded strictly in evidence from the transcript. Where the transcript lacks evidence for something, say so plainly rather than inventing it.\n\nAssess all of the following briefly, citing concrete evidence from the transcript:\n1. Ethical awareness — when they spotted risks; which warning signs they caught or missed (max 2 short sentences).\n2. Decision quality — logic, consistency, facts vs assumptions; note any rationalizations (max 2 short sentences).\n3. Stakeholder analysis — who was considered or neglected; short- vs long-term balance (keep each string to max 2 short sentences).\n4. Leadership under pressure — integrity, courage, and accountability under conflicting demands (max 2 short sentences).\n5. Behavioral ethics — at most 3 bias findings; each field a short phrase only.\n6. Ethical frameworks — one brief take per framework (duty, consequentialism, virtue, justice, care, stakeholder, responsible leadership); max 2 short sentences each.\n7. Organizational impact — brief likely effects on culture, trust, safety, reputation, investors, regulators, sustainability; max 2 short sentences each.\n8. Executive coaching feedback — exactly three strengths, three blind spots, three recommendations (one short sentence each); plus up to 3 short questions_to_ask and up to 3 short culture_actions.\n9. Executive readiness — score each of the ten dimensions 1–10; each justification ONE sentence with concrete evidence.\n10. Coaching letter — warm, tight, max 130 words in 2 short paragraphs; do not restate the scores.\n\nBe specific and evidence-based, but brevity is mandatory — prefer the shortest wording that still cites concrete evidence. Do not pad.\n\nLENGTH LIMITS — STRICT:\n- readiness_scores[].justification: ONE sentence, max 25 words. No lists.\n- coaching_feedback strengths / blind_spots / recommendations: each item ONE sentence, max 20 words, plain and specific.\n- coaching_feedback.questions_to_ask and culture_actions: max 3 items each, each under 15 words.\n- ethical_awareness, decision_quality, leadership_under_pressure, and every string inside stakeholder_analysis, ethical_frameworks, and organizational_impact: max 2 short sentences each.\n- behavioral_ethics: at most 3 findings; bias / evidence / influence each one short phrase.\n- coaching_letter: max 130 words, 2 short paragraphs, warm but tight. No restating the scores.\n\nOUTPUT FORMAT — CRITICAL:\nReturn ONLY a single valid JSON object that matches the schema below exactly. No markdown, no code fences, no commentary before or after the JSON. Use plain text inside string values (no markdown). All scores are integers from 1 to 10. The readiness_scores array must contain all ten dimensions, in the order given, using these exact dimension keys: ethical_awareness, quality_of_reasoning, stakeholder_management, leadership_courage, integrity_under_pressure, strategic_judgment, long_term_thinking, communication_effectiveness, self_awareness, readiness_for_senior_leadership.\n\nSchema:\n{\n  \"ethical_awareness\": \"string\",\n  \"decision_quality\": \"string\",\n  \"stakeholder_analysis\": {\n    \"stakeholders_identified\": [\"string\"],\n    \"stakeholders_neglected\": [\"string\"],\n    \"short_vs_long_term\": \"string\"\n  },\n  \"leadership_under_pressure\": \"string\",\n  \"behavioral_ethics\": [\n    { \"bias\": \"string\", \"evidence\": \"string\", \"influence\": \"string\" }\n  ],\n  \"ethical_frameworks\": {\n    \"duty_based\": \"string\",\n    \"consequentialism\": \"string\",\n    \"virtue_ethics\": \"string\",\n    \"justice_and_fairness\": \"string\",\n    \"care_ethics\": \"string\",\n    \"stakeholder_theory\": \"string\",\n    \"responsible_leadership\": \"string\"\n  },\n  \"organizational_impact\": {\n    \"culture\": \"string\",\n    \"employee_trust\": \"string\",\n    \"psychological_safety\": \"string\",\n    \"reputation\": \"string\",\n    \"investor_confidence\": \"string\",\n    \"regulatory_exposure\": \"string\",\n    \"long_term_sustainability\": \"string\"\n  },\n  \"coaching_feedback\": {\n    \"strengths\": [\"string\", \"string\", \"string\"],\n    \"blind_spots\": [\"string\", \"string\", \"string\"],\n    \"recommendations\": [\"string\", \"string\", \"string\"],\n    \"questions_to_ask\": [\"string\"],\n    \"culture_actions\": [\"string\"]\n  },\n  \"readiness_scores\": [\n    { \"dimension\": \"ethical_awareness\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"quality_of_reasoning\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"stakeholder_management\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"leadership_courage\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"integrity_under_pressure\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"strategic_judgment\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"long_term_thinking\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"communication_effectiveness\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"self_awareness\", \"score\": 0, \"justification\": \"string\" },\n    { \"dimension\": \"readiness_for_senior_leadership\", \"score\": 0, \"justification\": \"string\" }\n  ],\n  \"coaching_letter\": \"string\"\n}",
+      "You are an ethics learning coach. Write a respectful, evidence-based debrief for the learner, not an employment recommendation or a judgment of personal character. Evaluate reasoning and process, not whether the learner picked a predetermined correct answer. Use only observed choices, dialogue and reflections. Identify the pressure, what the learner did, who was affected, and a concrete alternative they could practise. A later repair does not erase earlier commitments. A difficult consequence does not prove a decision was unethical. Do not invent dialogue, real-world law, or outcomes. Distinguish authored consequences from possible wider effects. Keep each prose field to two short sentences. Give three specific strengths and three growth areas; next_practice should be one actionable sentence the learner can use at work. Coaching_letter should be a warm learner-facing note of at most 120 words. Every score rationale must cite specific evidence or explicitly say the evidence is limited. Return the structured schema supplied by the application; use the exact scoring-area keys.",
     scoringAreas: [
       { key: "ethical_awareness", label: "Ethical Awareness" },
       { key: "quality_of_reasoning", label: "Quality of Reasoning" },

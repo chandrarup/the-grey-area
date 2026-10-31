@@ -17,17 +17,22 @@ export function setMuted(muted: boolean) {
   window.localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
 }
 
-export function unlockAudio() {
-  if (typeof window === "undefined") return;
+export function getStageAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
   if (!ctx) {
     const Ctor =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: typeof AudioContext })
         .webkitAudioContext;
-    if (!Ctor) return;
+    if (!Ctor) return null;
     ctx = new Ctor();
   }
-  if (ctx.state === "suspended") void ctx.resume();
+  return ctx;
+}
+
+export function unlockAudio() {
+  const audio = getStageAudioContext();
+  if (audio?.state === "suspended") void audio.resume();
 }
 
 function live(): AudioContext | null {

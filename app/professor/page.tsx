@@ -21,7 +21,7 @@ export default async function ProfessorPage() {
   await requireInstructorArea();
   const profile = await getProfessorActor();
   const sessions = await listGroupSessions(profile);
-  const batches = await listBatchesForProfessor(profile.id);
+  const batches = await listBatchesForProfessor(profile.role === "admin" ? undefined : profile.id);
   const prefs = await getModelPrefs();
   const showAdvanced = isDevIdentityEnabled();
 

@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { JoinForm } from "./join-form";
 
 export default async function GroupJoinPage({
   searchParams,
@@ -22,10 +21,8 @@ export default async function GroupJoinPage({
         Join your seat
       </h1>
       <p className="mt-3 text-sm text-muted-foreground">
-        Open the invite link from your instructor, or expand Join with code
-        below.
+        Open the personal invitation link from your instructor. It takes you directly to your assigned role.
       </p>
-      <JoinForm initialToken="" />
     </div>
   );
 }

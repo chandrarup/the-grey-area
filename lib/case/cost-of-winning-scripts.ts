@@ -212,11 +212,35 @@ const COST_OF_WINNING_STORIES_RAW: Record<string, StoryFrame[]> = {
   ],
 };
 
+const PEOPLE_AFFECTED: Record<string, string> = {
+  "s1_introduction/refuse": "Priya has to tell the site team the bid may slip. She asks what you will do to protect their work while the formal process continues.",
+  "s1_introduction/conditions": "A junior finance analyst asks who can say no while the review is open. Your conditions exist on paper; the team still needs an owner and a deadline.",
+  "s1_introduction/authorise": "The client project lead calls Priya: \u201cYour adviser implied we had agreed the next step. Who authorised him to speak for GIS?\u201d Your permission to negotiate has become somebody else\u2019s promise.",
+  "s2_door_closed/stop_disclose": "The bid team loses a week answering Audit. Priya can explain the delay to her team, even though she cannot promise the work will return.",
+  "s2_door_closed/contain": "The analyst who asked about the supplier now sees the invoice approved. She stops asking. The team learns which questions slow things down.",
+  "s2_door_closed/keep_going": "Priya is asked to mobilise engineers before she can explain who is being paid. The access you preserved is becoming a delivery commitment.",
+  "s2_invoice_diligence/stop_disclose": "Marcus has to make an uncomfortable call to the client. The analyst who raised the concern is asked to help complete the review, rather than stay quiet.",
+  "s2_invoice_diligence/contain": "The analyst is told the vendor code makes the payment routine. Her original question about the services remains unanswered.",
+  "s2_invoice_diligence/keep_going": "The client asks why access was described as delivery support. Priya has a team ready to travel and no answer she can confidently give them.",
+  "s2_invoice_authorised/stop_disclose": "The payment stop disrupts mobilisation. You must explain the earlier authorisation to the board and the present delay to the people relying on the work.",
+  "s2_invoice_authorised/contain": "An analyst is called into an interview about the descriptions she entered. She says she understood that leadership had already checked the arrangement.",
+  "s2_invoice_authorised/keep_going": "The regional team is called in to explain decisions it thought headquarters had approved. Delegating the file did not remove the pressure from the people handling it.",
+  "s3_clean_file/full_coop": "At the next team meeting, you acknowledge the lost opportunity and explain the record. People can see what they should do when the same pressure returns.",
+  "s3_clean_file/narrow_coop": "The analyst is asked why her concerns were absent from the first response. She wonders whether raising them internally was enough.",
+  "s3_clean_file/managed": "A colleague is asked to defend wording she did not write. Protecting the company\u2019s message has made her own account harder to give.",
+  "s3_gap_record/full_coop": "Employees still face hard questions, but they can answer from the same record. Repair begins with naming both what is known and what was never checked.",
+  "s3_gap_record/narrow_coop": "Each new request pulls the same employees back into interviews. A narrow first answer has extended the uncertainty for everyone.",
+  "s3_gap_record/managed": "The analyst is asked to explain why a document carries an earlier date than its creation history. She cannot resolve the difference by repeating the approved narrative.",
+  "s3_managed/full_coop": "The regional team no longer has to maintain a version of events it cannot support. Trust will take time to rebuild; the earlier approvals remain part of the record.",
+  "s3_managed/narrow_coop": "Priya postpones another team briefing because the approved message no longer answers the questions. Silence from headquarters becomes uncertainty on site.",
+  "s3_managed/managed": "A trusted colleague is asked who told them to change the wording. Loyalty, which once kept the deal moving, now leaves people unsure whom they can trust."
+};
+
 export const COST_OF_WINNING_STORIES: Record<string, StoryFrame[]> =
   Object.fromEntries(
     Object.entries(COST_OF_WINNING_STORIES_RAW).map(([key, frames]) => [
       key,
-      withLedgerChrome(frames),
+      withLedgerChrome([...frames, { art: "phone", text: PEOPLE_AFFECTED[key] }]),
     ]),
   );
 
@@ -232,7 +256,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
       time: "Monday · 7:41 a.m.",
       mood: "morning",
       place: "Your office, 47th floor",
-      text: "Four minutes before the call. Second week in the job. Your phone has been face-down on the desk since you sat down.",
+      text: "Four minutes before your first major call as CEO. The team wants a decision today. You have not yet seen a clear scope for the adviser they want you to hire.",
     },
     {
       kind: "message",
@@ -257,7 +281,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
     {
       kind: "line",
       castId: "marcus",
-      text: "Thank you for moving this. We have the strongest engineering package on the table — but this award will not be decided on drawings alone. Victor Salim knows who actually moves the file inside the ministry. A competitor is already courting him. He needs a signal today. I'm not asking us to ignore the rules. I'm asking us not to close the door before we understand what we're looking at.",
+      text: "We have the strongest engineering proposal, but we are losing access. Victor Salim says he can help us understand the ministry. A competitor wants him too. I need permission to keep talking today; diligence can catch up before we pay.",
     },
     {
       kind: "line",
@@ -312,7 +336,7 @@ export const COST_OF_WINNING_SCRIPTS: Record<string, ScriptBeat[]> = {
             {
               kind: "line",
               castId: "tom",
-              text: "Nothing you've heard proves anything unlawful. … But a contingent fee, on a government award, to a man whose value is his access — that's how every enforcement case I prosecuted started.",
+              text: "We do not have enough facts to answer that. We need to know what he will do, who he is connected to, and what we can verify. A legal opinion cannot fill those gaps for us.",
             },
             {
               kind: "line",

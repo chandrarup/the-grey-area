@@ -1,139 +1,126 @@
-# The Cost of Winning
+# The Cost of Winning · Ethics simulation workspace
 
-> **Contributors / agents:** read [`PROJECT.md`](./PROJECT.md) first, then [`MEMORY.md`](./MEMORY.md).
+Read `PROJECT.md` for product intent and `MEMORY.md` for implementation history.
+The internal package remains `the-grey-area`.
 
-**The Cost of Winning** is Stage 1: AI-Powered Executive Simulation of a three-stage ethics program, the Transformational Ethics Experience for the CaliBaja North American Leadership Academy (Stage 2 = a facilitated Ethics Workshop; Stage 3 = an ongoing Ethics Learning Community — those are delivered outside this app). This app immerses participants in the case and gives AI-driven feedback on their decisions, biases and blind spots.
+An instructor workspace for story-led ethics training. The first published simulation,
+**The Cost of Winning**, puts a CEO and executive team through three decisions with
+27 complete paths. Choices embody compliance under pressure, plausible-deniability
+shortcuts, and silence. Authored consequences play before the next decision; reflection
+and instructor-released feedback connect the story to values and workplace behavior.
 
-It is an AI ethics simulation: play solo against AI executives, or join a live multiplayer executive meeting where each student has an assigned role. Instructors create sessions (or whole-class batches), share join links, monitor progress, grade with AI assistance, and release feedback.
+## Entry and access
 
-> Internal repo / package name remains `the-grey-area`; that name must not appear in user-facing product copy.
+- `/` routes instructors to `/login`; `/?join=…` opens the student's assigned seat.
+- `/login` uses Supabase email/password authentication. Only verified emails explicitly
+  listed in the server-only `ADMIN_EMAILS` setting receive full administrator access.
+  There is no public registration or role switch. The two owner accounts are pending setup.
+- `/professor/simulations` is the simulation library. The Cost of Winning is available;
+  the future-story tile is a placeholder, not an implemented additional simulation.
+- **Create groups** opens roster setup; **View sessions** opens the live monitor;
+  **View as student** opens a separate solo run owned by the signed-in instructor.
+- Students receive unique invite links. They cannot browse the library, launch solo runs,
+  select arbitrary seats by group code, or use instructor/AI testing endpoints.
+- Group endpoints verify a seat token or staff session. A participant UUID is not a credential.
+  Explicit per-tab tokens take precedence over cookies. Released feedback remains accessible
+  after the meeting's play window; expired unfinished sessions cannot be played.
+- Live state uses authenticated HTTP polling. Anonymous Supabase Realtime subscriptions
+  have been removed from the active flow. Migration `0014` removes direct browser access
+  to application tables. **Apply it before treating a deployed database as private.**
 
-## How this was built
+## Local development
 
-Cases are authored as typed config in `lib/case/` so the simulation engine stays generic and case-agnostic. All LLM calls go through one schema-validated layer in `lib/llm/` (Vercel AI SDK) across Anthropic, Google, and OpenAI. Group mode uses Supabase Realtime so students share a live meeting; writes stay on server routes and Drizzle. The project began as a Python/Streamlit prototype and was rebuilt on Next.js for real-time multiplayer and a controllable UI.
+Requires Node 20+, npm, and the existing Supabase Postgres project.
 
-## Tech stack
-
-| Layer | Technology | Version (from `package.json`) |
-|-------|------------|-------------------------------|
-| Framework | Next.js App Router, React, TypeScript | Next **16.2.10**, React **19.2.4**, TypeScript **^5** |
-| Styling | Tailwind CSS | **^4** |
-| Database | Supabase Postgres via Drizzle ORM | Drizzle ORM **^0.45.2**, `postgres` **^3.4.9** |
-| Realtime | Supabase Realtime (`postgres_changes`) | `@supabase/supabase-js` **^2.109.0** |
-| Auth | Dev-identity today (mode cookie + join tokens); Supabase Auth planned | — |
-| AI | Vercel AI SDK (`ai` + `@ai-sdk/*`) | `ai` **^7.0.22**, provider SDKs **^4.0.x** |
-| Email | Resend (batch seat invites) | `resend` **^6.18.0** |
-| Hosting | Vercel | — |
-
-## Run it locally
-
-**Prerequisites:** Node.js **20+**, npm, and a [Supabase](https://supabase.com) project (Postgres + Realtime).
-
-1. **Install**
-
-   ```bash
-   npm install
-   ```
-
-2. **Environment**
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   | Variable | Purpose |
-   |----------|---------|
-   | `DATABASE_URL` | Supabase → **Connect** → **Session pooler** (URI, port 6543) |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Project **Settings → API → Project URL** |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project **Settings → API → anon public** |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Project **Settings → API → service_role** — server only |
-   | `DEV_IDENTITY` | `true` locally enables a small **Switch role** control in area headers |
-   | `GEMINI_API_KEY` | At least one LLM key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY` as needed) |
-   | `NEXT_PUBLIC_APP_BASE_URL` | Canonical URL for join links in emails (**required** for batch invites) |
-   | `RESEND_API_KEY` | Resend API key for batch seat invites |
-   | `EMAIL_FROM` | Verified sender, e.g. `The Cost of Winning <invites@yourdomain.com>` (**required** — no silent default) |
-   | `EMAIL_TEST_TO` | Optional: redirect every invite to this inbox while testing (intended recipient is logged) |
-
-   **Resend sandbox vs class mail:** Resend’s default sandbox from-address (`onboarding@resend.dev`) can only deliver to the Resend account owner’s own email. Other recipients fail. To email a real class, [verify a domain in Resend](https://resend.com/domains), then set `EMAIL_FROM` to an address on that domain. Use **Send test to myself** on the invites screen (or `EMAIL_TEST_TO`) to verify configuration before mailing the roster.
-
-3. **Database**
-
-   ```bash
-   npm run db:migrate
-   npm run db:seed
-   ```
-
-4. **Start**
-
-   ```bash
-   npm run dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000) — the marketing home. Choose **I'm a student** or **I'm an instructor**.
-
-5. **Checks**
-
-   ```bash
-   npm run validate:cases
-   npm run db:smoke
-   ```
-
-### Local instructor / admin access
-
-With `DEV_IDENTITY=true`, use **Switch role** in the student or instructor header (Admin / Professor / Student). Seeded profiles come from `npm run db:seed` (`professor@dev.local`, `admin@dev.local`, etc.).
-
-Or promote in SQL:
-
-```sql
-UPDATE profiles SET role = 'professor' WHERE email = 'your@email.test';
+```bash
+npm install
+cp .env.example .env.local
+# Fill database/provider settings; do not overwrite an existing configured .env.local.
+npm run db:migrate
+npm run db:seed
+npm run dev
 ```
 
-`/dev/identity` (also gated by `DEV_IDENTITY`) picks any seeded profile by cookie.
+Local-only instructor preview: set `DEV_IDENTITY=true`, run `npm run dev`, open
+`/login`, and choose **Open local instructor preview**. This explicitly sets a local
+preview session. It is disabled in production even if the flag is accidentally left on.
+Never use the preview switch as a production login.
 
-## Using the product
+## Provision the two administrators later
 
-### For students
+1. Create the two email/password accounts in Supabase Auth; verify their email addresses.
+2. Put their exact comma-separated email addresses in server-only `ADMIN_EMAILS`.
+3. Set the Supabase URL and anon key. The service-role key never belongs in browser code.
+4. Apply database migrations, including `0014_private_training_data.sql`, using the
+   database owner connection. Server queries use Drizzle; browser database reads are denied.
+5. Run the production build, sign in as each administrator, and verify group access.
 
-From the home page, choose **I'm a student**, then **Start solo play** — meet the team, read the briefing, work through decisions with AI executives, and get feedback.
+Do not copy credentials from source control. A previously populated service credential was
+removed from `.env.example`; rotate that credential before deployment and update secret storage.
+No real owner accounts or passwords were created by this change.
 
-For a live meeting, open the unique invite link from your instructor (`/?join=…`). You land on join, read your confidential brief, mark ready, and take part; the CEO commits decisions.
+Auth follows [Supabase's server-client flow](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs):
+cookie refresh in `proxy.ts`, server-verified `getUser()`, allowlist authorization in `lib/auth.ts`.
 
-### For instructors
+## Browser 3D
 
-Choose **I'm an instructor**. Create a session or a roster batch (Create → Edit groups → Send invites → Monitor — you can move between those steps at any time). Groups get memorable names (e.g. Harbor Table); the short code stays as a backup join id. Share per-seat links or email invites, monitor the batch board, open a group for live transcript and assessment, write feedback, and release the debrief. Solo student runs live under **Solo runs**. Model defaults are under **Settings**.
+This is a normal-browser 3D experience, not headset VR. Solo and group modes share the
+boardroom, avatars, speech pipeline, script player, and consequence films.
 
-## Project structure
+- `three/rig.ts` keeps procedural gaze/lean separate from the mixer pose. Frozen animations
+  must not accumulate bone rotations across frames; the 600-frame regression test covers this.
+- `three/boardroom.tsx` handles seated camera framing, lighting, room geometry, and remote
+  video tiles with their own correct camera aspect ratio.
+- `three/stage-canvas.tsx` provides shared rendering, loading feedback, and graphics fallback.
+- `three/meeting-stage.tsx` renders captions and interactive controls above the room.
+- `three/film.tsx` plays consequences with reduced-motion support and readable captions.
+- `/stage-lab` is an instructor-only visual QA surface for idle, focus, reactions, and speech.
 
+Avatar geometry remains the existing Rocketbox asset set. This change improves pose stability
+and presentation; it does not replace the characters with photorealistic scans.
+
+## Checks
+
+```bash
+npm run validate:cases
+npm test
+npm run test:unit
+npx tsc --noEmit
+npm run build
+npm run lint
 ```
-app/                    Next.js App Router — pages, API routes, server actions
-  student/              Student entry hub
-  simulation/           Solo student flow
-  group/                Multiplayer join + live meeting
-  professor/            Instructor sessions, batches, grading
-  api/group/[code]/     Group REST: state, messages, commits, AI turns
-lib/case/               Case config, types, validation
-lib/llm/                Schema-validated LLM entry point
-lib/db/                 Drizzle schema, queries, migrations, seed
-lib/group/              Seat auth, roster, batch planning
-lib/realtime/           Supabase Realtime hooks
-lib/auth/role-guard.ts  Role decision for area layouts (swap for Supabase Auth here)
-lib/email/              Resend invite templates
-drizzle/                SQL migrations
+
+With the dev server running and `.env.local` configured:
+
+```bash
+npx tsx --env-file=.env.local lib/auth/access.smoke.ts
+npx tsx --env-file=.env.local lib/auth/data-access.smoke.ts
+npm run smoke:solo
+npm run smoke:group
 ```
 
-## Status & roadmap
+The access smoke creates and cleans up its own test groups; it makes no AI/email calls.
+The data-access smoke validates migration permissions in a transaction that always rolls back.
+The arc smokes test persistence, consequences, reflections, and release gating without LLM calls.
 
-Single-player and live multiplayer work on **dev-identity** (header switch + join tokens). Batch roster import, email invites, and the batch monitor are implemented but demo-grade with anon Realtime reads. **Real Supabase Auth**, membership-scoped RLS, and production hardening are the main next milestones.
+## Code map
 
-## Deploying (Vercel)
+| Location | Responsibility |
+| --- | --- |
+| `lib/case/` | Typed story, scripts, choices, consequences, reflection prompts, debrief values |
+| `app/login/`, `lib/auth/`, `proxy.ts` | Instructor login, allowlist, session handling |
+| `app/professor/` | Simulation library, group creation, monitoring, reviewed feedback |
+| `app/simulation/` | Instructor's student preview and shared presentation |
+| `app/group/`, `lib/group/` | Invite-only participant flow and shared meeting rules |
+| `app/api/group/` | Seat-checked state, messages, phases, stances, decisions |
+| `lib/engine/`, `lib/llm/` | Prompt construction, structured AI calls and assessment |
+| `lib/db/`, `drizzle/` | Server-side persistence and migrations |
 
-Set the same environment variables. Use the Session pooler for `DATABASE_URL`. Omit or set `DEV_IDENTITY=false` in production. After first deploy, run `npm run db:migrate` against the production database.
+Email invites still use Resend; verify a sending domain and configure `EMAIL_FROM` and
+`NEXT_PUBLIC_APP_BASE_URL` before emailing a roster. Never send a test to a real class.
 
-| Script | Purpose |
-|--------|---------|
-| `npm run db:generate` | Generate SQL migrations from `lib/db/schema.ts` |
-| `npm run db:migrate` | Apply migrations |
-| `npm run db:push` | Push schema directly (dev convenience) |
-| `npm run db:seed` | Upsert the case + dev profiles |
-| `npm run validate:cases` | Validate case configs |
-| `npm run db:smoke` | DB smoke test |
+### Dialogue and experience checks
+
+Dialogue uses the server speech endpoint and the same Web Audio context unlocked by the learner's click. The stage exposes enable/replay, volume and an output meter. An expired session shows a sign-in/invitation message; a speech-service fallback is labelled as a device voice. `/stage-lab` previews the seated cast and `/stage-lab/debrief` previews fictional learning feedback; both require staff access. Real participant feedback remains behind instructor release.
+
+Run `npm run test:unit` for audio lifecycle, rig stability, seated arm clearance and wardrobe regressions.
